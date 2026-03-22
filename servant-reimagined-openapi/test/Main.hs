@@ -81,6 +81,11 @@ testEndpointToOperation = do
   assert "endpoint op: GET" (opMethod op == "GET")
   assert "endpoint op: /users/{id}" (opPath op == "/users/{id}")
   assert "endpoint op: 1 param" (length (opParameters op) == 1)
+  assert "endpoint op: status 200" (opStatusCode op == 200)
+
+  -- POST gets 201
+  let op2 = toOperation @(Post UsersPath Text Text)
+  assert "POST status 201" (opStatusCode op2 == 201)
 
 testRequiresDelegate :: IO ()
 testRequiresDelegate = do

@@ -60,9 +60,12 @@ module Servant.Reimagined.Server
 
     -- * Automatic wiring (high-level)
   , mkServer
+  , mkServerWith
   , WrappedHandler (..)
   , wrapHandler
+  , handle
   , BuildServer (..)
+  , BuildHandlers (..)
 
     -- * Effectful server (typed middleware tracking)
   , EffectfulServer (..)

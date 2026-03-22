@@ -18,9 +18,13 @@
 module Servant.Reimagined.Server.Wiring
   ( -- * Server construction
     mkServer
-    -- * Handler wrapping (re-exports for convenience)
+    -- * Simplified server construction (no wrapHandler needed)
+  , mkServerWith
+  , BuildHandlers (..)
+    -- * Handler wrapping
   , WrappedHandler (..)
   , wrapHandler
+  , handle  -- shorter alias
     -- * BuildServer class (internal)
   , BuildServer (..)
   ) where
@@ -51,6 +55,81 @@ data WrappedHandler endpoint = WrappedHandler
 -- @
 wrapHandler :: forall endpoint. HandlerFn -> WrappedHandler endpoint
 wrapHandler = WrappedHandler
+
+-- | Short alias for 'wrapHandler'.
+handle :: forall endpoint. HandlerFn -> WrappedHandler endpoint
+handle = WrappedHandler
+{-# INLINE handle #-}
+
+
+-- | Build a server from an API type and a plain tuple of HandlerFns.
+--
+-- No 'wrapHandler' needed — the handler functions are positionally
+-- matched to endpoints in the API type.
+--
+-- @
+-- mkServerWith @MyAPI (health, listUsers, getUser)
+-- @
+--
+-- where each element is a 'HandlerFn' (not a 'WrappedHandler').
+mkServerWith
+  :: forall api handlers wrapped
+   . (BuildHandlers api handlers wrapped, Serves api wrapped, BuildServer api wrapped)
+  => handlers
+  -> Service IO (Request ByteString) (Response ByteString)
+mkServerWith handlers = serve (buildRouter @api (buildHandlers @api handlers) emptyRouter)
+
+
+-- | Convert a tuple of plain HandlerFns to a tuple of WrappedHandlers,
+-- matching each position to the corresponding endpoint in the API.
+class BuildHandlers (api :: [Type]) handlers wrapped | api handlers -> wrapped where
+  buildHandlers :: handlers -> wrapped
+
+-- Arity 1
+instance BuildHandlers '[e1] HandlerFn (WrappedHandler e1) where
+  buildHandlers h = WrappedHandler h
+
+-- Arity 2
+instance BuildHandlers '[e1, e2]
+    (HandlerFn, HandlerFn)
+    (WrappedHandler e1, WrappedHandler e2) where
+  buildHandlers (h1, h2) = (WrappedHandler h1, WrappedHandler h2)
+
+-- Arity 3
+instance BuildHandlers '[e1, e2, e3]
+    (HandlerFn, HandlerFn, HandlerFn)
+    (WrappedHandler e1, WrappedHandler e2, WrappedHandler e3) where
+  buildHandlers (h1, h2, h3) = (WrappedHandler h1, WrappedHandler h2, WrappedHandler h3)
+
+-- Arity 4
+instance BuildHandlers '[e1, e2, e3, e4]
+    (HandlerFn, HandlerFn, HandlerFn, HandlerFn)
+    (WrappedHandler e1, WrappedHandler e2, WrappedHandler e3, WrappedHandler e4) where
+  buildHandlers (h1, h2, h3, h4) = (WrappedHandler h1, WrappedHandler h2, WrappedHandler h3, WrappedHandler h4)
+
+-- Arity 5
+instance BuildHandlers '[e1, e2, e3, e4, e5]
+    (HandlerFn, HandlerFn, HandlerFn, HandlerFn, HandlerFn)
+    (WrappedHandler e1, WrappedHandler e2, WrappedHandler e3, WrappedHandler e4, WrappedHandler e5) where
+  buildHandlers (h1, h2, h3, h4, h5) = (WrappedHandler h1, WrappedHandler h2, WrappedHandler h3, WrappedHandler h4, WrappedHandler h5)
+
+-- Arity 6
+instance BuildHandlers '[e1, e2, e3, e4, e5, e6]
+    (HandlerFn, HandlerFn, HandlerFn, HandlerFn, HandlerFn, HandlerFn)
+    (WrappedHandler e1, WrappedHandler e2, WrappedHandler e3, WrappedHandler e4, WrappedHandler e5, WrappedHandler e6) where
+  buildHandlers (h1, h2, h3, h4, h5, h6) = (WrappedHandler h1, WrappedHandler h2, WrappedHandler h3, WrappedHandler h4, WrappedHandler h5, WrappedHandler h6)
+
+-- Arity 7
+instance BuildHandlers '[e1, e2, e3, e4, e5, e6, e7]
+    (HandlerFn, HandlerFn, HandlerFn, HandlerFn, HandlerFn, HandlerFn, HandlerFn)
+    (WrappedHandler e1, WrappedHandler e2, WrappedHandler e3, WrappedHandler e4, WrappedHandler e5, WrappedHandler e6, WrappedHandler e7) where
+  buildHandlers (h1, h2, h3, h4, h5, h6, h7) = (WrappedHandler h1, WrappedHandler h2, WrappedHandler h3, WrappedHandler h4, WrappedHandler h5, WrappedHandler h6, WrappedHandler h7)
+
+-- Arity 8
+instance BuildHandlers '[e1, e2, e3, e4, e5, e6, e7, e8]
+    (HandlerFn, HandlerFn, HandlerFn, HandlerFn, HandlerFn, HandlerFn, HandlerFn, HandlerFn)
+    (WrappedHandler e1, WrappedHandler e2, WrappedHandler e3, WrappedHandler e4, WrappedHandler e5, WrappedHandler e6, WrappedHandler e7, WrappedHandler e8) where
+  buildHandlers (h1, h2, h3, h4, h5, h6, h7, h8) = (WrappedHandler h1, WrappedHandler h2, WrappedHandler h3, WrappedHandler h4, WrappedHandler h5, WrappedHandler h6, WrappedHandler h7, WrappedHandler h8)
 
 
 -- | Build a server from an API type and handler tuple.

@@ -16,6 +16,7 @@ module Servant.Reimagined.OpenApi
   , ApiToOperations (..)
     -- * Schema
   , Schema (..)
+  , schemaToJson
   , ToSchema (..)
   ) where
 

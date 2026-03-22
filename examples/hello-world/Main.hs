@@ -22,9 +22,8 @@ import Network.HTTP.Types (status200, status400, status500)
 import Tower
 import Tower.Service (Service (..))
 import Tower.Http
-import Tower.Server (runServer)
+import Tower.Server (runServerBS)
 import Http.Core
-import Http.Core.Body
 
 import Servant.Reimagined.Core
 import Servant.Reimagined.Server
@@ -94,27 +93,18 @@ authMiddleware = before $ \_ -> pure ()  -- no-op for this example
 -- 4. Stack tower middleware
 -- ===================================================================
 
-app :: IO (Service IO (Request Body) (Response Body))
+app :: IO (Service IO (Request ByteString) (Response ByteString))
 app = do
   ridLayer <- requestIdLayer
   let traceFn entry = BS8.putStrLn $
         traceMethod entry <> " " <> tracePath entry
         <> " -> " <> BS8.pack (show (traceStatus entry))
 
-  -- Adapt from ByteString body to Body type for tower-server
-  let adaptedService = Service $ \req -> do
-        bodyBytes <- bodyToStrict (requestBody req)
-        let bsReq = req { requestBody = bodyBytes }
-        resp <- runService fullService bsReq
-        pure resp { responseBody = fromBytes (responseBody resp) }
-
-      fullService = apiService
-        |> ridLayer
-        |> traceLayer traceFn
-        |> corsLayer permissiveCors
-        |> secureHeadersLayer defaultSecureHeaders
-
-  pure adaptedService
+  pure $ apiService
+    |> ridLayer
+    |> traceLayer traceFn
+    |> corsLayer permissiveCors
+    |> secureHeadersLayer defaultSecureHeaders
 
 
 -- ===================================================================
@@ -138,4 +128,4 @@ main = do
   putStrLn ""
 
   svc <- app
-  runServer 3000 svc
+  runServerBS 3000 svc

@@ -15,9 +15,8 @@ import qualified Data.ByteString.Char8 as BS8
 import Tower
 import Tower.Service (Service (..))
 import Tower.Http
-import Tower.Server (runServer)
+import Tower.Server (runServerBS)
 import Http.Core
-import Http.Core.Body
 
 import Servant.Reimagined.Core
 import Servant.Reimagined.Server
@@ -108,12 +107,6 @@ main = do
         |> corsLayer permissiveCors
         |> secureHeadersLayer defaultSecureHeaders
 
-  let adapted = Service $ \req -> do
-        bodyBytes <- bodyToStrict (requestBody req)
-        let bsReq = req { requestBody = bodyBytes }
-        resp <- runService svc bsReq
-        pure resp { responseBody = fromBytes (responseBody resp) }
-
   putStrLn "RealWorld backend (sub-API composition) on http://localhost:3000"
   putStrLn ""
   putStrLn "Sub-APIs:"
@@ -128,4 +121,4 @@ main = do
   putStrLn "Effects (Auth) checked across FullAPI = all 6 sub-APIs."
   putStrLn ""
 
-  runServer 3000 adapted
+  runServerBS 3000 svc

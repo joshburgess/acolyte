@@ -51,6 +51,7 @@ library
     ConstraintKinds
     StandaloneKindSignatures
     MultiParamTypeClasses
+    FunctionalDependencies
     FlexibleInstances
     FlexibleContexts
     ScopedTypeVariables

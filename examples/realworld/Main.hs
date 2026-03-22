@@ -15,9 +15,8 @@ import qualified Data.ByteString.Char8 as BS8
 import Tower
 import Tower.Service (Service (..))
 import Tower.Http
-import Tower.Server (runServer)
+import Tower.Server (runServerBS)
 import Http.Core
-import Http.Core.Body
 
 import Servant.Reimagined.Core
 import Servant.Reimagined.Server
@@ -92,13 +91,6 @@ main = do
         |> corsLayer permissiveCors
         |> secureHeadersLayer defaultSecureHeaders
 
-  -- Adapt ByteString body to Body for tower-server
-  let adapted = Service $ \req -> do
-        bodyBytes <- bodyToStrict (requestBody req)
-        let bsReq = req { requestBody = bodyBytes }
-        resp <- runService svc bsReq
-        pure resp { responseBody = fromBytes (responseBody resp) }
-
   putStrLn "RealWorld backend on http://localhost:3000"
   putStrLn ""
   putStrLn "Try:"
@@ -126,4 +118,4 @@ main = do
   putStrLn "  curl -s http://localhost:3000/api/tags"
   putStrLn ""
 
-  runServer 3000 adapted
+  runServerBS 3000 svc

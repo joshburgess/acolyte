@@ -5,6 +5,7 @@
 module Servant.Reimagined.OpenApi.Schema
   ( -- * Schema type
     Schema (..)
+  , schemaToJson
     -- * Schema class
   , ToSchema (..)
   ) where

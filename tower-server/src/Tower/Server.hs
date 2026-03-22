@@ -14,9 +14,14 @@
 --   pure (Response status200 [("Content-Type", "text/plain")] (fromBytes "hello"))
 -- @
 module Tower.Server
-  ( -- * Running the server
+  ( -- * Running the server (Body-based — native)
     runServer
   , runServerWithShutdown
+    -- * Running the server (ByteString-based — convenient)
+  , runServerBS
+  , runServerConfigBS
+    -- * Body adapter
+  , adaptToBody
     -- * Configuration
   , ServerConfig (..)
   , defaultConfig
@@ -229,5 +234,46 @@ waitForConns ref = do
   if n > 0
     then threadDelay 100000 >> waitForConns ref  -- 100ms poll
     else pure ()
+
+
+-- ===================================================================
+-- ByteString convenience: no manual Body adapter needed
+-- ===================================================================
+
+-- | Run a ByteString-based service on tower-server.
+--
+-- This is the convenient entry point for services built with
+-- servant-reimagined-server (which produces @Service IO (Request
+-- ByteString) (Response ByteString)@). The Body conversion is
+-- handled internally — users never see the Body type.
+--
+-- @
+-- main = runServerBS 3000 myService
+-- @
+runServerBS :: Int -> Service IO (Request ByteString) (Response ByteString) -> IO ()
+runServerBS port svc = runServer port (adaptToBody svc)
+
+
+-- | Run a ByteString-based service with full config.
+runServerConfigBS :: ServerConfig -> Service IO (Request ByteString) (Response ByteString) -> IO ()
+runServerConfigBS config svc = runServerConfig config (adaptToBody svc)
+
+
+-- | Adapt a ByteString-based service to a Body-based service.
+--
+-- Converts the request body from Body to ByteString (collecting
+-- streaming bodies), and wraps the ByteString response body as
+-- a strict Body.
+--
+-- This is the bridge between servant-reimagined-server (which works
+-- with strict ByteString) and tower-server (which works with Body).
+adaptToBody
+  :: Service IO (Request ByteString) (Response ByteString)
+  -> Service IO (Request Body) (Response Body)
+adaptToBody (Service f) = Service $ \req -> do
+  bodyBytes <- bodyToStrict (requestBody req)
+  let bsReq = req { requestBody = bodyBytes }
+  resp <- f bsReq
+  pure resp { responseBody = fromBytes (responseBody resp) }
 
 

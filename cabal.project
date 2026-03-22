@@ -7,6 +7,8 @@ packages:
   servant-reimagined-server
   servant-reimagined-client
   servant-reimagined-openapi
+  servant-reimagined-test
+  servant-reimagined
 
 -- Use GHC 9.10.3
 -- with-compiler: ghc-9.10.3

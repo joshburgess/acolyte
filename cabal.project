@@ -5,6 +5,8 @@ packages:
   tower-http
   tower-wai
   servant-reimagined-server
+  servant-reimagined-client
+  servant-reimagined-openapi
 
 -- Use GHC 9.10.3
 -- with-compiler: ghc-9.10.3

@@ -1,0 +1,69 @@
+cabal-version:   3.0
+name:            servant-reimagined-client
+version:         0.1.0.0
+synopsis:        Type-safe HTTP client derived from servant-reimagined API types
+description:
+  Generates type-safe HTTP client calls from the same API type that
+  drives the server. One type, two interpretations.
+
+license:         BSD-3-Clause
+author:          Josh Burgess
+build-type:      Simple
+
+library
+  exposed-modules:
+    Servant.Reimagined.Client
+    Servant.Reimagined.Client.Call
+    Servant.Reimagined.Client.Core
+
+  build-depends:
+      base                    >= 4.20 && < 5
+    , servant-reimagined-core
+    , http-core
+    , aeson                   >= 2.1  && < 2.3
+    , bytestring              >= 0.11 && < 0.13
+    , text                    >= 2.0  && < 2.2
+    , http-types              >= 0.12 && < 0.13
+    , http-client             >= 0.7  && < 0.8
+    , http-client-tls         >= 0.3  && < 0.4
+
+  hs-source-dirs: src
+  default-language: GHC2024
+  default-extensions:
+    DataKinds
+    GADTs
+    TypeFamilies
+    TypeOperators
+    OverloadedStrings
+    AllowAmbiguousTypes
+    UndecidableInstances
+    ConstraintKinds
+    ScopedTypeVariables
+    MultiParamTypeClasses
+    FlexibleInstances
+    FlexibleContexts
+    StandaloneKindSignatures
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: test
+  default-language: GHC2024
+  default-extensions:
+    DataKinds
+    GADTs
+    TypeFamilies
+    TypeOperators
+    OverloadedStrings
+    AllowAmbiguousTypes
+    ScopedTypeVariables
+
+  build-depends:
+      base                    >= 4.20 && < 5
+    , servant-reimagined-client
+    , servant-reimagined-core
+    , http-core
+    , aeson                   >= 2.1  && < 2.3
+    , bytestring              >= 0.11 && < 0.13
+    , text                    >= 2.0  && < 2.2
+    , http-types              >= 0.12 && < 0.13

@@ -21,6 +21,7 @@ library
     Http.Core.Request
     Http.Core.Response
     Http.Core.Extensions
+    Http.Core.Body
 
   build-depends:
       base         >= 4.20 && < 5

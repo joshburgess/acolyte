@@ -9,6 +9,7 @@ packages:
   servant-reimagined-openapi
   servant-reimagined-test
   servant-reimagined
+  tower-server
 
 -- Use GHC 9.10.3
 -- with-compiler: ghc-9.10.3

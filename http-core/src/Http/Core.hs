@@ -34,6 +34,22 @@ module Http.Core
   , deleteExtension
   , hasExtension
 
+    -- * Body (strict + streaming)
+  , Body (..)
+  , BodyChunk (..)
+  , FileRange (..)
+  , fromBytes
+  , fromLazyBytes
+  , fromBuilder
+  , fromText
+  , streamBody
+  , streamFromList
+  , fileBody
+  , emptyBody
+  , bodyToStrict
+  , foldBodyChunks
+  , isEmptyBody
+
     -- * Re-exports from http-types
   , module Network.HTTP.Types.Method
   , module Network.HTTP.Types.Status
@@ -43,6 +59,7 @@ module Http.Core
 import Http.Core.Request
 import Http.Core.Response
 import Http.Core.Extensions
+import Http.Core.Body
 
 import Network.HTTP.Types.Method (Method, methodGet, methodPost, methodPut, methodDelete, methodPatch, methodHead, methodOptions)
 import Network.HTTP.Types.Status (Status, status200, status201, status204, status400, status401, status403, status404, status405, status422, status500, statusCode)

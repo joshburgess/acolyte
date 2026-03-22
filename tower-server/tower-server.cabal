@@ -1,0 +1,56 @@
+cabal-version:   3.0
+name:            tower-server
+version:         0.1.0.0
+synopsis:        Minimal tower-native HTTP/1.1 server — no WAI dependency
+description:
+  A lightweight HTTP/1.1 server that speaks tower Service directly.
+  No WAI, no warp — just network sockets, HTTP parsing, and dispatch
+  to @Service IO (Request Body) (Response Body)@.
+  .
+  Proves the zero-WAI path: the entire servant-reimagined stack can
+  run without any WAI dependency.
+
+license:         BSD-3-Clause
+author:          Josh Burgess
+build-type:      Simple
+
+library
+  exposed-modules:
+    Tower.Server
+    Tower.Server.Parse
+    Tower.Server.Render
+
+  build-depends:
+      base         >= 4.20 && < 5
+    , tower
+    , http-core
+    , network      >= 3.1  && < 3.3
+    , bytestring   >= 0.11 && < 0.13
+    , text         >= 2.0  && < 2.2
+    , http-types   >= 0.12 && < 0.13
+    , attoparsec       >= 0.14 && < 0.15
+    , case-insensitive >= 1.2  && < 1.3
+
+  hs-source-dirs: src
+  default-language: GHC2024
+  default-extensions:
+    OverloadedStrings
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: test
+  default-language: GHC2024
+  default-extensions:
+    OverloadedStrings
+
+  build-depends:
+      base         >= 4.20 && < 5
+    , tower-server
+    , tower
+    , http-core
+    , network      >= 3.1  && < 3.3
+    , bytestring   >= 0.11 && < 0.13
+    , text         >= 2.0  && < 2.2
+    , http-types   >= 0.12 && < 0.13
+    , http-client  >= 0.7  && < 0.8

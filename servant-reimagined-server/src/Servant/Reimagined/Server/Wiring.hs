@@ -165,6 +165,63 @@ instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpoin
     $ router
 
 
+-- Arity 9
+instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9)
+  => BuildServer '[e1, e2, e3, e4, e5, e6, e7, e8, e9]
+       (WrappedHandler e1, WrappedHandler e2, WrappedHandler e3, WrappedHandler e4, WrappedHandler e5, WrappedHandler e6, WrappedHandler e7, WrappedHandler e8, WrappedHandler e9) where
+  buildRouter (h1, h2, h3, h4, h5, h6, h7, h8, h9) router =
+    addRoute (mkBound @e9 h9) . addRoute (mkBound @e8 h8) . addRoute (mkBound @e7 h7) . addRoute (mkBound @e6 h6) . addRoute (mkBound @e5 h5) . addRoute (mkBound @e4 h4) . addRoute (mkBound @e3 h3) . addRoute (mkBound @e2 h2) . addRoute (mkBound @e1 h1) $ router
+
+-- Arity 10
+instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10)
+  => BuildServer '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10]
+       (WrappedHandler e1, WrappedHandler e2, WrappedHandler e3, WrappedHandler e4, WrappedHandler e5, WrappedHandler e6, WrappedHandler e7, WrappedHandler e8, WrappedHandler e9, WrappedHandler e10) where
+  buildRouter (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10) router =
+    addRoute (mkBound @e10 h10) . addRoute (mkBound @e9 h9) . addRoute (mkBound @e8 h8) . addRoute (mkBound @e7 h7) . addRoute (mkBound @e6 h6) . addRoute (mkBound @e5 h5) . addRoute (mkBound @e4 h4) . addRoute (mkBound @e3 h3) . addRoute (mkBound @e2 h2) . addRoute (mkBound @e1 h1) $ router
+
+-- Arity 11
+instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11)
+  => BuildServer '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11]
+       (WrappedHandler e1, WrappedHandler e2, WrappedHandler e3, WrappedHandler e4, WrappedHandler e5, WrappedHandler e6, WrappedHandler e7, WrappedHandler e8, WrappedHandler e9, WrappedHandler e10, WrappedHandler e11) where
+  buildRouter (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11) router =
+    addRoute (mkBound @e11 h11) . addRoute (mkBound @e10 h10) . addRoute (mkBound @e9 h9) . addRoute (mkBound @e8 h8) . addRoute (mkBound @e7 h7) . addRoute (mkBound @e6 h6) . addRoute (mkBound @e5 h5) . addRoute (mkBound @e4 h4) . addRoute (mkBound @e3 h3) . addRoute (mkBound @e2 h2) . addRoute (mkBound @e1 h1) $ router
+
+-- Arity 12
+instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12)
+  => BuildServer '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12]
+       (WrappedHandler e1, WrappedHandler e2, WrappedHandler e3, WrappedHandler e4, WrappedHandler e5, WrappedHandler e6, WrappedHandler e7, WrappedHandler e8, WrappedHandler e9, WrappedHandler e10, WrappedHandler e11, WrappedHandler e12) where
+  buildRouter (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12) router =
+    addRoute (mkBound @e12 h12) . addRoute (mkBound @e11 h11) . addRoute (mkBound @e10 h10) . addRoute (mkBound @e9 h9) . addRoute (mkBound @e8 h8) . addRoute (mkBound @e7 h7) . addRoute (mkBound @e6 h6) . addRoute (mkBound @e5 h5) . addRoute (mkBound @e4 h4) . addRoute (mkBound @e3 h3) . addRoute (mkBound @e2 h2) . addRoute (mkBound @e1 h1) $ router
+
+-- Arity 13
+instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13)
+  => BuildServer '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13]
+       (WrappedHandler e1, WrappedHandler e2, WrappedHandler e3, WrappedHandler e4, WrappedHandler e5, WrappedHandler e6, WrappedHandler e7, WrappedHandler e8, WrappedHandler e9, WrappedHandler e10, WrappedHandler e11, WrappedHandler e12, WrappedHandler e13) where
+  buildRouter (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13) router =
+    addRoute (mkBound @e13 h13) . addRoute (mkBound @e12 h12) . addRoute (mkBound @e11 h11) . addRoute (mkBound @e10 h10) . addRoute (mkBound @e9 h9) . addRoute (mkBound @e8 h8) . addRoute (mkBound @e7 h7) . addRoute (mkBound @e6 h6) . addRoute (mkBound @e5 h5) . addRoute (mkBound @e4 h4) . addRoute (mkBound @e3 h3) . addRoute (mkBound @e2 h2) . addRoute (mkBound @e1 h1) $ router
+
+-- Arity 14
+instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, HasEndpointInfo e14)
+  => BuildServer '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14]
+       (WrappedHandler e1, WrappedHandler e2, WrappedHandler e3, WrappedHandler e4, WrappedHandler e5, WrappedHandler e6, WrappedHandler e7, WrappedHandler e8, WrappedHandler e9, WrappedHandler e10, WrappedHandler e11, WrappedHandler e12, WrappedHandler e13, WrappedHandler e14) where
+  buildRouter (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14) router =
+    addRoute (mkBound @e14 h14) . addRoute (mkBound @e13 h13) . addRoute (mkBound @e12 h12) . addRoute (mkBound @e11 h11) . addRoute (mkBound @e10 h10) . addRoute (mkBound @e9 h9) . addRoute (mkBound @e8 h8) . addRoute (mkBound @e7 h7) . addRoute (mkBound @e6 h6) . addRoute (mkBound @e5 h5) . addRoute (mkBound @e4 h4) . addRoute (mkBound @e3 h3) . addRoute (mkBound @e2 h2) . addRoute (mkBound @e1 h1) $ router
+
+-- Arity 15
+instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, HasEndpointInfo e14, HasEndpointInfo e15)
+  => BuildServer '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15]
+       (WrappedHandler e1, WrappedHandler e2, WrappedHandler e3, WrappedHandler e4, WrappedHandler e5, WrappedHandler e6, WrappedHandler e7, WrappedHandler e8, WrappedHandler e9, WrappedHandler e10, WrappedHandler e11, WrappedHandler e12, WrappedHandler e13, WrappedHandler e14, WrappedHandler e15) where
+  buildRouter (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15) router =
+    addRoute (mkBound @e15 h15) . addRoute (mkBound @e14 h14) . addRoute (mkBound @e13 h13) . addRoute (mkBound @e12 h12) . addRoute (mkBound @e11 h11) . addRoute (mkBound @e10 h10) . addRoute (mkBound @e9 h9) . addRoute (mkBound @e8 h8) . addRoute (mkBound @e7 h7) . addRoute (mkBound @e6 h6) . addRoute (mkBound @e5 h5) . addRoute (mkBound @e4 h4) . addRoute (mkBound @e3 h3) . addRoute (mkBound @e2 h2) . addRoute (mkBound @e1 h1) $ router
+
+-- Arity 16
+instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, HasEndpointInfo e14, HasEndpointInfo e15, HasEndpointInfo e16)
+  => BuildServer '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16]
+       (WrappedHandler e1, WrappedHandler e2, WrappedHandler e3, WrappedHandler e4, WrappedHandler e5, WrappedHandler e6, WrappedHandler e7, WrappedHandler e8, WrappedHandler e9, WrappedHandler e10, WrappedHandler e11, WrappedHandler e12, WrappedHandler e13, WrappedHandler e14, WrappedHandler e15, WrappedHandler e16) where
+  buildRouter (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16) router =
+    addRoute (mkBound @e16 h16) . addRoute (mkBound @e15 h15) . addRoute (mkBound @e14 h14) . addRoute (mkBound @e13 h13) . addRoute (mkBound @e12 h12) . addRoute (mkBound @e11 h11) . addRoute (mkBound @e10 h10) . addRoute (mkBound @e9 h9) . addRoute (mkBound @e8 h8) . addRoute (mkBound @e7 h7) . addRoute (mkBound @e6 h6) . addRoute (mkBound @e5 h5) . addRoute (mkBound @e4 h4) . addRoute (mkBound @e3 h3) . addRoute (mkBound @e2 h2) . addRoute (mkBound @e1 h1) $ router
+
+
 -- | Build a BoundHandler from a WrappedHandler using type-level endpoint info.
 mkBound :: forall endpoint. HasEndpointInfo endpoint => WrappedHandler endpoint -> BoundHandler
 mkBound (WrappedHandler fn) = BoundHandler

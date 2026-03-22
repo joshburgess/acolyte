@@ -1,0 +1,46 @@
+cabal-version:   3.0
+name:            realworld
+version:         0.1.0.0
+synopsis:        RealWorld (Conduit) backend built with servant-reimagined
+description:
+  Implementation of the RealWorld spec (https://realworld-docs.netlify.app)
+  using servant-reimagined. Demonstrates type-level API definition,
+  typed middleware effects, extractors, and the full tower stack.
+  Uses an in-memory store — no database dependency.
+
+build-type:      Simple
+
+executable realworld
+  main-is: Main.hs
+  other-modules:
+    Types
+    Store
+    API
+    Handlers
+
+  hs-source-dirs: .
+  default-language: GHC2024
+  default-extensions:
+    DataKinds
+    TypeFamilies
+    TypeOperators
+    OverloadedStrings
+    AllowAmbiguousTypes
+    ScopedTypeVariables
+    DeriveGeneric
+    DeriveAnyClass
+
+  build-depends:
+      base                       >= 4.20 && < 5
+    , servant-reimagined-core
+    , servant-reimagined-server
+    , tower
+    , tower-http
+    , tower-server
+    , http-core
+    , aeson                      >= 2.1  && < 2.3
+    , bytestring                 >= 0.11 && < 0.13
+    , text                       >= 2.0  && < 2.2
+    , http-types                 >= 0.12 && < 0.13
+    , containers                 >= 0.6  && < 0.8
+    , time                       >= 1.12 && < 1.15

@@ -1,0 +1,66 @@
+cabal-version:   3.0
+name:            servant-reimagined-core
+version:         0.1.0.0
+synopsis:        Type-level API specification for servant-reimagined
+description:
+  Pure type-level machinery for describing HTTP APIs as types.
+  Endpoints, paths, methods, effects, session types, versioning,
+  and content negotiation. No IO, no runtime beyond base.
+
+license:         BSD-3-Clause
+author:          Josh Burgess
+build-type:      Simple
+
+library
+  exposed-modules:
+    Servant.Reimagined.Core
+    Servant.Reimagined.Core.Method
+    Servant.Reimagined.Core.Path
+    Servant.Reimagined.Core.Endpoint
+    Servant.Reimagined.Core.API
+    Servant.Reimagined.Core.Effect
+    Servant.Reimagined.Core.Wrapper
+    Servant.Reimagined.Core.Session
+    Servant.Reimagined.Core.Versioning
+    Servant.Reimagined.Core.Negotiate
+
+  build-depends:
+    base >= 4.20 && < 5
+
+  hs-source-dirs: src
+  default-language: GHC2024
+
+  default-extensions:
+    DataKinds
+    GADTs
+    PolyKinds
+    TypeFamilies
+    TypeOperators
+    UndecidableInstances
+    ConstraintKinds
+    StandaloneKindSignatures
+    NoStarIsType
+    RoleAnnotations
+    AllowAmbiguousTypes
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: test
+  default-language: GHC2024
+
+  default-extensions:
+    DataKinds
+    GADTs
+    PolyKinds
+    TypeFamilies
+    TypeOperators
+    UndecidableInstances
+    ConstraintKinds
+    StandaloneKindSignatures
+    NoStarIsType
+    AllowAmbiguousTypes
+
+  build-depends:
+    base >= 4.20 && < 5,
+    servant-reimagined-core

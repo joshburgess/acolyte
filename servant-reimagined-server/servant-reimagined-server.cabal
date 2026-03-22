@@ -1,0 +1,80 @@
+cabal-version:   3.0
+name:            servant-reimagined-server
+version:         0.1.0.0
+synopsis:        HTTP server interpretation for servant-reimagined
+description:
+  Interprets servant-reimagined-core API types into a running HTTP
+  server. Provides handler binding, request extraction, response
+  encoding, routing, and the compile-time completeness check.
+  .
+  Produces a tower Service — backend-agnostic. Combine with tower-wai
+  to run on warp, or any other adapter.
+
+license:         BSD-3-Clause
+author:          Josh Burgess
+build-type:      Simple
+
+library
+  exposed-modules:
+    Servant.Reimagined.Server
+    Servant.Reimagined.Server.Extract
+    Servant.Reimagined.Server.Response
+    Servant.Reimagined.Server.Handler
+    Servant.Reimagined.Server.Router
+    Servant.Reimagined.Server.Wiring
+    Servant.Reimagined.Server.Effects
+
+  build-depends:
+      base                    >= 4.20 && < 5
+    , servant-reimagined-core
+    , tower
+    , http-core
+    , aeson                   >= 2.1  && < 2.3
+    , bytestring              >= 0.11 && < 0.13
+    , text                    >= 2.0  && < 2.2
+    , http-types              >= 0.12 && < 0.13
+    , containers              >= 0.6  && < 0.8
+
+  hs-source-dirs: src
+  default-language: GHC2024
+  default-extensions:
+    DataKinds
+    GADTs
+    TypeFamilies
+    TypeOperators
+    OverloadedStrings
+    AllowAmbiguousTypes
+    UndecidableInstances
+    ConstraintKinds
+    StandaloneKindSignatures
+    MultiParamTypeClasses
+    FlexibleInstances
+    FlexibleContexts
+    ScopedTypeVariables
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: test
+  default-language: GHC2024
+  default-extensions:
+    DataKinds
+    GADTs
+    TypeFamilies
+    TypeOperators
+    OverloadedStrings
+    AllowAmbiguousTypes
+    UndecidableInstances
+    ConstraintKinds
+    ScopedTypeVariables
+
+  build-depends:
+      base                    >= 4.20 && < 5
+    , servant-reimagined-server
+    , servant-reimagined-core
+    , tower
+    , http-core
+    , aeson                   >= 2.1  && < 2.3
+    , bytestring              >= 0.11 && < 0.13
+    , text                    >= 2.0  && < 2.2
+    , http-types              >= 0.12 && < 0.13

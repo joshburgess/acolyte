@@ -1,0 +1,48 @@
+cabal-version:   3.0
+name:            tower-http
+version:         0.1.0.0
+synopsis:        HTTP-specific middleware layers built on tower
+description:
+  A collection of HTTP middleware layers using the tower Service/Layer
+  abstraction and http-core request/response types. Backend-agnostic —
+  works with any server that speaks tower + http-core.
+
+license:         BSD-3-Clause
+author:          Josh Burgess
+build-type:      Simple
+
+library
+  exposed-modules:
+    Tower.Http
+    Tower.Http.SecureHeaders
+    Tower.Http.RequestId
+    Tower.Http.Trace
+
+  build-depends:
+      base         >= 4.20 && < 5
+    , tower
+    , http-core
+    , bytestring   >= 0.11 && < 0.13
+    , text         >= 2.0  && < 2.2
+    , http-types   >= 0.12 && < 0.13
+
+  hs-source-dirs: src
+  default-language: GHC2024
+  default-extensions:
+    OverloadedStrings
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: test
+  default-language: GHC2024
+  default-extensions:
+    OverloadedStrings
+
+  build-depends:
+      base         >= 4.20 && < 5
+    , tower-http
+    , tower
+    , http-core
+    , bytestring   >= 0.11 && < 0.13
+    , http-types   >= 0.12 && < 0.13

@@ -1,0 +1,37 @@
+cabal-version:   3.0
+name:            tower
+version:         0.1.0.0
+synopsis:        Composable service and middleware abstractions for Haskell
+description:
+  A standalone, framework-agnostic library providing composable
+  Service and Layer abstractions. The Haskell equivalent of Rust's
+  tower crate.
+  .
+  This library is useful on its own — any Haskell project can use it
+  for composable middleware without depending on any web framework.
+
+license:         BSD-3-Clause
+author:          Josh Burgess
+build-type:      Simple
+
+library
+  exposed-modules:
+    Tower
+    Tower.Service
+    Tower.Layer
+
+  build-depends:
+    base >= 4.20 && < 5
+
+  hs-source-dirs: src
+  default-language: GHC2024
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: test
+  default-language: GHC2024
+
+  build-depends:
+    base >= 4.20 && < 5,
+    tower

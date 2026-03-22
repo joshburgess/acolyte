@@ -1,0 +1,49 @@
+cabal-version:   3.0
+name:            http-core
+version:         0.1.0.0
+synopsis:        Backend-agnostic HTTP request and response types
+description:
+  Shared HTTP vocabulary types that are independent of any specific
+  server backend (warp, snap, etc.) or middleware framework.
+  .
+  This is the Haskell equivalent of Rust's @http@ crate — a tiny,
+  stable package defining Request and Response types that everyone
+  depends on. WAI, warp, and other backends are confined to adapter
+  packages; this package knows nothing about them.
+
+license:         BSD-3-Clause
+author:          Josh Burgess
+build-type:      Simple
+
+library
+  exposed-modules:
+    Http.Core
+    Http.Core.Request
+    Http.Core.Response
+    Http.Core.Extensions
+
+  build-depends:
+      base         >= 4.20 && < 5
+    , bytestring   >= 0.11 && < 0.13
+    , text         >= 2.0  && < 2.2
+    , http-types   >= 0.12 && < 0.13
+    , containers   >= 0.6  && < 0.8
+
+  hs-source-dirs: src
+  default-language: GHC2024
+  default-extensions:
+    AllowAmbiguousTypes
+    OverloadedStrings
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: test
+  default-language: GHC2024
+
+  build-depends:
+      base         >= 4.20 && < 5
+    , http-core
+    , bytestring   >= 0.11 && < 0.13
+    , text         >= 2.0  && < 2.2
+    , http-types   >= 0.12 && < 0.13

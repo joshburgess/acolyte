@@ -1,0 +1,10 @@
+packages:
+  servant-reimagined-core
+  tower
+  http-core
+  tower-http
+  tower-wai
+  servant-reimagined-server
+
+-- Use GHC 9.10.3
+-- with-compiler: ghc-9.10.3

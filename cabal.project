@@ -12,6 +12,7 @@ packages:
   tower-server
   examples/hello-world
   examples/realworld
+  examples/realworld-combined
 
 -- Use GHC 9.10.3
 -- with-compiler: ghc-9.10.3

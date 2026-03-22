@@ -1,0 +1,47 @@
+cabal-version:   3.0
+name:            realworld-combined
+version:         0.1.0.0
+synopsis:        RealWorld backend using sub-API composition
+description:
+  Same RealWorld spec as the realworld example, but splits the API
+  into logical sub-APIs (auth, users, profiles, articles, comments,
+  tags) and combines them using combineServer / CombinedServer.
+  Demonstrates that large APIs can be composed from modular pieces
+  with O(1) compile time per sub-API and unified effect tracking.
+
+build-type:      Simple
+
+executable realworld-combined
+  main-is: Main.hs
+  other-modules:
+    Types
+    Store
+    API
+    Handlers
+
+  hs-source-dirs: .
+  default-language: GHC2024
+  default-extensions:
+    DataKinds
+    TypeFamilies
+    TypeOperators
+    OverloadedStrings
+    AllowAmbiguousTypes
+    ScopedTypeVariables
+    DeriveGeneric
+    DeriveAnyClass
+
+  build-depends:
+      base                       >= 4.20 && < 5
+    , servant-reimagined-core
+    , servant-reimagined-server
+    , tower
+    , tower-http
+    , tower-server
+    , http-core
+    , aeson                      >= 2.1  && < 2.3
+    , bytestring                 >= 0.11 && < 0.13
+    , text                       >= 2.0  && < 2.2
+    , http-types                 >= 0.12 && < 0.13
+    , containers                 >= 0.6  && < 0.8
+    , time                       >= 1.12 && < 1.15

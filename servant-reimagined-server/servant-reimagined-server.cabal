@@ -25,6 +25,7 @@ library
     Servant.Reimagined.Server.Effects
     Servant.Reimagined.Server.Combine
     Servant.Reimagined.Server.CombineEffects
+    Servant.Reimagined.Server.Validate
 
   build-depends:
       base                    >= 4.20 && < 5

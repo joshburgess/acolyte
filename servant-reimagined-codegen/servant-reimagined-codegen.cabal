@@ -19,14 +19,17 @@ library
     Servant.Reimagined.Codegen.Parse
     Servant.Reimagined.Codegen.IR
     Servant.Reimagined.Codegen.Emit
+    Servant.Reimagined.Codegen.Scaffold
 
   build-depends:
       base                    >= 4.20 && < 5
     , aeson                   >= 2.1  && < 2.3
+    , yaml                    >= 0.11 && < 0.12
     , bytestring              >= 0.11 && < 0.13
     , text                    >= 2.0  && < 2.2
     , containers              >= 0.6  && < 0.8
     , filepath                >= 1.4  && < 1.6
+    , directory               >= 1.3  && < 1.5
 
   hs-source-dirs: src
   default-language: GHC2024

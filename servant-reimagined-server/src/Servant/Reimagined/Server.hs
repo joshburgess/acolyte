@@ -88,6 +88,10 @@ module Servant.Reimagined.Server
   , combinedFromRouter
   , provideEffect
   , runCombined
+
+    -- * Runtime validation
+  , validationLayer
+  , BuildRouteTable (..)
   ) where
 
 import Servant.Reimagined.Server.Extract
@@ -98,3 +102,4 @@ import Servant.Reimagined.Server.Wiring
 import Servant.Reimagined.Server.Effects
 import Servant.Reimagined.Server.Combine
 import Servant.Reimagined.Server.CombineEffects
+import Servant.Reimagined.Server.Validate

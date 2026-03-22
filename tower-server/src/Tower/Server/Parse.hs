@@ -1,60 +1,102 @@
 -- | HTTP/1.1 request parsing.
 --
--- Minimal parser for HTTP/1.1 requests: request line + headers.
--- Body is read separately based on Content-Length or chunked encoding.
+-- Handles: Content-Length bodies, chunked transfer-encoding,
+-- incremental header reading (headers may arrive across multiple
+-- recv() calls), header size limits, and malformed request rejection.
 module Tower.Server.Parse
   ( -- * Parsing
     parseRequestHead
   , RequestHead (..)
   , readBody
+    -- * Incremental reading
+  , readRequestHead
+    -- * Limits
+  , ParseLimits (..)
+  , defaultParseLimits
   ) where
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.CaseInsensitive as CI
-import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
 import Data.Word (Word8)
 import Network.HTTP.Types (RequestHeaders, Header, HeaderName)
 import Network.Socket (Socket)
 import Network.Socket.ByteString (recv)
+import Numeric (readHex)
 
 
--- | Parsed request head (method, path, headers).
+-- | Parsed request head (method, path, version, headers).
 data RequestHead = RequestHead
   { rhMethod  :: !ByteString
   , rhPath    :: !ByteString
+  , rhVersion :: !ByteString
   , rhHeaders :: !RequestHeaders
   } deriving (Show)
+
+
+-- | Limits for parsing.
+data ParseLimits = ParseLimits
+  { maxHeaderSize :: !Int    -- ^ Max total header size in bytes. Default: 8 KiB.
+  , maxBodySize   :: !Int    -- ^ Max request body size. Default: 2 MiB.
+  , recvBufSize   :: !Int    -- ^ Socket receive buffer size. Default: 4096.
+  } deriving (Show)
+
+defaultParseLimits :: ParseLimits
+defaultParseLimits = ParseLimits
+  { maxHeaderSize = 8 * 1024
+  , maxBodySize   = 2 * 1024 * 1024
+  , recvBufSize   = 4096
+  }
 
 
 -- | Parse the request line and headers from a buffer.
 --
 -- Returns the parsed head and any leftover bytes (start of body).
+-- Returns Nothing if the input is malformed.
 parseRequestHead :: ByteString -> Maybe (RequestHead, ByteString)
 parseRequestHead input = do
-  -- Find the end of headers (blank line)
-  let headerEnd = BS8.pack "\r\n\r\n"
-  idx <- findSubstring headerEnd input
+  idx <- findSubstring "\r\n\r\n" input
   let headerSection = BS.take idx input
       remainder = BS.drop (idx + 4) input
 
-  -- Parse request line
   let ls = BS8.lines headerSection
   case ls of
     [] -> Nothing
     (reqLine : headerLines) -> do
-      (method, path) <- parseRequestLine reqLine
+      (method, path, ver) <- parseRequestLine reqLine
       let headers = map parseHeaderLine (filter (not . BS.null) headerLines)
-      Just (RequestHead method path headers, remainder)
+      Just (RequestHead method path ver headers, remainder)
+
+
+-- | Read the request head incrementally from a socket.
+--
+-- Keeps reading until the header terminator (\r\n\r\n) is found
+-- or the header size limit is exceeded.
+--
+-- Returns Left error message on failure, Right (head, leftover) on success.
+readRequestHead :: Socket -> ParseLimits -> IO (Either ByteString (RequestHead, ByteString))
+readRequestHead sock limits = go BS.empty
+  where
+    go buf
+      | BS.length buf > maxHeaderSize limits =
+          pure (Left "431 Request Header Fields Too Large")
+      | otherwise =
+          case findSubstring "\r\n\r\n" buf of
+            Just _ -> case parseRequestHead buf of
+              Just result -> pure (Right result)
+              Nothing     -> pure (Left "400 Bad Request: malformed request line or headers")
+            Nothing -> do
+              chunk <- recv sock (recvBufSize limits)
+              if BS.null chunk
+                then pure (Left "400 Bad Request: connection closed before headers complete")
+                else go (buf <> chunk)
 
 
 -- | Parse "GET /path HTTP/1.1\r"
-parseRequestLine :: ByteString -> Maybe (ByteString, ByteString)
+parseRequestLine :: ByteString -> Maybe (ByteString, ByteString, ByteString)
 parseRequestLine line = case BS8.words (stripCR line) of
-  [method, path, _version] -> Just (method, path)
+  [method, path, version] -> Just (method, path, version)
   _ -> Nothing
 
 
@@ -68,15 +110,71 @@ parseHeaderLine line =
       | otherwise    -> (CI.mk name, BS8.dropWhile (== ' ') (BS.drop 1 rest))
 
 
--- | Read the request body based on Content-Length header.
--- Returns the body bytes, consuming from the socket as needed.
-readBody :: Socket -> RequestHeaders -> ByteString -> IO ByteString
-readBody sock headers leftover =
-  case lookup "content-length" headers of
-    Just clBS -> case reads (BS8.unpack clBS) of
-      [(cl, "")] -> readExactly sock cl leftover
-      _          -> pure BS.empty
-    Nothing -> pure BS.empty  -- No body (GET, DELETE, etc.)
+-- | Read the request body based on Content-Length or Transfer-Encoding.
+readBody :: Socket -> ParseLimits -> RequestHeaders -> ByteString -> IO (Either ByteString ByteString)
+readBody sock limits headers leftover
+  -- Chunked transfer encoding
+  | isChunked headers = readChunkedBody sock limits leftover
+  -- Content-Length
+  | Just clBS <- lookup "content-length" headers =
+      case reads (BS8.unpack clBS) of
+        [(cl, "")]
+          | cl > maxBodySize limits -> pure (Left "413 Payload Too Large")
+          | cl == 0                 -> pure (Right BS.empty)
+          | otherwise               -> Right <$> readExactly sock cl leftover
+        _ -> pure (Left "400 Bad Request: invalid Content-Length")
+  -- No body
+  | otherwise = pure (Right BS.empty)
+
+
+-- | Check if the request uses chunked transfer encoding.
+isChunked :: RequestHeaders -> Bool
+isChunked headers =
+  case lookup "transfer-encoding" headers of
+    Just te -> BS8.isInfixOf "chunked" te
+    Nothing -> False
+
+
+-- | Read a chunked transfer-encoded body.
+--
+-- Chunk format: {hex-size}\r\n{data}\r\n
+-- Final chunk:  0\r\n\r\n
+readChunkedBody :: Socket -> ParseLimits -> ByteString -> IO (Either ByteString ByteString)
+readChunkedBody sock limits = go BS.empty
+  where
+    go acc buf
+      | BS.length acc > maxBodySize limits = pure (Left "413 Payload Too Large")
+      | otherwise =
+          case findSubstring "\r\n" buf of
+            Nothing -> do
+              chunk <- recv sock (recvBufSize limits)
+              if BS.null chunk
+                then pure (Left "400 Bad Request: incomplete chunked body")
+                else go acc (buf <> chunk)
+            Just idx -> do
+              let sizeLine = BS.take idx buf
+                  rest = BS.drop (idx + 2) buf
+              case readHex (BS8.unpack sizeLine) of
+                [(0, "")] -> pure (Right acc)  -- final chunk
+                [(n, "")] -> do
+                  -- Read n bytes of chunk data + trailing \r\n
+                  let needed = n + 2  -- data + \r\n
+                  fullChunk <- ensureBytes sock (recvBufSize limits) needed rest
+                  let chunkData = BS.take n fullChunk
+                      remaining = BS.drop (n + 2) fullChunk
+                  go (acc <> chunkData) remaining
+                _ -> pure (Left "400 Bad Request: invalid chunk size")
+
+
+-- | Ensure we have at least n bytes, reading from socket if needed.
+ensureBytes :: Socket -> Int -> Int -> ByteString -> IO ByteString
+ensureBytes sock bufSize needed buf
+  | BS.length buf >= needed = pure buf
+  | otherwise = do
+      chunk <- recv sock bufSize
+      if BS.null chunk
+        then pure buf  -- connection closed
+        else ensureBytes sock bufSize needed (buf <> chunk)
 
 
 -- | Read exactly n bytes from leftover + socket.
@@ -98,7 +196,7 @@ recvAll sock n = go BS.empty
       | otherwise = do
           chunk <- recv sock 4096
           if BS.null chunk
-            then pure acc  -- connection closed
+            then pure acc
             else go (acc <> chunk)
 
 
@@ -109,13 +207,8 @@ recvAll sock n = go BS.empty
 stripCR :: ByteString -> ByteString
 stripCR bs
   | BS.null bs = bs
-  | BS.last bs == 13 = BS.init bs  -- 13 = '\r'
+  | BS.last bs == 13 = BS.init bs
   | otherwise = bs
-
-toLowerW8 :: Word8 -> Word8
-toLowerW8 w
-  | w >= 65 && w <= 90 = w + 32  -- A-Z -> a-z
-  | otherwise = w
 
 -- | Find the index of a substring in a ByteString.
 findSubstring :: ByteString -> ByteString -> Maybe Int

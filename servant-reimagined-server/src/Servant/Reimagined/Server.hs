@@ -23,6 +23,10 @@ module Servant.Reimagined.Server
   , JsonBody (..)
   , AppState (..)
   , RawBody (..)
+  , ReqHeader (..)
+  , Extension (..)
+  , Optional (..)
+  , ReqMethod (..)
   , ServerError (..)
   , mkError
 

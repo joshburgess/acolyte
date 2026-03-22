@@ -26,6 +26,7 @@ module Tower.Server
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar
 import Control.Exception (bracket, catch, SomeException, finally)
+import System.Timeout (timeout)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
@@ -33,7 +34,7 @@ import Data.IORef
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import Network.HTTP.Types (status400, status500, statusCode, Query, parseQuery)
+import Network.HTTP.Types (status400, status408, status500, statusCode, Query, parseQuery)
 import Network.Socket
 import Network.Socket.ByteString (recv, sendAll)
 
@@ -41,6 +42,9 @@ import Tower.Service (Service (..))
 import Http.Core
 import Http.Core.Body
 import Tower.Server.Parse
+  ( parseRequestHead, RequestHead (..), readBody
+  , readRequestHead, ParseLimits (..), defaultParseLimits
+  )
 import Tower.Server.Render (renderFull, sendResponse)
 
 
@@ -51,7 +55,14 @@ data ServerConfig = ServerConfig
   , configMaxBodySize     :: !Int       -- ^ Max request body (bytes). Default: 2 MiB.
   , configRecvBufferSize  :: !Int       -- ^ Socket receive buffer. Default: 4096.
   , configKeepAlive       :: !Bool      -- ^ Support HTTP keep-alive. Default: True.
+  , configHeaderTimeout   :: !Int       -- ^ Max microseconds to read headers. Default: 30s. (slow loris protection)
+  , configIdleTimeout     :: !Int       -- ^ Max microseconds idle between keep-alive requests. Default: 60s.
+  , configOnException     :: !(SomeException -> IO ())  -- ^ Exception handler. Default: ignore.
   }
+
+-- | Access the exception handler (avoids record selector ambiguity).
+onException :: ServerConfig -> SomeException -> IO ()
+onException = configOnException
 
 defaultConfig :: Int -> ServerConfig
 defaultConfig port = ServerConfig
@@ -60,6 +71,9 @@ defaultConfig port = ServerConfig
   , configMaxBodySize    = 2 * 1024 * 1024
   , configRecvBufferSize = 4096
   , configKeepAlive      = True
+  , configHeaderTimeout  = 30 * 1000000   -- 30 seconds
+  , configIdleTimeout    = 60 * 1000000   -- 60 seconds
+  , configOnException    = \_ -> pure ()
   }
 
 
@@ -136,62 +150,69 @@ handleConnection
   -> Service IO (Request Body) (Response Body)
   -> Socket
   -> IO ()
-handleConnection config svc conn = go BS.empty `finally` close conn
+handleConnection config svc conn = go `finally` close conn
   where
-    go leftover = do
-      -- Read enough to parse headers
-      input <- if BS.null leftover
-        then recv conn (configRecvBufferSize config)
-        else pure leftover
+    limits = ParseLimits
+      { maxHeaderSize = 8 * 1024
+      , maxBodySize   = configMaxBodySize config
+      , recvBufSize   = configRecvBufferSize config
+      }
 
-      if BS.null input
-        then pure ()  -- Connection closed
-        else case parseRequestHead input of
-          Nothing -> do
-            -- Bad request
-            let resp = renderFull status400 [] "Bad Request"
-            sendAll conn resp
-          Just (reqHead, remainder) -> do
-            -- Read body
-            body <- readBody conn (rhHeaders reqHead) remainder
+    go = do
+      -- Read headers with timeout (slow loris protection)
+      mResult <- timeout (configHeaderTimeout config) (readRequestHead conn limits)
+      case mResult of
+        Nothing -> do
+          -- Header read timed out
+          sendAll conn (renderFull status408 [] "Request Timeout")
+        Just (Left errMsg) -> do
+          -- Parse error
+          sendAll conn (renderFull status400 [] errMsg)
+        Just (Right (reqHead, remainder)) -> do
+          -- Read body with limits
+          bodyResult <- readBody conn limits (rhHeaders reqHead) remainder
+          case bodyResult of
+            Left errMsg -> do
+              sendAll conn (renderFull status400 [] errMsg)
+            Right body -> do
+              -- Build our Request
+              exts <- emptyExtensions
+              let pathRaw = rhPath reqHead
+                  (pathPart, queryPart) = BS8.break (== '?') pathRaw
+                  path = filter (/= "") $ T.splitOn "/" (TE.decodeUtf8 pathPart)
+                  query = parseQueryString (BS.drop 1 queryPart)
+                  req = Request
+                    { requestMethod     = rhMethod reqHead
+                    , requestPathRaw    = pathPart
+                    , requestPath       = path
+                    , requestQuery      = query
+                    , requestHeaders    = rhHeaders reqHead
+                    , requestBody       = fromBytes body
+                    , requestExtensions = exts
+                    }
 
-            -- Build our Request
-            exts <- emptyExtensions
-            let pathRaw = rhPath reqHead
-                (pathPart, queryPart) = BS8.break (== '?') pathRaw
-                path = filter (/= "") $ T.splitOn "/" (TE.decodeUtf8 pathPart)
-                query = parseQueryString (BS.drop 1 queryPart)  -- drop the '?'
-                req = Request
-                  { requestMethod     = rhMethod reqHead
-                  , requestPathRaw    = pathPart
-                  , requestPath       = path
-                  , requestQuery      = query
-                  , requestHeaders    = rhHeaders reqHead
-                  , requestBody       = fromBytes body
-                  , requestExtensions = exts
-                  }
+              -- Dispatch to tower Service (catch handler exceptions)
+              resp <- catch
+                (runService svc req)
+                (\(e :: SomeException) -> do
+                  onException config e
+                  pure (Response status500
+                    [("Content-Type", "text/plain")]
+                    (fromBytes "Internal Server Error")))
 
-            -- Dispatch to tower Service
-            resp <- catch
-              (runService svc req)
-              (\(e :: SomeException) ->
-                pure (Response status500
-                  [("Content-Type", "text/plain")]
-                  (fromBytes "Internal Server Error")))
+              -- Render and send response (streaming or strict)
+              sendResponse (sendAll conn)
+                (responseStatus resp)
+                (responseHeaders resp)
+                (responseBody resp)
 
-            -- Render and send response (streaming or strict)
-            sendResponse (sendAll conn)
-              (responseStatus resp)
-              (responseHeaders resp)
-              (responseBody resp)
-
-            -- Keep-alive: check Connection header
-            let connHeader = lookup "connection" (rhHeaders reqHead)
-                keepAlive = configKeepAlive config
-                  && connHeader /= Just "close"
-            if keepAlive
-              then go BS.empty  -- handle next request on same connection
-              else pure ()
+              -- Keep-alive: check Connection header
+              let connHeader = lookup "connection" (rhHeaders reqHead)
+                  keepAlive = configKeepAlive config
+                    && connHeader /= Just "close"
+              if keepAlive
+                then go
+                else pure ()
 
 
 -- | Parse a query string (without the leading '?').

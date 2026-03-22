@@ -15,6 +15,8 @@ library
     Servant.Reimagined.OpenApi
     Servant.Reimagined.OpenApi.Spec
     Servant.Reimagined.OpenApi.Schema
+    Servant.Reimagined.OpenApi.V2
+    Servant.Reimagined.OpenApi.V3
 
   build-depends:
       base                    >= 4.20 && < 5

@@ -101,11 +101,50 @@ testSchema = do
   assert "[Int] schema" (schemaType (toSchema @[Int]) == "array")
 
 
+-- ===================================================================
+-- Swagger 2.0 tests
+-- ===================================================================
+
+testSwagger :: IO ()
+testSwagger = do
+  let spec = generateSwagger @TestAPI "Test API" "1.0.0" "localhost:3000" "/api"
+      json = Aeson.toJSON spec
+  case json of
+    Aeson.Object obj -> do
+      assert "swagger: has swagger field" (KM.member "swagger" obj)
+      assert "swagger: has host field" (KM.member "host" obj)
+      assert "swagger: has basePath field" (KM.member "basePath" obj)
+      assert "swagger: has paths field" (KM.member "paths" obj)
+      assert "swagger: has consumes" (KM.member "consumes" obj)
+      -- Verify swagger version
+      case KM.lookup "swagger" obj of
+        Just (Aeson.String v) -> assert "swagger: version 2.0" (v == "2.0")
+        _ -> error "FAIL: swagger field not a string"
+    _ -> error "FAIL: swagger spec is not a JSON object"
+
+-- ===================================================================
+-- OpenAPI 3.1 explicit tests
+-- ===================================================================
+
+testOpenApi3 :: IO ()
+testOpenApi3 = do
+  let spec = generateOpenApi3 @TestAPI "Test API" "1.0.0"
+      json = Aeson.toJSON spec
+  case json of
+    Aeson.Object obj -> do
+      assert "oa3: has openapi field" (KM.member "openapi" obj)
+      assert "oa3: has paths field" (KM.member "paths" obj)
+      case KM.lookup "openapi" obj of
+        Just (Aeson.String v) -> assert "oa3: version 3.1.0" (v == "3.1.0")
+        _ -> error "FAIL: openapi field not a string"
+    _ -> error "FAIL: openapi3 spec is not a JSON object"
+
+
 main :: IO ()
 main = do
   putStrLn "servant-reimagined-openapi tests:"
   putStrLn ""
-  putStrLn "Spec generation:"
+  putStrLn "Spec generation (default = 3.1):"
   testGenerateSpec
   putStrLn ""
   putStrLn "Operations:"
@@ -122,5 +161,11 @@ main = do
   putStrLn ""
   putStrLn "Schema:"
   testSchema
+  putStrLn ""
+  putStrLn "Swagger 2.0:"
+  testSwagger
+  putStrLn ""
+  putStrLn "OpenAPI 3.1 (explicit):"
+  testOpenApi3
   putStrLn ""
   putStrLn "All servant-reimagined-openapi tests passed."

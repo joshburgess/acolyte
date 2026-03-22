@@ -9,6 +9,8 @@ module Servant.Reimagined.OpenApi.Spec
   , Parameter (..)
     -- * API walking
   , ApiToOperations (..)
+    -- * Helpers
+  , opMethodLower
   ) where
 
 import Data.Aeson (Value (..), object, (.=), ToJSON (..))

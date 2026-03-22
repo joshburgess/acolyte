@@ -46,18 +46,24 @@ build something that could only exist in Haskell.
 
 ## Current Status
 
-Phases 1-3 are complete. Six packages are built, tested, and working:
+Phases 1-6 are complete. Twelve packages are built, tested, and working:
 
 | Phase | Packages | Status |
 |-------|----------|--------|
 | 1 (foundation) | `servant-reimagined-core`, `tower`, `http-core` | Done |
 | 2 (middleware + adapter) | `tower-http`, `tower-wai` | Done |
 | 3 (first working server) | `servant-reimagined-server` | Done |
-| 4 (interpretations) | `servant-reimagined-client`, `servant-reimagined-openapi`, `servant-reimagined-test` | Not started |
-| 5 (advanced) | `servant-reimagined-grpc` | Not started |
-| 6 (polish) | `servant-reimagined` (facade), servant interop | Not started |
+| 4 (interpretations) | `servant-reimagined-client`, `servant-reimagined-openapi` | Done |
+| 5 (native server) | `tower-server` (zero-WAI HTTP/1.1 + TLS) | Done |
+| 6 (polish) | `servant-reimagined` (facade), `servant-reimagined-test` | Done |
 
-29 modules, 112+ tests, 5.2 seconds clean build on GHC 9.10.3.
+48 modules, 200+ tests, 10 test suites, ~7 seconds clean build on GHC 9.10.3.
+
+Compile-time benchmarks confirm linear scaling: 1 to 16 endpoints
+compiles in constant time (0.16–0.17s). No exponential blowup.
+
+Remaining: `servant-reimagined-grpc` (unified REST + gRPC), HTTP/2 in
+tower-server, session-typed WebSocket runtime enforcement.
 
 ## Project Documents
 

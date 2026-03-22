@@ -89,7 +89,12 @@ Add .provide @Auth to the server builder.
 | [`http-core`](http-core/) | Backend-agnostic Request/Response/Extensions | `base`, `http-types` |
 | [`tower-http`](tower-http/) | HTTP middleware: security headers, request ID, tracing | `tower`, `http-core` |
 | [`tower-wai`](tower-wai/) | WAI/warp backend adapter (the only WAI-aware package) | `tower`, `http-core`, `wai`, `warp` |
+| [`tower-server`](tower-server/) | Tower-native HTTP/1.1 server — zero WAI dependency | `tower`, `http-core`, `network` |
 | [`servant-reimagined-server`](servant-reimagined-server/) | Handler dispatch, routing, extractors, EffectfulServer | `core`, `tower`, `http-core` |
+| [`servant-reimagined-client`](servant-reimagined-client/) | Type-safe HTTP client derived from API types | `core`, `http-client` |
+| [`servant-reimagined-openapi`](servant-reimagined-openapi/) | OpenAPI 3.1 spec generation from API types | `core`, `aeson` |
+| [`servant-reimagined-test`](servant-reimagined-test/) | Testing utilities (direct dispatch, assertions) | `core`, `server`, `http-core` |
+| [`servant-reimagined`](servant-reimagined/) | Facade — re-exports everything | all of the above |
 
 ## Design philosophy
 
@@ -108,8 +113,8 @@ change? Type error.
 
 **Fast compilation.** Promoted lists instead of recursive `:<|>` trees.
 Closed type families instead of open instances. Flat tuple indexing instead
-of recursive constraint solving. All 6 packages build from clean in ~5
-seconds.
+of recursive constraint solving. Benchmarked: 1 to 16 endpoints compiles
+in constant time (0.16–0.17s). No exponential blowup.
 
 **IO handlers, not monadic stacks.** No `ExceptT`, no `liftIO`. Handlers
 are plain `IO` functions. State via extractors, errors via `Either`.
@@ -134,33 +139,50 @@ boundary where endpoint type information is available.
 
 ## Current status
 
-**Phases 1-3 complete.** The foundation is built and working:
+**Phases 1-6 complete.** The full framework is built and working:
 
-- Type-level API definition with compile-time checks
+- Type-level API definition with compile-time completeness checks
 - Service/Layer/Middleware composition with `|>` piping
-- Backend-agnostic Request/Response types
-- HTTP middleware (security headers, request ID, tracing)
-- WAI/warp adapter with existing WAI middleware interop
+- Backend-agnostic Request/Response types with streaming body support
+- HTTP middleware: security headers, request ID, tracing, CORS,
+  compression (gzip), timeouts
+- Two backend adapters: `tower-wai` (warp) and `tower-server` (zero WAI)
+- TLS support in tower-server
 - Automatic handler wiring from API types
 - EffectfulServer with phantom-type effect tracking
-- 6 packages, 29 modules, 112+ tests, all passing
+- Type-safe HTTP client derived from API types
+- OpenAPI 3.1 spec generation from API types
+- Testing utilities (direct dispatch, no network needed)
+- Compile-time benchmarks confirming linear scaling
+- 12 packages, 48 modules, 200+ tests, 10 test suites passing
 
-**Remaining (future phases):**
+**Remaining:**
 
-- `servant-reimagined-client` — type-safe HTTP client
-- `servant-reimagined-openapi` — OpenAPI spec generation
-- `servant-reimagined-grpc` — unified REST + gRPC
-- `servant-reimagined-test` — testing utilities
+- `servant-reimagined-grpc` — unified REST + gRPC serving
+- HTTP/2 support in tower-server (types defined, implementation pending)
 - Session-typed WebSocket runtime enforcement (LinearTypes)
-- Custom `TypeError` messages for all common mistakes
+
+## Example
+
+See [`examples/hello-world`](examples/hello-world/) for a complete
+application that defines an API with effects, wires handlers, stacks
+middleware (CORS, security headers, tracing, request ID), and runs on
+tower-server.
+
+```sh
+cabal run hello-world
+# Then: curl http://localhost:3000/health
+#        curl http://localhost:3000/users
+#        curl http://localhost:3000/users/42
+```
 
 ## Building
 
 Requires GHC 9.10.3.
 
 ```sh
-cabal build all     # build everything (~5s clean)
-cabal test all      # run all test suites
+cabal build all     # build everything (~7s clean)
+cabal test all      # run all 10 test suites
 ```
 
 ## Project documents

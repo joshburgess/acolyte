@@ -1752,22 +1752,28 @@ Phase 3 (first working server):                              ✅ DONE
   Includes: extractors, responses, routing, automatic wiring,
   EffectfulServer with phantom-type effect tracking.
 
-Phase 4 (interpretations, parallel):
-  servant-reimagined-client
-  servant-reimagined-openapi
-  servant-reimagined-test
+Phase 4 (interpretations, parallel):                          ✅ DONE
+  servant-reimagined-client  — 3 modules, 13 tests
+  servant-reimagined-openapi — 3 modules, 22 tests
 
-Phase 5 (advanced):
+Phase 5 (native HTTP server + middleware):                    ✅ DONE
+  tower-server               — 5 modules, 21 tests (HTTP/1.1, TLS, streaming)
+  tower-http (expanded)      — +3 modules: CORS, compression, timeout
+
+Phase 6 (polish + testing):                                   ✅ DONE
+  servant-reimagined         — 2 modules (facade)
+  servant-reimagined-test    — 1 module, 6 tests
+  examples/hello-world       — end-to-end example app
+  benchmarks/compile-time    — scaling verification
+
+Remaining:
   servant-reimagined-grpc
-
-Phase 6 (polish):
-  servant-reimagined                   — facade
-  servant-reimagined-servant-interop   — migration bridge
+  servant-reimagined-servant-interop
 
 Phase N (community / future):
   tower-snap, tower-direct, tower-lambda, ...  — alternative backends
 
-Totals after Phase 3: 6 packages, 29 modules, 112+ tests, 5.2s clean build.
+Totals: 12 packages, 48 modules, 200+ tests, 10 test suites, ~7s clean build.
 ```
 
 ## Summary of Design Decisions

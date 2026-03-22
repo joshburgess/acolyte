@@ -10,6 +10,7 @@ packages:
   servant-reimagined-test
   servant-reimagined
   tower-server
+  examples/hello-world
 
 -- Use GHC 9.10.3
 -- with-compiler: ghc-9.10.3

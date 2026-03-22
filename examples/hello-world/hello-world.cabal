@@ -1,0 +1,30 @@
+cabal-version:   3.0
+name:            hello-world
+version:         0.1.0.0
+synopsis:        Example servant-reimagined application
+build-type:      Simple
+
+executable hello-world
+  main-is: Main.hs
+  hs-source-dirs: .
+  default-language: GHC2024
+  default-extensions:
+    DataKinds
+    TypeFamilies
+    TypeOperators
+    OverloadedStrings
+    AllowAmbiguousTypes
+    ScopedTypeVariables
+
+  build-depends:
+      base                       >= 4.20 && < 5
+    , servant-reimagined-core
+    , servant-reimagined-server
+    , tower
+    , tower-http
+    , tower-server
+    , http-core
+    , aeson                      >= 2.1  && < 2.3
+    , bytestring                 >= 0.11 && < 0.13
+    , text                       >= 2.0  && < 2.2
+    , http-types                 >= 0.12 && < 0.13

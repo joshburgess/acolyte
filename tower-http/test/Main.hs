@@ -1,10 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main (main) where
 
+import Control.Concurrent (threadDelay)
 import Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
 import Data.IORef
 import Data.List (lookup)
-import Network.HTTP.Types (status200, methodGet, methodPost)
+import Network.HTTP.Types (status200, status204, status408, methodGet, methodPost, statusCode)
 
 import Tower
 import Tower.Http
@@ -162,6 +164,111 @@ testComposition = do
 
 
 -- ===================================================================
+-- CORS tests
+-- ===================================================================
+
+testCors :: IO ()
+testCors = do
+  let svc = echoService |> corsLayer permissiveCors
+
+  -- Preflight OPTIONS -> 204 with CORS headers
+  exts1 <- emptyExtensions
+  let optReq = Request
+        { requestMethod = "OPTIONS"
+        , requestPathRaw = "/test"
+        , requestPath = ["test"]
+        , requestQuery = []
+        , requestHeaders = [("origin", "http://example.com")]
+        , requestBody = ""
+        , requestExtensions = exts1
+        }
+  resp1 <- runService svc optReq
+  assert "CORS: preflight 204" (statusCode (responseStatus resp1) == 204)
+  assert "CORS: Allow-Origin on preflight" (lookup "Access-Control-Allow-Origin" (responseHeaders resp1) == Just "*")
+  assert "CORS: Allow-Methods on preflight" (lookup "Access-Control-Allow-Methods" (responseHeaders resp1) /= Nothing)
+
+  -- Normal GET -> 200 with CORS headers added
+  req2 <- mkReq methodGet "/test"
+  resp2 <- runService svc req2
+  assert "CORS: normal 200" (statusCode (responseStatus resp2) == 200)
+  assert "CORS: Allow-Origin on GET" (lookup "Access-Control-Allow-Origin" (responseHeaders resp2) == Just "*")
+
+
+-- ===================================================================
+-- Compression tests
+-- ===================================================================
+
+testCompression :: IO ()
+testCompression = do
+  -- Big body service (above min threshold)
+  let bigBody = BS.replicate 2000 65  -- 2000 'A's
+      bigSvc = Service $ \_ -> pure (ok [("Content-Type", "text/plain")] bigBody)
+      svc = bigSvc |> compressionLayer defaultCompression
+
+  -- With Accept-Encoding: gzip
+  exts1 <- emptyExtensions
+  let req1 = Request
+        { requestMethod = "GET"
+        , requestPathRaw = "/big"
+        , requestPath = ["big"]
+        , requestQuery = []
+        , requestHeaders = [("accept-encoding", "gzip, deflate")]
+        , requestBody = ""
+        , requestExtensions = exts1
+        }
+  resp1 <- runService svc req1
+  assert "compression: Content-Encoding gzip" (lookup "Content-Encoding" (responseHeaders resp1) == Just "gzip")
+  assert "compression: body smaller" (BS.length (responseBody resp1) < 2000)
+
+  -- Without Accept-Encoding -> no compression
+  req2 <- mkReq methodGet "/big"
+  resp2 <- runService svc req2
+  assert "compression: no encoding without header" (lookup "Content-Encoding" (responseHeaders resp2) == Nothing)
+  assert "compression: body unchanged" (BS.length (responseBody resp2) == 2000)
+
+  -- Small body -> skip compression
+  let smallSvc = echoService |> compressionLayer defaultCompression
+  exts3 <- emptyExtensions
+  let req3 = Request
+        { requestMethod = "GET"
+        , requestPathRaw = "/small"
+        , requestPath = ["small"]
+        , requestQuery = []
+        , requestHeaders = [("accept-encoding", "gzip")]
+        , requestBody = ""
+        , requestExtensions = exts3
+        }
+  resp3 <- runService smallSvc req3
+  assert "compression: skip small body" (lookup "Content-Encoding" (responseHeaders resp3) == Nothing)
+
+
+-- ===================================================================
+-- Timeout tests
+-- ===================================================================
+
+testTimeout :: IO ()
+testTimeout = do
+  -- Fast handler: completes within timeout
+  let fastSvc :: Service IO (Request ByteString) (Response ByteString)
+      fastSvc = Service $ \_ -> pure (ok [] "fast")
+      svc1 = fastSvc |> timeoutLayer 1000000  -- 1 second
+  req1 <- mkReq methodGet "/fast"
+  resp1 <- runService svc1 req1
+  assert "timeout: fast handler succeeds" (statusCode (responseStatus resp1) == 200)
+  assert "timeout: fast body" (responseBody resp1 == "fast")
+
+  -- Slow handler: exceeds timeout
+  let slowSvc :: Service IO (Request ByteString) (Response ByteString)
+      slowSvc = Service $ \_ -> do
+        threadDelay 2000000  -- 2 seconds
+        pure (ok [] "slow")
+      svc2 = slowSvc |> timeoutLayer 200000  -- 200ms timeout
+  req2 <- mkReq methodGet "/slow"
+  resp2 <- runService svc2 req2
+  assert "timeout: slow handler -> 408" (statusCode (responseStatus resp2) == 408)
+
+
+-- ===================================================================
 -- Main
 -- ===================================================================
 
@@ -180,5 +287,14 @@ main = do
   putStrLn ""
   putStrLn "Composition:"
   testComposition
+  putStrLn ""
+  putStrLn "CORS:"
+  testCors
+  putStrLn ""
+  putStrLn "Compression:"
+  testCompression
+  putStrLn ""
+  putStrLn "Timeout:"
+  testTimeout
   putStrLn ""
   putStrLn "All tower-http tests passed."

@@ -55,8 +55,9 @@ type family TupleArity h :: Nat where
   TupleArity (a, b, c, d, e)    = 5
   TupleArity (a, b, c, d, e, f) = 6
   TupleArity (a, b, c, d, e, f, g) = 7
-  TupleArity (a, b, c, d, e, f, g, h) = 8
-  TupleArity _                  = 1  -- bare value = single handler
+  TupleArity (a, b, c, d, e, f, g, h)    = 8
+  TupleArity (a, b, c, d, e, f, g, h, i) = 9
+  TupleArity _                           = 1  -- bare value = single handler
 
 
 -- | Custom error message for handler/endpoint count mismatch.
@@ -224,4 +225,30 @@ instance
   ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16) where
   handlerCount = 16
 
+-- Arity 17
+instance {-# OVERLAPPING #-} ( Length api ~ 17, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17) where handlerCount = 17
+
+-- Arity 18
+instance {-# OVERLAPPING #-} ( Length api ~ 18, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18) where handlerCount = 18
+
+-- Arity 19
+instance {-# OVERLAPPING #-} ( Length api ~ 19, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19) where handlerCount = 19
+
+-- Arity 20
+instance {-# OVERLAPPING #-} ( Length api ~ 20, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20) where handlerCount = 20
+
+-- Arity 21
+instance {-# OVERLAPPING #-} ( Length api ~ 21, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21) where handlerCount = 21
+
+-- Arity 22
+instance {-# OVERLAPPING #-} ( Length api ~ 22, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22) where handlerCount = 22
+
+-- Arity 23
+instance {-# OVERLAPPING #-} ( Length api ~ 23, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22, h23) where handlerCount = 23
+
+-- Arity 24
+instance {-# OVERLAPPING #-} ( Length api ~ 24, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23, e24] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22, h23, h24) where handlerCount = 24
+
+-- Arity 25
+instance {-# OVERLAPPING #-} ( Length api ~ 25, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23, e24, e25] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22, h23, h24, h25) where handlerCount = 25
 

@@ -17,7 +17,7 @@ import Http.Core
 import Http.Core.Body
 import Tower.Server
 import Tower.Server.Parse
-import Tower.Server.Render
+import Tower.Server.Render (renderFull)
 
 
 assert :: String -> Bool -> IO ()
@@ -84,13 +84,13 @@ testParser = do
 
 testRenderer :: IO ()
 testRenderer = do
-  resp <- renderResponse status200 [("Content-Type", "text/plain")] (fromBytes "hello")
+  let resp = renderFull status200 [("Content-Type", "text/plain")] "hello"
   assert "render: starts with HTTP/1.1 200" (BS.isPrefixOf "HTTP/1.1 200" resp)
   assert "render: contains Content-Length" (BS8.isInfixOf "Content-Length: 5" resp)
   assert "render: ends with body" (BS8.isSuffixOf "hello" resp)
 
   -- Empty response
-  respEmpty <- renderResponse status204 [] emptyBody
+  let respEmpty = renderFull status204 [] ""
   assert "render 204: no body" (BS8.isSuffixOf "\r\n\r\n" respEmpty)
 
 

@@ -16,8 +16,25 @@ module Tower.Http
     -- * Tracing
   , TraceEntry (..)
   , traceLayer
+
+    -- * CORS
+  , CorsConfig (..)
+  , defaultCors
+  , permissiveCors
+  , corsLayer
+
+    -- * Timeout
+  , timeoutLayer
+
+    -- * Compression
+  , CompressionConfig (..)
+  , defaultCompression
+  , compressionLayer
   ) where
 
 import Tower.Http.SecureHeaders
 import Tower.Http.RequestId
 import Tower.Http.Trace
+import Tower.Http.Cors
+import Tower.Http.Timeout
+import Tower.Http.Compression

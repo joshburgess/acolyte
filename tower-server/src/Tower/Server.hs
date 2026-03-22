@@ -33,7 +33,7 @@ import Data.IORef
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import Network.HTTP.Types (status400, status500, statusCode)
+import Network.HTTP.Types (status400, status500, statusCode, Query, parseQuery)
 import Network.Socket
 import Network.Socket.ByteString (recv, sendAll)
 
@@ -41,7 +41,7 @@ import Tower.Service (Service (..))
 import Http.Core
 import Http.Core.Body
 import Tower.Server.Parse
-import Tower.Server.Render
+import Tower.Server.Render (renderFull, sendResponse)
 
 
 -- | Server configuration.
@@ -158,12 +158,14 @@ handleConnection config svc conn = go BS.empty `finally` close conn
             -- Build our Request
             exts <- emptyExtensions
             let pathRaw = rhPath reqHead
-                path = filter (/= "") $ T.splitOn "/" (TE.decodeUtf8 pathRaw)
+                (pathPart, queryPart) = BS8.break (== '?') pathRaw
+                path = filter (/= "") $ T.splitOn "/" (TE.decodeUtf8 pathPart)
+                query = parseQueryString (BS.drop 1 queryPart)  -- drop the '?'
                 req = Request
                   { requestMethod     = rhMethod reqHead
-                  , requestPathRaw    = pathRaw
+                  , requestPathRaw    = pathPart
                   , requestPath       = path
-                  , requestQuery      = []  -- TODO: parse query string
+                  , requestQuery      = query
                   , requestHeaders    = rhHeaders reqHead
                   , requestBody       = fromBytes body
                   , requestExtensions = exts
@@ -177,12 +179,11 @@ handleConnection config svc conn = go BS.empty `finally` close conn
                   [("Content-Type", "text/plain")]
                   (fromBytes "Internal Server Error")))
 
-            -- Render and send response
-            respBytes <- renderResponse
+            -- Render and send response (streaming or strict)
+            sendResponse (sendAll conn)
               (responseStatus resp)
               (responseHeaders resp)
               (responseBody resp)
-            sendAll conn respBytes
 
             -- Keep-alive: check Connection header
             let connHeader = lookup "connection" (rhHeaders reqHead)
@@ -191,6 +192,13 @@ handleConnection config svc conn = go BS.empty `finally` close conn
             if keepAlive
               then go BS.empty  -- handle next request on same connection
               else pure ()
+
+
+-- | Parse a query string (without the leading '?').
+parseQueryString :: ByteString -> Query
+parseQueryString bs
+  | BS.null bs = []
+  | otherwise  = parseQuery bs
 
 
 -- | Wait for all active connections to finish.

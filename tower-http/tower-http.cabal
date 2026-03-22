@@ -17,6 +17,9 @@ library
     Tower.Http.SecureHeaders
     Tower.Http.RequestId
     Tower.Http.Trace
+    Tower.Http.Cors
+    Tower.Http.Timeout
+    Tower.Http.Compression
 
   build-depends:
       base         >= 4.20 && < 5
@@ -25,6 +28,7 @@ library
     , bytestring   >= 0.11 && < 0.13
     , text         >= 2.0  && < 2.2
     , http-types   >= 0.12 && < 0.13
+    , zlib         >= 0.6  && < 0.8
 
   hs-source-dirs: src
   default-language: GHC2024

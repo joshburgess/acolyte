@@ -14,6 +14,7 @@ module Servant.Reimagined.Core.API
   , Serves (..)
     -- * Length checking
   , Length
+  , TupleArity
   , type (==)
     -- * Custom type errors
   , HandlerMismatchMsg
@@ -42,6 +43,20 @@ type Length :: [k] -> Nat
 type family Length (xs :: [k]) :: Nat where
   Length '[]       = 0
   Length (_ ': xs) = 1 + Length xs
+
+
+-- | Compute the arity of a handler tuple (for error messages).
+type TupleArity :: Type -> Nat
+type family TupleArity h :: Nat where
+  TupleArity ()                 = 0
+  TupleArity (a, b)             = 2
+  TupleArity (a, b, c)          = 3
+  TupleArity (a, b, c, d)       = 4
+  TupleArity (a, b, c, d, e)    = 5
+  TupleArity (a, b, c, d, e, f) = 6
+  TupleArity (a, b, c, d, e, f, g) = 7
+  TupleArity (a, b, c, d, e, f, g, h) = 8
+  TupleArity _                  = 1  -- bare value = single handler
 
 
 -- | Custom error message for handler/endpoint count mismatch.

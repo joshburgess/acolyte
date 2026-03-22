@@ -1,10 +1,13 @@
 -- | HTTP/1.1 response rendering.
---
--- Converts a 'Response Body' into bytes suitable for writing to a socket.
 module Tower.Server.Render
-  ( renderResponse
+  ( -- * Full response (strict body)
+    renderFull
+    -- * Streaming response (chunked transfer encoding)
+  , sendResponseStreaming
+    -- * Response head
   , renderResponseHead
-  , renderFull
+    -- * Combined (picks strategy based on Body type)
+  , sendResponse
   ) where
 
 import Data.ByteString (ByteString)
@@ -14,28 +17,27 @@ import qualified Data.ByteString.Builder as Builder
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.CaseInsensitive as CI
 import Network.HTTP.Types (Status, statusCode, statusMessage, ResponseHeaders, Header)
+import Numeric (showHex)
 
 import Http.Core.Body (Body (..), BodyChunk (..), bodyToStrict)
 
 
--- | Render a complete HTTP/1.1 response to bytes.
+-- | Send a response over a socket, choosing the right strategy.
 --
--- For strict and empty bodies, renders the full response including
--- Content-Length. For streaming bodies, collects to strict first
--- (a full streaming implementation would use chunked encoding).
-renderResponse :: Status -> ResponseHeaders -> Body -> IO ByteString
-renderResponse status headers body = case body of
-  BodyStrict bs -> pure $ renderFull status headers bs
-  BodyEmpty     -> pure $ renderFull status headers BS.empty
-  BodyStream _  -> do
-    bs <- bodyToStrict body
-    pure $ renderFull status headers bs
+-- * Strict/Empty/File → Content-Length, single write
+-- * Stream → chunked transfer encoding, multiple writes
+sendResponse :: (ByteString -> IO ()) -> Status -> ResponseHeaders -> Body -> IO ()
+sendResponse send status headers body = case body of
+  BodyStrict bs -> send (renderFull status headers bs)
+  BodyEmpty     -> send (renderFull status headers BS.empty)
   BodyFile _ _  -> do
     bs <- bodyToStrict body
-    pure $ renderFull status headers bs
+    send (renderFull status headers bs)
+  BodyStream pull ->
+    sendResponseStreaming send status headers pull
 
 
--- | Render a complete response with Content-Length.
+-- | Render a complete response with Content-Length (strict bodies).
 renderFull :: Status -> ResponseHeaders -> ByteString -> ByteString
 renderFull status headers body =
   LBS.toStrict . Builder.toLazyByteString $
@@ -45,7 +47,40 @@ renderFull status headers body =
     <> Builder.byteString body
 
 
--- | Render just the status line and headers (for streaming).
+-- | Send a streaming response using chunked transfer encoding.
+--
+-- HTTP/1.1 chunked format:
+--   {hex-length}\r\n{data}\r\n   (per chunk)
+--   0\r\n\r\n                     (final chunk)
+sendResponseStreaming
+  :: (ByteString -> IO ())  -- ^ Socket send function
+  -> Status
+  -> ResponseHeaders
+  -> IO (Maybe BodyChunk)   -- ^ Pull-based chunk producer
+  -> IO ()
+sendResponseStreaming send status headers pull = do
+  -- Send headers with Transfer-Encoding: chunked
+  let hdrs = ("Transfer-Encoding", "chunked") : headers
+  send (renderResponseHead status hdrs)
+
+  -- Send chunks
+  let loop = do
+        mChunk <- pull
+        case mChunk of
+          Nothing -> do
+            -- Final chunk: 0\r\n\r\n
+            send "0\r\n\r\n"
+          Just (Chunk bs) | BS.null bs -> loop  -- skip empty chunks
+          Just (Chunk bs) -> do
+            -- {hex-length}\r\n{data}\r\n
+            let len = BS8.pack (showHex (BS.length bs) "")
+            send (len <> "\r\n" <> bs <> "\r\n")
+            loop
+          Just ChunkFlush -> loop  -- flush hint — we send immediately anyway
+  loop
+
+
+-- | Render status line + headers (no body, no trailing CRLF for streaming).
 renderResponseHead :: Status -> ResponseHeaders -> ByteString
 renderResponseHead status headers =
   LBS.toStrict . Builder.toLazyByteString $
@@ -55,7 +90,7 @@ renderResponseHead status headers =
 
 
 -- ===================================================================
--- Internal builders
+-- Internal
 -- ===================================================================
 
 renderStatusLine :: Status -> Builder.Builder

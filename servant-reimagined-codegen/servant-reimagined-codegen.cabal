@@ -1,0 +1,64 @@
+cabal-version:   3.0
+name:            servant-reimagined-codegen
+version:         0.1.0.0
+synopsis:        Generate servant-reimagined API types from OpenAPI/Swagger specs
+description:
+  Reads an OpenAPI 3.x or Swagger 2.0 JSON spec and generates Haskell
+  modules with type-level API definitions, path types, request/response
+  data types, and handler stubs. The generated code uses
+  servant-reimagined-core types and gets server, client, and OpenAPI
+  generation for free.
+
+license:         BSD-3-Clause
+author:          Josh Burgess
+build-type:      Simple
+
+library
+  exposed-modules:
+    Servant.Reimagined.Codegen
+    Servant.Reimagined.Codegen.Parse
+    Servant.Reimagined.Codegen.IR
+    Servant.Reimagined.Codegen.Emit
+
+  build-depends:
+      base                    >= 4.20 && < 5
+    , aeson                   >= 2.1  && < 2.3
+    , bytestring              >= 0.11 && < 0.13
+    , text                    >= 2.0  && < 2.2
+    , containers              >= 0.6  && < 0.8
+    , filepath                >= 1.4  && < 1.6
+
+  hs-source-dirs: src
+  default-language: GHC2024
+  default-extensions:
+    OverloadedStrings
+    DeriveGeneric
+
+executable servant-reimagined-codegen
+  main-is: Main.hs
+  hs-source-dirs: app
+  default-language: GHC2024
+  default-extensions:
+    OverloadedStrings
+
+  build-depends:
+      base                       >= 4.20 && < 5
+    , servant-reimagined-codegen
+    , aeson                      >= 2.1  && < 2.3
+    , bytestring                 >= 0.11 && < 0.13
+    , text                       >= 2.0  && < 2.2
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: test
+  default-language: GHC2024
+  default-extensions:
+    OverloadedStrings
+
+  build-depends:
+      base                       >= 4.20 && < 5
+    , servant-reimagined-codegen
+    , aeson                      >= 2.1  && < 2.3
+    , bytestring                 >= 0.11 && < 0.13
+    , text                       >= 2.0  && < 2.2

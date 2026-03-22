@@ -8,6 +8,8 @@ import qualified Data.Text as T
 import qualified Data.Aeson as Aeson
 import Network.HTTP.Types
 
+import Network.HTTP.Types (status500)
+
 import Tower
 import Tower.Service (Service (..))
 import Http.Core
@@ -229,6 +231,97 @@ testResponses = do
 
 
 -- ===================================================================
+-- Test 6: Sub-API composition via combineServer
+-- ===================================================================
+
+-- Two separate sub-APIs
+type SubAPI1 = '[ Get HealthPath Text ]
+type SubAPI2 = '[ Get UsersPath (Json [Text]), Get UserByIdPath (Json Text) ]
+
+-- Combined type for OpenAPI / client (type-level only)
+type CombinedAPI = SubAPI1 ++ SubAPI2
+
+testCombineServer :: IO ()
+testCombineServer = do
+  let svc = combineServer2 @SubAPI1 @SubAPI2
+        -- SubAPI1 handlers
+        ( wrapHandler @(Get HealthPath Text)
+            (mkHandler0 (pure ("ok" :: Text)))
+        )
+        -- SubAPI2 handlers
+        ( wrapHandler @(Get UsersPath (Json [Text]))
+            (mkHandler0 (pure (Json (["alice"] :: [Text]))))
+        , wrapHandler @(Get UserByIdPath (Json Text))
+            (\parts _body -> do
+              mCaps <- lookupExtension @CaptureList (rpExtensions parts)
+              case mCaps of
+                Just (CaptureList (idT : _)) ->
+                  pure $ intoResponse (Json ("user-" <> idT))
+                _ -> pure $ intoResponse (mkError status500 "no caps")
+            )
+        )
+
+  -- Test SubAPI1
+  req1 <- mkReq "GET" ["health"] "/health" ""
+  resp1 <- runService svc req1
+  assert "combined: GET /health -> 200" (statusCode (responseStatus resp1) == 200)
+  assert "combined: GET /health body" (responseBody resp1 == "ok")
+
+  -- Test SubAPI2
+  req2 <- mkReq "GET" ["users"] "/users" ""
+  resp2 <- runService svc req2
+  assert "combined: GET /users -> 200" (statusCode (responseStatus resp2) == 200)
+
+  req3 <- mkReq "GET" ["users", "7"] "/users/7" ""
+  resp3 <- runService svc req3
+  assert "combined: GET /users/7 -> 200" (statusCode (responseStatus resp3) == 200)
+
+  -- Test 404 still works
+  req4 <- mkReq "GET" ["nope"] "/nope" ""
+  resp4 <- runService svc req4
+  assert "combined: GET /nope -> 404" (statusCode (responseStatus resp4) == 404)
+
+
+-- ===================================================================
+-- Test 7: Combined effectful server
+-- ===================================================================
+
+type EffectSubAPI1 = '[ Get HealthPath Text ]
+type EffectSubAPI2 = '[ Requires Auth (Get UsersPath (Json [Text])) ]
+type EffectFullAPI = EffectSubAPI1 ++ EffectSubAPI2
+
+testCombinedEffects :: IO ()
+testCombinedEffects = do
+  let router = subRouter @EffectSubAPI2
+                 ( wrapHandler @(Requires Auth (Get UsersPath (Json [Text])))
+                     (mkHandler0 (pure (Json (["bob"] :: [Text]))))
+                 )
+               $ subRouter @EffectSubAPI1
+                   ( wrapHandler @(Get HealthPath Text)
+                       (mkHandler0 (pure ("ok" :: Text)))
+                   )
+               $ emptyRouter
+
+      authMw :: Middleware IO (Request ByteString) (Response ByteString)
+      authMw = before $ \_ -> pure ()
+
+      svc = runCombined @EffectFullAPI
+          $ provideEffect @Auth authMw
+          $ combinedFromRouter @EffectFullAPI router
+
+  req1 <- mkReq "GET" ["health"] "/health" ""
+  resp1 <- runService svc req1
+  assert "combined+effects: GET /health -> 200" (statusCode (responseStatus resp1) == 200)
+
+  req2 <- mkReq "GET" ["users"] "/users" ""
+  resp2 <- runService svc req2
+  assert "combined+effects: GET /users -> 200" (statusCode (responseStatus resp2) == 200)
+
+  -- COMPILE-TIME CHECK: if we remove `provideEffect @Auth`, this won't compile
+  -- because EffectFullAPI contains Requires Auth and runCombined checks AllEffectsProvided.
+
+
+-- ===================================================================
 -- Main
 -- ===================================================================
 
@@ -250,5 +343,11 @@ main = do
   putStrLn ""
   putStrLn "EffectfulServer (typed middleware tracking):"
   testEffectfulServer
+  putStrLn ""
+  putStrLn "Sub-API composition (combineServer):"
+  testCombineServer
+  putStrLn ""
+  putStrLn "Combined effectful server:"
+  testCombinedEffects
   putStrLn ""
   putStrLn "All servant-reimagined-server tests passed."

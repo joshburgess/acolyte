@@ -23,6 +23,8 @@ library
     Servant.Reimagined.Server.Router
     Servant.Reimagined.Server.Wiring
     Servant.Reimagined.Server.Effects
+    Servant.Reimagined.Server.Combine
+    Servant.Reimagined.Server.CombineEffects
 
   build-depends:
       base                    >= 4.20 && < 5

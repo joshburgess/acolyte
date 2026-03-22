@@ -28,6 +28,7 @@ module Servant.Reimagined.Core
   , type API
   , Serves (..)
   , Length
+  , type (++)
 
     -- * Effects (Layer 1: generic middleware tracking)
   , Auth

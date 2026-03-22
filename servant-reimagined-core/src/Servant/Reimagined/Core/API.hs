@@ -16,6 +16,8 @@ module Servant.Reimagined.Core.API
   , Length
   , TupleArity
   , type (==)
+    -- * Type-level list append
+  , type (++)
     -- * Custom type errors
   , HandlerMismatchMsg
   ) where
@@ -58,6 +60,19 @@ type family TupleArity h :: Nat where
   TupleArity (a, b, c, d, e, f, g, h)    = 8
   TupleArity (a, b, c, d, e, f, g, h, i) = 9
   TupleArity _                           = 1  -- bare value = single handler
+
+
+-- | Type-level list append.
+--
+-- Used to combine sub-APIs into a larger API:
+--
+-- @
+-- type FullAPI = UsersAPI ++ ArticlesAPI ++ CommentsAPI
+-- @
+type family (xs :: [k]) ++ (ys :: [k]) :: [k] where
+  '[]       ++ ys = ys
+  (x ': xs) ++ ys = x ': (xs ++ ys)
+infixr 5 ++
 
 
 -- | Custom error message for handler/endpoint count mismatch.

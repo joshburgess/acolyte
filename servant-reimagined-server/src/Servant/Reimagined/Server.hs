@@ -69,6 +69,22 @@ module Servant.Reimagined.Server
   , effectfulServer
   , provide
   , run
+
+    -- * Sub-API composition (for APIs > 25 endpoints)
+  , combineServer2
+  , combineServer3
+  , combineServer4
+  , combineServer5
+  , combineServer6
+  , combineServer7
+  , combineServer8
+  , subRouter
+
+    -- * Combined effectful server
+  , CombinedServer (..)
+  , combinedFromRouter
+  , provideEffect
+  , runCombined
   ) where
 
 import Servant.Reimagined.Server.Extract
@@ -77,3 +93,5 @@ import Servant.Reimagined.Server.Handler
 import Servant.Reimagined.Server.Router
 import Servant.Reimagined.Server.Wiring
 import Servant.Reimagined.Server.Effects
+import Servant.Reimagined.Server.Combine
+import Servant.Reimagined.Server.CombineEffects

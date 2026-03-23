@@ -194,6 +194,18 @@ instance ProtoEncode ByteString where
     in pbVarint (fromIntegral len) <> pbBytes bs
   {-# INLINE protoEncodeValue #-}
 
+-- SInt32: varint with zigzag encoding
+instance ProtoEncode SInt32 where
+  protoWireType = WireVarint
+  protoEncodeValue (SInt32 n) = pbVarint (zigzagEncode (fromIntegral n))
+  {-# INLINE protoEncodeValue #-}
+
+-- SInt64: varint with zigzag encoding
+instance ProtoEncode SInt64 where
+  protoWireType = WireVarint
+  protoEncodeValue (SInt64 n) = pbVarint (zigzagEncode n)
+  {-# INLINE protoEncodeValue #-}
+
 
 -- ===================================================================
 -- Submessage encoding
@@ -275,3 +287,5 @@ instance ProtoDefault Float  where protoDefault = 0.0
 instance ProtoDefault Double where protoDefault = 0.0
 instance ProtoDefault Text   where protoDefault = ""
 instance ProtoDefault ByteString where protoDefault = BS.empty
+instance ProtoDefault SInt32 where protoDefault = SInt32 0
+instance ProtoDefault SInt64 where protoDefault = SInt64 0

@@ -28,18 +28,22 @@ module Tower.Protobuf
   , decode
     -- * Field wrapper
   , Field (..)
+    -- * Signed integer wrappers (zigzag encoding)
+  , SInt32 (..)
+  , SInt64 (..)
     -- * Errors
   , DecodeError (..)
     -- * Re-exports for advanced use
   , ProtoEncode (..)
   , ProtoDecode (..)
+  , decodePacked
   , ProtoDefault (..)
   , ProtoBuilder
   , WireType (..)
   ) where
 
 import Tower.Protobuf.Wire (WireType (..))
-import Tower.Protobuf.Field (Field (..))
+import Tower.Protobuf.Field (Field (..), SInt32(..), SInt64(..))
 import Tower.Protobuf.Encode (ProtoEncode (..), ProtoBuilder, ProtoDefault (..))
-import Tower.Protobuf.Decode (ProtoDecode (..), DecodeError (..))
+import Tower.Protobuf.Decode (ProtoDecode (..), DecodeError (..), decodePacked)
 import Tower.Protobuf.Message (ProtoMessage (..), encode, decode)

@@ -9,10 +9,13 @@ module Tower.Protobuf.Decode
     -- * Raw field parsing
   , RawField (..)
   , parseFields
+    -- * Packed repeated field decoding
+  , decodePacked
     -- * Errors
   , DecodeError (..)
   ) where
 
+import Data.Bits ((.&.))
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Int (Int32, Int64)
@@ -22,6 +25,7 @@ import Data.Word (Word32, Word64)
 import GHC.Float (castWord32ToFloat, castWord64ToDouble)
 
 import Tower.Protobuf.Wire
+import Tower.Protobuf.Field (SInt32(..), SInt64(..))
 
 
 -- ===================================================================
@@ -38,6 +42,8 @@ data DecodeError
     -- ^ varint encoding was malformed or overflowed
   | InvalidUtf8
     -- ^ a string field contained invalid UTF-8
+  | InvalidWireType !Int
+    -- ^ wire type id was not one of 0, 1, 2, 5
   deriving (Show, Eq)
 
 
@@ -66,7 +72,15 @@ parseFields = go []
     go !acc bs
       | BS.null bs = Right (reverse acc)
       | otherwise = case decodeTag bs of
-          Nothing -> Left TruncatedInput
+          Nothing ->
+            -- Distinguish truncated input from invalid wire type
+            case decodeVarint bs of
+              Nothing -> Left TruncatedInput
+              Just (val, _) ->
+                let wireId = fromIntegral (val .&. 0x07) :: Int
+                in if wireId `elem` [0, 1, 2, 5]
+                   then Left TruncatedInput
+                   else Left (InvalidWireType wireId)
           Just (fieldNum, wt, rest) -> case parseRawField wt rest of
             Nothing  -> Left TruncatedInput
             Just (raw, rest') -> go ((fieldNum, raw) : acc) rest'
@@ -154,3 +168,36 @@ instance ProtoDecode ByteString where
   protoDecodeValue (RawBytes bs) = Right bs
   protoDecodeValue _ = Left (UnexpectedWireType 0 WireLengthDelimited WireVarint)
   {-# INLINE protoDecodeValue #-}
+
+-- SInt32: varint with zigzag decoding
+instance ProtoDecode SInt32 where
+  protoDecodeValue (RawVarint w) =
+    Right (SInt32 (fromIntegral (zigzagDecode w)))
+  protoDecodeValue _ = Left (UnexpectedWireType 0 WireVarint WireLengthDelimited)
+  {-# INLINE protoDecodeValue #-}
+
+-- SInt64: varint with zigzag decoding
+instance ProtoDecode SInt64 where
+  protoDecodeValue (RawVarint w) =
+    Right (SInt64 (zigzagDecode w))
+  protoDecodeValue _ = Left (UnexpectedWireType 0 WireVarint WireLengthDelimited)
+  {-# INLINE protoDecodeValue #-}
+
+
+-- ===================================================================
+-- Packed repeated field decoding
+-- ===================================================================
+
+-- | Decode packed repeated scalar values from a 'RawBytes' blob.
+-- In proto3, repeated scalar fields may be encoded as a single
+-- length-delimited blob containing all values concatenated.
+-- Returns 'Left' if the blob cannot be fully consumed.
+decodePacked :: ProtoDecode a => (ByteString -> Maybe (a, ByteString)) -> RawField -> Either DecodeError [a]
+decodePacked parser (RawBytes bs) = go bs []
+  where
+    go remaining acc
+      | BS.null remaining = Right (reverse acc)
+      | otherwise = case parser remaining of
+          Just (val, rest) -> go rest (val : acc)
+          Nothing -> Left TruncatedInput
+decodePacked _ _ = Left (UnexpectedWireType 0 WireLengthDelimited WireVarint)

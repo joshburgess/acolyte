@@ -178,6 +178,11 @@ instance {-# OVERLAPPING #-} (KnownNat n, ProtoDecode a)
   {-# INLINE gProtoDecode #-}
 
 -- K1: repeated field — Field n [a]. Collect all occurrences.
+-- Handles both unpacked (each element tagged separately) and packed
+-- (all elements in a single length-delimited blob) wire encodings.
+-- When a 'RawBytes' appears for a repeated field and single-value
+-- decoding fails, the bytes are kept as-is (packed decoding for
+-- specific scalar types should use 'decodePacked' from Decode).
 instance {-# OVERLAPPING #-} (KnownNat n, ProtoDecode a)
   => GProtoDecode (K1 i (Field n [a])) where
   gProtoDecode rfs =

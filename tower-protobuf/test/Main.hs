@@ -10,12 +10,14 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Int (Int32, Int64)
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Word (Word32, Word64)
 import GHC.Generics (Generic)
 
 import Tower.Protobuf
 import Tower.Protobuf.Wire
 import Tower.Protobuf.Encode
+import Tower.Protobuf.Decode (RawField(..), parseFields, DecodeError(..))
 import Tower.Protobuf.Decode
 
 
@@ -63,6 +65,27 @@ data AllDefaults = AllDefaults
   } deriving (Show, Eq, Generic)
 
 instance ProtoMessage AllDefaults
+
+data Address = Address
+  { city :: Field 1 Text
+  , addrZip :: Field 2 Int32
+  } deriving (Show, Eq, Generic)
+
+instance ProtoMessage Address
+
+data Person = Person
+  { pName :: Field 1 Text
+  , pAddr :: Field 2 (Maybe Address)
+  } deriving (Show, Eq, Generic)
+
+instance ProtoMessage Person
+
+data WithRepeatedInt = WithRepeatedInt
+  { riName :: Field 1 Text
+  , riNums :: Field 2 [Int32]
+  } deriving (Show, Eq, Generic)
+
+instance ProtoMessage WithRepeatedInt
 
 
 -- ===================================================================
@@ -628,6 +651,192 @@ testMissingFieldsDefault = do
 
 
 -- ===================================================================
+-- 24. Nested message roundtrip
+-- ===================================================================
+
+testNestedMessageRoundtrip :: IO ()
+testNestedMessageRoundtrip = do
+  putStrLn "=== Nested message roundtrip ==="
+
+  let addr = Address (Field "Springfield") (Field 62704)
+      person = Person (Field "Homer") (Field (Just addr))
+      bs = encode person
+  case decode bs of
+    Right person' -> assert "nested message roundtrip" (person == person')
+    Left err -> error $ "FAIL: nested message roundtrip: " ++ show err
+
+  -- Nested with Nothing
+  let person2 = Person (Field "Bart") (Field Nothing)
+  case decode (encode person2) of
+    Right person2' -> assert "nested message Nothing roundtrip" (person2 == person2')
+    Left err -> error $ "FAIL: nested Nothing roundtrip: " ++ show err
+
+
+-- ===================================================================
+-- 25. Out-of-order field decoding
+-- ===================================================================
+
+testOutOfOrderDecoding :: IO ()
+testOutOfOrderDecoding = do
+  putStrLn "=== Out-of-order field decoding ==="
+
+  -- Manually build bytes with field 2 (Int32, varint) before field 1 (Text, length-delimited)
+  -- Field 2: tag = (2 << 3 | 0) = 16 = 0x10, value = varint 25
+  -- Field 1: tag = (1 << 3 | 2) = 10 = 0x0A, value = length-delimited "Alice"
+  let field2Bytes = buildBS (ProtoBuilder 1 (encodeTag 2 WireVarint))
+                 <> buildBS (ProtoBuilder 1 (encodeVarint 25))
+      field1Bytes = buildBS (ProtoBuilder 1 (encodeTag 1 WireLengthDelimited))
+                 <> buildBS (ProtoBuilder 6 (encodeLengthDelimited "Alice"))
+      outOfOrder = field2Bytes <> field1Bytes
+  case decode @Simple outOfOrder of
+    Right msg -> do
+      assert "out-of-order: name is Alice" (unField (sName msg) == "Alice")
+      assert "out-of-order: age is 25" (unField (sAge msg) == 25)
+    Left err -> error $ "FAIL: out-of-order decode: " ++ show err
+
+
+-- ===================================================================
+-- 26. Duplicate field (last-wins)
+-- ===================================================================
+
+testDuplicateFieldLastWins :: IO ()
+testDuplicateFieldLastWins = do
+  putStrLn "=== Duplicate field (last-wins) ==="
+
+  -- Encode field 1 as "first", then field 2 as 10, then field 1 again as "second"
+  let f1first = buildBS (ProtoBuilder 1 (encodeTag 1 WireLengthDelimited))
+             <> buildBS (ProtoBuilder 6 (encodeLengthDelimited "first"))
+      f2val   = buildBS (ProtoBuilder 1 (encodeTag 2 WireVarint))
+             <> buildBS (ProtoBuilder 1 (encodeVarint 10))
+      f1second = buildBS (ProtoBuilder 1 (encodeTag 1 WireLengthDelimited))
+              <> buildBS (ProtoBuilder 7 (encodeLengthDelimited "second"))
+      combined = f1first <> f2val <> f1second
+  case decode @Simple combined of
+    Right msg -> do
+      assert "duplicate field last-wins: name is 'second'" (unField (sName msg) == "second")
+      assert "duplicate field last-wins: age is 10" (unField (sAge msg) == 10)
+    Left err -> error $ "FAIL: duplicate field decode: " ++ show err
+
+
+-- ===================================================================
+-- 27. Malformed input tests
+-- ===================================================================
+
+testMalformedInput :: IO ()
+testMalformedInput = do
+  putStrLn "=== Malformed input tests ==="
+
+  -- Truncated varint: 0x80 has continuation bit set but no following byte
+  let truncVarint = BS.pack [0x80]
+  case decode @Simple truncVarint of
+    Left _ -> assert "truncated varint returns Left" True
+    Right _ -> assert "truncated varint returns Left" False
+
+  -- Truncated length-delimited: tag for field 1 string + varint length 100 + only 5 bytes
+  let tagBytes = buildBS (ProtoBuilder 1 (encodeTag 1 WireLengthDelimited))
+      lenBytes = buildBS (ProtoBuilder 1 (encodeVarint 100))
+      dataBytes = BS.replicate 5 0x41
+      truncLD = tagBytes <> lenBytes <> dataBytes
+  case decode @Simple truncLD of
+    Left _ -> assert "truncated length-delimited returns Left" True
+    Right _ -> assert "truncated length-delimited returns Left" False
+
+  -- Empty input: decode as Simple -> returns message with all defaults
+  case decode @Simple BS.empty of
+    Right msg -> do
+      assert "empty input: name defaults to ''" (unField (sName msg) == "")
+      assert "empty input: age defaults to 0" (unField (sAge msg) == 0)
+    Left err -> error $ "FAIL: empty input decode: " ++ show err
+
+  -- Single byte 0xFF -> decode returns Left (invalid tag: wire type 7 is unknown)
+  let badByte = BS.pack [0xFF]
+  case decode @Simple badByte of
+    Left _ -> assert "single byte 0xFF returns Left" True
+    Right _ -> assert "single byte 0xFF returns Left" False
+
+
+-- ===================================================================
+-- 28. Overlong varint rejection
+-- ===================================================================
+
+testOverlongVarintRejection :: IO ()
+testOverlongVarintRejection = do
+  putStrLn "=== Overlong varint rejection ==="
+
+  -- Construct a 10-byte varint where byte 10 has bits 1-6 set.
+  -- 9 continuation bytes (0x80) + final byte with high bits: 0x7E (bits 1-6 set)
+  -- This represents a varint that overflows the 64-bit space.
+  let overlongVarint = BS.pack [0x80, 0x80, 0x80, 0x80, 0x80,
+                                0x80, 0x80, 0x80, 0x80, 0x7E]
+  case decodeVarint overlongVarint of
+    Nothing -> assert "overlong varint rejected" True
+    Just _  -> assert "overlong varint rejected" False
+
+  -- A valid 10-byte varint (max Word64) should still decode
+  -- maxBound :: Word64 = 0xFFFFFFFFFFFFFFFF
+  -- As varint: 9 bytes of 0xFF + final byte 0x01
+  let maxVarint = BS.pack [0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                           0xFF, 0xFF, 0xFF, 0xFF, 0x01]
+  case decodeVarint maxVarint of
+    Just (v, rest) -> do
+      assert "max varint decodes correctly" (v == maxBound @Word64)
+      assert "max varint no leftover" (BS.null rest)
+    Nothing -> assert "max varint decodes correctly" False
+
+
+-- ===================================================================
+-- 29. Zigzag encoding of negative values
+-- ===================================================================
+
+testZigzagNegativeEfficiency :: IO ()
+testZigzagNegativeEfficiency = do
+  putStrLn "=== Zigzag negative value efficiency ==="
+
+  -- Small negatives should produce small zigzag-encoded values
+  assert "zigzag(-1) = 1" (zigzagEncode (-1) == 1)
+  assert "zigzag(-2) = 3" (zigzagEncode (-2) == 3)
+  assert "zigzag(-100) = 199" (zigzagEncode (-100) == 199)
+
+  -- Positive values should also be small
+  assert "zigzag(0) = 0" (zigzagEncode 0 == 0)
+  assert "zigzag(1) = 2" (zigzagEncode 1 == 2)
+  assert "zigzag(100) = 200" (zigzagEncode 100 == 200)
+
+  -- Verify zigzag of small negatives uses fewer bytes than plain int encoding
+  -- -1 as Int32 on wire (varint) is 10 bytes (sign-extended to Word64)
+  -- -1 as zigzag -> 1 -> 1 byte
+  let plainNeg1Bytes = BS.length $ runProtoBuilder (protoEncodeValue @Int32 (-1))
+      zigzagNeg1 = zigzagEncode (-1)
+      zigzagVarintSz n
+        | n < 0x80       = 1
+        | n < 0x4000     = 2
+        | otherwise      = 3
+  assert "zigzag(-1) more compact than plain Int32(-1)"
+    (zigzagVarintSz zigzagNeg1 < plainNeg1Bytes)
+
+
+-- ===================================================================
+-- 30. Large message test
+-- ===================================================================
+
+testLargeMessage :: IO ()
+testLargeMessage = do
+  putStrLn "=== Large message test ==="
+
+  -- Create a message with a 10KB Text field and a 100-element repeated Int32 list
+  let bigText = T.replicate 10000 "a"  -- 10KB text
+      nums = map fromIntegral [1..100 :: Int] :: [Int32]
+      msg = WithRepeatedInt (Field bigText) (Field nums)
+      bs = encode msg
+  case decode @WithRepeatedInt bs of
+    Right msg' -> do
+      assert "large message roundtrip" (msg == msg')
+      assert "large text preserved" (T.length (unField (riName msg')) == 10000)
+      assert "repeated list length preserved" (length (unField (riNums msg')) == 100)
+    Left err -> error $ "FAIL: large message roundtrip: " ++ show err
+
+
+-- ===================================================================
 -- Main
 -- ===================================================================
 
@@ -662,6 +871,13 @@ main = do
   testRepeatedRoundtrip
   testDefaultsEncoding
   testMissingFieldsDefault
+  testNestedMessageRoundtrip
+  testOutOfOrderDecoding
+  testDuplicateFieldLastWins
+  testMalformedInput
+  testOverlongVarintRejection
+  testZigzagNegativeEfficiency
+  testLargeMessage
 
   putStrLn (replicate 40 '-')
   putStrLn "All tests passed!"

@@ -50,6 +50,20 @@ data AllDefaults = AllDefaults
 
 instance ProtoMessage AllDefaults
 
+data Address = Address
+  { city :: Field 1 Text
+  , addrZip :: Field 2 Int32
+  } deriving (Show, Eq, Generic)
+
+instance ProtoMessage Address
+
+data Person = Person
+  { pName :: Field 1 Text
+  , pAddr :: Field 2 (Maybe Address)
+  } deriving (Show, Eq, Generic)
+
+instance ProtoMessage Person
+
 
 -- ===================================================================
 -- Generators
@@ -67,6 +81,16 @@ genWithOpt :: Gen WithOpt
 genWithOpt = WithOpt
   <$> (Field <$> genText)
   <*> (Field <$> Gen.maybe genText)
+
+genAddress :: Gen Address
+genAddress = Address
+  <$> (Field <$> genText)
+  <*> (Field <$> Gen.int32 Range.linearBounded)
+
+genPerson :: Gen Person
+genPerson = Person
+  <$> (Field <$> genText)
+  <*> (Field <$> Gen.maybe genAddress)
 
 
 -- ===================================================================
@@ -147,6 +171,26 @@ prop_defaultsProduceEmptyEncoding :: Property
 prop_defaultsProduceEmptyEncoding = property $ do
   let msg = AllDefaults (Field "") (Field 0) (Field False)
   encode msg === BS.empty
+
+-- | For any random Person with random Address, roundtrip succeeds.
+prop_nestedMessageRoundtrip :: Property
+prop_nestedMessageRoundtrip = property $ do
+  msg <- forAll genPerson
+  decode (encode msg) === Right msg
+
+-- | For any random ByteString, decode @Simple never crashes (always returns Left or Right).
+prop_malformedInputDoesNotCrash :: Property
+prop_malformedInputDoesNotCrash = property $ do
+  bs <- forAll $ Gen.bytes (Range.linear 0 500)
+  case decode @Simple bs of
+    Left _  -> success
+    Right _ -> success
+
+-- | For any Int64, zigzag encode/decode roundtrips.
+prop_zigzagInt64Roundtrip :: Property
+prop_zigzagInt64Roundtrip = property $ do
+  n <- forAll $ Gen.int64 Range.linearBounded
+  zigzagDecode (zigzagEncode n) === n
 
 
 -- ===================================================================

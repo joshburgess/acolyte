@@ -101,17 +101,19 @@ encodeVarint n
 {-# INLINE encodeVarint #-}
 
 -- | Decode a varint. Returns (value, remaining bytes).
+-- Rejects overlong encodings (more than 10 bytes or invalid high bits
+-- in the 10th byte).
 decodeVarint :: ByteString -> Maybe (Word64, ByteString)
 decodeVarint = go 0 0
   where
-    go !acc !shft !bs
-      | BS.null bs = Nothing
-      | otherwise  =
-        let b = BS.index bs 0
-            rest = BS.drop 1 bs
-            val = acc .|. (fromIntegral (b .&. 0x7F) `shiftL` shft)
+    go !acc !shft !bs = case BS.uncons bs of
+      Nothing -> Nothing
+      Just (b, rest) ->
+        let val = acc .|. (fromIntegral (b .&. 0x7F) `shiftL` shft)
         in if b .&. 0x80 == 0
-           then Just (val, rest)
+           then if shft == 63 && (b .&. 0x7E) /= 0
+                then Nothing  -- reject overlong encoding at byte 10
+                else Just (val, rest)
            else if shft >= 63
                 then Nothing  -- overflow protection
                 else go val (shft + 7) rest

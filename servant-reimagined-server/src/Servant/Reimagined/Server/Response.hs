@@ -10,6 +10,7 @@ module Servant.Reimagined.Server.Response
   ) where
 
 import Data.ByteString (ByteString)
+import qualified Data.ByteString.Builder.Extra as Builder
 import qualified Data.ByteString.Lazy as LBS
 import Data.Text (Text)
 import qualified Data.Text.Encoding as TE
@@ -85,7 +86,11 @@ newtype Json a = Json { unJson :: a }
 
 instance Aeson.ToJSON a => IntoResponse (Json a) where
   intoResponse (Json val) =
-    let body = LBS.toStrict (Aeson.encode val)
+    let body = LBS.toStrict
+             $ Builder.toLazyByteStringWith
+                 (Builder.safeStrategy 256 256)
+                 LBS.empty
+             $ Aeson.fromEncoding (Aeson.toEncoding val)
     in Response status200 [("Content-Type", "application/json")] body
 
 

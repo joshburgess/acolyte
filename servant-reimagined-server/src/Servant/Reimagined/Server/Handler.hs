@@ -182,9 +182,10 @@ instance (KnownSymbol s, ReflectPath rest) => ReflectPath ('Lit s ': rest) where
 
 instance ReflectPath rest => ReflectPath ('Capture t ': rest) where
   reflectPattern = "/{capture}" <> reflectPattern @rest
-  reflectMatch (seg : segs) = do
-    MatchResult caps <- reflectMatch @rest segs
-    Just (MatchResult (seg : caps))
+  reflectMatch (seg : segs) =
+    case reflectMatch @rest segs of
+      Just (MatchResult caps) -> Just (MatchResult (seg : caps))
+      Nothing                 -> Nothing
   reflectMatch [] = Nothing
 
 

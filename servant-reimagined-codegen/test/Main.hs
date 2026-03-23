@@ -7,7 +7,6 @@ import Data.Text (Text)
 import qualified Data.Text as T
 
 import Servant.Reimagined.Codegen
-import Servant.Reimagined.Codegen.Proto
 
 
 assert :: String -> Bool -> IO ()
@@ -333,6 +332,98 @@ testProtoCodeGen = do
       assert "proto codegen: has handler stubs" (T.isInfixOf "TODO: implement" code)
 
 
+-- ===================================================================
+-- Proto diff tests
+-- ===================================================================
+
+-- A modified version: removed SayGoodbye, changed SayHello output,
+-- added a new RPC, added a new message, removed a field, changed a field type.
+testProtoTextNew :: Text
+testProtoTextNew = T.unlines
+  [ "syntax = \"proto3\";"
+  , "package test;"
+  , ""
+  , "service Greeter {"
+  , "  rpc SayHello (HelloRequest) returns (HelloResponse);"  -- output changed
+  , "  rpc SayHi (HelloRequest) returns (HelloReply);"        -- new RPC
+  , "}"                                                        -- SayGoodbye removed
+  , ""
+  , "service Notifier {"                                       -- new service
+  , "  rpc Notify (HelloRequest) returns (HelloReply);"
+  , "}"
+  , ""
+  , "message HelloRequest {"
+  , "  int32 name = 1;"                                        -- type changed: string -> int32
+  , "  int32 age = 2;"
+  , "  repeated string tags = 3;"
+  , "}"                                                        -- nickname field removed
+  , ""
+  , "message HelloReply {"
+  , "  string message = 1;"
+  , "}"
+  , ""
+  , "message HelloResponse {"                                  -- new message
+  , "  string greeting = 1;"
+  , "}"
+  , ""
+  , "enum Status {"
+  , "  UNKNOWN = 0;"
+  , "  ACTIVE = 1;"
+  , "  INACTIVE = 2;"
+  , "}"
+  ]
+
+testProtoDiff :: IO ()
+testProtoDiff = do
+  case (parseProtoText testProtoText, parseProtoText testProtoTextNew) of
+    (Left err, _) -> error $ "FAIL: old proto parse error: " ++ show err
+    (_, Left err) -> error $ "FAIL: new proto parse error: " ++ show err
+    (Right oldPf, Right newPf) -> do
+      let diffs = diffProtos oldPf newPf
+
+      assert "diff: has diffs" (not (null diffs))
+
+      -- Breaking: SayGoodbye removed
+      assert "diff: RPC removed is breaking" $
+        any (\d -> T.isInfixOf "SayGoodbye" (pdDescription d) && pdSeverity d == Breaking) diffs
+
+      -- Breaking: SayHello output type changed
+      assert "diff: RPC output changed is breaking" $
+        any (\d -> T.isInfixOf "output type changed" (pdDescription d) && pdSeverity d == Breaking) diffs
+
+      -- Breaking: HelloRequest.name type changed
+      assert "diff: field type changed is breaking" $
+        any (\d -> T.isInfixOf "Field type changed" (pdDescription d)
+                && T.isInfixOf "name" (pdDescription d)
+                && pdSeverity d == Breaking) diffs
+
+      -- Breaking: HelloRequest.nickname removed
+      assert "diff: field removed is breaking" $
+        any (\d -> T.isInfixOf "Field removed" (pdDescription d)
+                && T.isInfixOf "nickname" (pdDescription d)
+                && pdSeverity d == Breaking) diffs
+
+      -- Non-breaking: SayHi added
+      assert "diff: RPC added is non-breaking" $
+        any (\d -> T.isInfixOf "SayHi" (pdDescription d) && pdSeverity d == NonBreaking) diffs
+
+      -- Non-breaking: Notifier service added
+      assert "diff: service added is non-breaking" $
+        any (\d -> T.isInfixOf "Notifier" (pdDescription d) && pdSeverity d == NonBreaking) diffs
+
+      -- Non-breaking: HelloResponse message added
+      assert "diff: message added is non-breaking" $
+        any (\d -> T.isInfixOf "HelloResponse" (pdDescription d) && pdSeverity d == NonBreaking) diffs
+
+testProtoDiffIdentical :: IO ()
+testProtoDiffIdentical = do
+  case parseProtoText testProtoText of
+    Left err -> error $ "FAIL: proto parse error: " ++ show err
+    Right pf -> do
+      let diffs = diffProtos pf pf
+      assert "diff identical: no diffs" (null diffs)
+
+
 main :: IO ()
 main = do
   putStrLn "servant-reimagined-codegen tests:"
@@ -357,5 +448,11 @@ main = do
   putStrLn ""
   putStrLn "Proto3 code generation:"
   testProtoCodeGen
+  putStrLn ""
+  putStrLn "Proto diff (breaking/non-breaking):"
+  testProtoDiff
+  putStrLn ""
+  putStrLn "Proto diff (identical):"
+  testProtoDiffIdentical
   putStrLn ""
   putStrLn "All servant-reimagined-codegen tests passed."

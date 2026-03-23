@@ -7,11 +7,14 @@ import qualified Data.ByteString.Char8 as BS8
 import qualified Data.CaseInsensitive as CI
 import Data.Text (Text)
 import qualified Data.Text as T
+import Data.Bits (shiftL)
+import Data.Word (Word32)
 import qualified Network.HTTP.Types as HTTP
 
 import Tower.Service (Service (..))
 import Http.Core
 
+import Tower.Layer (applyLayer)
 import Tower.Grpc
 
 
@@ -800,6 +803,189 @@ upperHandler payloads = pure $ Right (map (\p -> "UPPER:" <> p) payloads)
 
 
 -- ===================================================================
+-- gRPC-Web tests
+-- ===================================================================
+
+testGrpcWeb :: IO ()
+testGrpcWeb = do
+  putStrLn "\ngRPC-Web:"
+
+  -- Build a gRPC service wrapped with the gRPC-Web layer
+  let services = grpcServiceMap
+        [ ("test.Echo", "Echo", unaryHandler echoHandler)
+        ]
+  let svc = applyLayer grpcWebLayer (grpcServer services)
+
+  -- 1. gRPC-Web content-type is rewritten so the inner service handles it
+  resp1 <- callRawWithCT svc "application/grpc-web" "/test.Echo/Echo" (encodeMessage "web-hello")
+  assert "grpc-web: status 200" (HTTP.statusCode (responseStatus resp1) == 200)
+
+  -- 2. Response content-type should be application/grpc-web+proto
+  let ct1 = lookup "content-type" (responseHeaders resp1)
+  assert "grpc-web: response content-type is grpc-web+proto"
+    (ct1 == Just "application/grpc-web+proto")
+
+  -- 3. grpc-status and grpc-message should NOT be in headers (moved to body)
+  assert "grpc-web: grpc-status not in headers"
+    (lookup "grpc-status" (responseHeaders resp1) == Nothing)
+
+  -- 4. Body should contain the original message frame + trailer frame
+  body1 <- bodyToStrict (responseBody resp1)
+  -- Decode the first message (the actual response)
+  case decodeMessage body1 of
+    Just (msg, rest) -> do
+      assert "grpc-web: payload correct" (gmPayload msg == "ECHO:web-hello")
+      -- The rest should be a trailer frame starting with 0x80
+      assert "grpc-web: trailer frame present" (not (BS.null rest))
+      assert "grpc-web: trailer flag is 0x80" (BS.index rest 0 == 0x80)
+      -- Decode the trailer frame
+      let trailerLen = decodeWord32BE (BS.take 4 (BS.drop 1 rest))
+          trailerData = BS.drop 5 rest
+      assert "grpc-web: trailer length matches" (fromIntegral (BS.length trailerData) == trailerLen)
+      -- Trailer should contain grpc-status: 0
+      assert "grpc-web: trailer contains grpc-status"
+        (BS.isInfixOf "grpc-status: 0" trailerData)
+    Nothing -> error "FAIL: could not decode grpc-web response body"
+
+  -- 5. application/grpc-web+proto also works
+  resp2 <- callRawWithCT svc "application/grpc-web+proto" "/test.Echo/Echo" (encodeMessage "proto")
+  ct2 <- pure $ lookup "content-type" (responseHeaders resp2)
+  assert "grpc-web+proto: response content-type is grpc-web+proto"
+    (ct2 == Just "application/grpc-web+proto")
+
+  -- 6. Regular gRPC passes through unmodified
+  resp3 <- callRaw svc "application/grpc+proto" "/test.Echo/Echo" (encodeMessage "native")
+  assert "native grpc: grpc-status in headers"
+    (lookup "grpc-status" (responseHeaders resp3) == Just "0")
+  assert "native grpc: content-type unchanged"
+    (lookup "content-type" (responseHeaders resp3) == Just "application/grpc+proto")
+
+  -- 7. Error responses also encode trailers in body
+  let errServices = grpcServiceMap
+        [ ("test.Err", "Boom", unaryHandler (\_ -> pure (Left (grpcInternal "kaboom"))))
+        ]
+  let errSvc = applyLayer grpcWebLayer (grpcServer errServices)
+  resp4 <- callRawWithCT errSvc "application/grpc-web" "/test.Err/Boom" (encodeMessage "x")
+  assert "grpc-web error: grpc-status not in headers"
+    (lookup "grpc-status" (responseHeaders resp4) == Nothing)
+  body4 <- bodyToStrict (responseBody resp4)
+  -- Even for error responses, trailers should be in the body
+  -- The body may be empty (trailers-only) but the trailer frame should exist
+  assert "grpc-web error: trailer frame in body" (BS.isInfixOf "grpc-status: 13" body4)
+  assert "grpc-web error: grpc-message in trailer" (BS.isInfixOf "grpc-message: kaboom" body4)
+
+
+-- | Helper to decode a big-endian Word32 from 4 bytes (for test use)
+decodeWord32BE :: ByteString -> Word32
+decodeWord32BE bs =
+  let b0 = fromIntegral (BS.index bs 0) :: Word32
+      b1 = fromIntegral (BS.index bs 1) :: Word32
+      b2 = fromIntegral (BS.index bs 2) :: Word32
+      b3 = fromIntegral (BS.index bs 3) :: Word32
+  in (b0 `shiftL` 24) + (b1 `shiftL` 16) + (b2 `shiftL` 8) + b3
+
+-- | Send a request with specific content-type (CI headers).
+callRawWithCT
+  :: Service IO (Request Body) (Response Body)
+  -> ByteString -> ByteString -> ByteString
+  -> IO (Response Body)
+callRawWithCT (Service handler) ct path body = do
+  exts <- emptyExtensions
+  let req = Request
+        { requestMethod     = "POST"
+        , requestPathRaw    = path
+        , requestPath       = []
+        , requestQuery      = []
+        , requestHeaders    = [(CI.mk "content-type", ct)]
+        , requestBody       = fromBytes body
+        , requestExtensions = exts
+        }
+  handler req
+
+
+-- ===================================================================
+-- Error details tests
+-- ===================================================================
+
+testErrorDetails :: IO ()
+testErrorDetails = do
+  putStrLn "\nError details:"
+
+  -- 1. richError constructs a RichGrpcStatus
+  let rich = richError (grpcInvalidArgument "bad input")
+        [ DetailBadRequest $ BadRequest
+            [ FieldViolation "name" "must not be empty"
+            , FieldViolation "age" "must be positive"
+            ]
+        ]
+  assert "richError: status code 3" (gsCode (rsStatus rich) == 3)
+  assert "richError: message" (gsMessage (rsStatus rich) == "bad input")
+  assert "richError: 1 detail" (length (rsDetails rich) == 1)
+
+  -- 2. encodeDetails produces valid-looking JSON
+  let json = encodeDetails (rsDetails rich)
+  assert "encodeDetails: starts with [" (T.isPrefixOf "[" json)
+  assert "encodeDetails: ends with ]" (T.isSuffixOf "]" json)
+  assert "encodeDetails: contains BadRequest" (T.isInfixOf "BadRequest" json)
+  assert "encodeDetails: contains field name" (T.isInfixOf "\"name\"" json)
+  assert "encodeDetails: contains must not be empty" (T.isInfixOf "must not be empty" json)
+
+  -- 3. richErrorResponse produces a GrpcError
+  let resp = richErrorResponse rich
+  case resp of
+    GrpcError status -> do
+      assert "richErrorResponse: status code 3" (gsCode status == 3)
+      assert "richErrorResponse: message contains details"
+        (T.isInfixOf "[details:" (gsMessage status))
+      assert "richErrorResponse: message contains BadRequest"
+        (T.isInfixOf "BadRequest" (gsMessage status))
+    _ -> error "FAIL: richErrorResponse should produce GrpcError"
+
+  -- 4. All detail types encode properly
+  let allDetails =
+        [ DetailBadRequest $ BadRequest [FieldViolation "f" "d"]
+        , DetailDebugInfo $ DebugInfo ["frame1", "frame2"] "crash"
+        , DetailRetryInfo $ RetryInfo 5000
+        , DetailHelp $ Help [HelpLink "docs" "https://example.com"]
+        , DetailResource $ ResourceInfo "bucket" "my-bucket" "admin" "not found"
+        ]
+  let allJson = encodeDetails allDetails
+  assert "all details: contains DebugInfo" (T.isInfixOf "DebugInfo" allJson)
+  assert "all details: contains RetryInfo" (T.isInfixOf "RetryInfo" allJson)
+  assert "all details: contains retry_delay_ms" (T.isInfixOf "\"retry_delay_ms\":5000" allJson)
+  assert "all details: contains Help" (T.isInfixOf "Help" allJson)
+  assert "all details: contains ResourceInfo" (T.isInfixOf "ResourceInfo" allJson)
+  assert "all details: contains resource_type" (T.isInfixOf "\"resource_type\":\"bucket\"" allJson)
+  assert "all details: contains url" (T.isInfixOf "https://example.com" allJson)
+
+  -- 5. Empty details list produces no detail annotation
+  let emptyRich = richError (grpcNotFound "nope") []
+  let emptyResp = richErrorResponse emptyRich
+  case emptyResp of
+    GrpcError status -> do
+      assert "empty details: status code 5" (gsCode status == 5)
+      assert "empty details: message unchanged" (gsMessage status == "nope")
+    _ -> error "FAIL: empty richErrorResponse should produce GrpcError"
+
+  -- 6. JSON escaping works
+  let escapeDetail = DetailDebugInfo $ DebugInfo [] "line1\nline2\ttab\"quote"
+  let escapeJson = encodeDetails [escapeDetail]
+  assert "json escape: newline escaped" (T.isInfixOf "\\n" escapeJson)
+  assert "json escape: tab escaped" (T.isInfixOf "\\t" escapeJson)
+  assert "json escape: quote escaped" (T.isInfixOf "\\\"quote" escapeJson)
+
+  -- 7. Eq and Show instances work
+  let rich2 = richError (grpcInvalidArgument "bad input")
+        [ DetailBadRequest $ BadRequest
+            [ FieldViolation "name" "must not be empty"
+            , FieldViolation "age" "must be positive"
+            ]
+        ]
+  assert "Eq: identical RichGrpcStatus" (rich == rich2)
+  assert "Show: non-empty" (not (null (show rich)))
+
+
+-- ===================================================================
 -- Main
 -- ===================================================================
 
@@ -822,4 +1008,6 @@ main = do
   testCompression
   testClientStreamingExtended
   testBidiStreamingExtended
+  testGrpcWeb
+  testErrorDetails
   putStrLn "\nAll tower-grpc tests passed."

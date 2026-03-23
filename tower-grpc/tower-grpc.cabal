@@ -30,6 +30,8 @@ library
     Tower.Grpc.Reflection
     Tower.Grpc.Health
     Tower.Grpc.Compression
+    Tower.Grpc.Web
+    Tower.Grpc.ErrorDetails
 
   build-depends:
       base               >= 4.20 && < 5

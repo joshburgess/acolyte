@@ -29,6 +29,10 @@ module Servant.Reimagined.Codegen
   , ProtoField (..)
   , ProtoEnum (..)
   , ProtoParseError (..)
+    -- * Proto diffing
+  , diffProtos
+  , ProtoDiff (..)
+  , DiffSeverity (..)
     -- * IR
   , ApiIR (..)
   , EndpointIR (..)
@@ -53,6 +57,7 @@ import Servant.Reimagined.Codegen.IR
 import Servant.Reimagined.Codegen.Parse
 import Servant.Reimagined.Codegen.Emit
 import Servant.Reimagined.Codegen.Proto
+import Servant.Reimagined.Codegen.ProtoDiff
 
 
 -- | Read and parse a spec file. Supports both JSON and YAML.

@@ -30,6 +30,14 @@ module Tower.Http
   , CompressionConfig (..)
   , defaultCompression
   , compressionLayer
+
+    -- * Static files
+  , StaticConfig (..)
+  , defaultStaticConfig
+  , staticFilesLayer
+
+    -- * SPA fallback
+  , spaFallbackLayer
   ) where
 
 import Tower.Http.SecureHeaders
@@ -38,3 +46,4 @@ import Tower.Http.Trace
 import Tower.Http.Cors
 import Tower.Http.Timeout
 import Tower.Http.Compression
+import Tower.Http.Static

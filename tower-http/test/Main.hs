@@ -6,7 +6,9 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.IORef
 import Data.List (lookup)
-import Network.HTTP.Types (status200, status204, status408, methodGet, methodPost, statusCode)
+import Network.HTTP.Types (status200, status204, status404, status408, methodGet, methodPost, statusCode)
+import System.Directory (createDirectoryIfMissing, removeDirectoryRecursive, getTemporaryDirectory)
+import System.FilePath ((</>))
 
 import Tower
 import Tower.Http
@@ -269,6 +271,99 @@ testTimeout = do
 
 
 -- ===================================================================
+-- Static file serving tests
+-- ===================================================================
+
+-- | A 404 inner service for static file tests.
+notFoundService :: Service IO (Request ByteString) (Response ByteString)
+notFoundService = Service $ \_ -> pure (notFound [] "not found")
+
+testStaticFiles :: IO ()
+testStaticFiles = do
+  -- Set up temp directory with a test file
+  tmpBase <- getTemporaryDirectory
+  let tmpDir = tmpBase </> "tower-http-static-test"
+  createDirectoryIfMissing True tmpDir
+  BS.writeFile (tmpDir </> "test.txt") "hello static"
+  BS.writeFile (tmpDir </> "style.css") "body{}"
+
+  let cfg = defaultStaticConfig "/static" tmpDir
+      svc = notFoundService |> staticFilesLayer cfg
+
+  -- Serve existing file with correct content-type
+  req1 <- mkReq methodGet "/static/test.txt"
+  resp1 <- runService svc req1
+  assert "static: serves existing file" (statusCode (responseStatus resp1) == 200)
+  assert "static: correct body" (responseBody resp1 == "hello static")
+  assert "static: text/plain content-type" (lookup "Content-Type" (responseHeaders resp1) == Just "text/plain")
+
+  -- Serve CSS with correct content-type
+  req2 <- mkReq methodGet "/static/style.css"
+  resp2 <- runService svc req2
+  assert "static: CSS content-type" (lookup "Content-Type" (responseHeaders resp2) == Just "text/css")
+
+  -- Non-existent file falls through to inner service
+  req3 <- mkReq methodGet "/static/nonexistent.txt"
+  resp3 <- runService svc req3
+  assert "static: nonexistent falls through" (statusCode (responseStatus resp3) == 404)
+
+  -- Directory traversal is rejected
+  req4 <- mkReq methodGet "/static/../etc/passwd"
+  resp4 <- runService svc req4
+  assert "static: traversal rejected" (statusCode (responseStatus resp4) == 400)
+
+  -- Non-matching prefix falls through
+  req5 <- mkReq methodGet "/other/test.txt"
+  resp5 <- runService svc req5
+  assert "static: non-matching prefix falls through" (statusCode (responseStatus resp5) == 404)
+
+  -- Cleanup
+  removeDirectoryRecursive tmpDir
+
+
+-- ===================================================================
+-- SPA fallback tests
+-- ===================================================================
+
+testSpaFallback :: IO ()
+testSpaFallback = do
+  -- Set up temp directory with index.html
+  tmpBase <- getTemporaryDirectory
+  let tmpDir = tmpBase </> "tower-http-spa-test"
+  createDirectoryIfMissing True tmpDir
+  BS.writeFile (tmpDir </> "index.html") "<html>SPA</html>"
+
+  let svc = notFoundService |> spaFallbackLayer tmpDir
+
+  -- SPA route (no extension, not /api) -> serve index.html
+  req1 <- mkReq methodGet "/dashboard"
+  resp1 <- runService svc req1
+  assert "spa: fallback serves index.html" (statusCode (responseStatus resp1) == 200)
+  assert "spa: correct body" (responseBody resp1 == "<html>SPA</html>")
+  assert "spa: html content-type" (lookup "Content-Type" (responseHeaders resp1) == Just "text/html")
+
+  -- File-like path (has extension) -> no fallback
+  req2 <- mkReq methodGet "/bundle.js"
+  resp2 <- runService svc req2
+  assert "spa: file path not intercepted" (statusCode (responseStatus resp2) == 404)
+
+  -- API path -> no fallback
+  req3 <- mkReq methodGet "/api/users"
+  resp3 <- runService svc req3
+  assert "spa: API path not intercepted" (statusCode (responseStatus resp3) == 404)
+
+  -- Inner service returns 200 -> no fallback
+  let okSvc = echoService |> spaFallbackLayer tmpDir
+  req4 <- mkReq methodGet "/dashboard"
+  resp4 <- runService okSvc req4
+  assert "spa: 200 passes through" (statusCode (responseStatus resp4) == 200)
+  assert "spa: 200 body unchanged" (responseBody resp4 == "ok")
+
+  -- Cleanup
+  removeDirectoryRecursive tmpDir
+
+
+-- ===================================================================
 -- Main
 -- ===================================================================
 
@@ -296,5 +391,11 @@ main = do
   putStrLn ""
   putStrLn "Timeout:"
   testTimeout
+  putStrLn ""
+  putStrLn "Static files:"
+  testStaticFiles
+  putStrLn ""
+  putStrLn "SPA fallback:"
+  testSpaFallback
   putStrLn ""
   putStrLn "All tower-http tests passed."

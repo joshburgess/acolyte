@@ -24,6 +24,7 @@ library
     Servant.Reimagined.Codegen.IR
     Servant.Reimagined.Codegen.Emit
     Servant.Reimagined.Codegen.Proto
+    Servant.Reimagined.Codegen.ProtoDiff
     Servant.Reimagined.Codegen.Scaffold
 
   build-depends:

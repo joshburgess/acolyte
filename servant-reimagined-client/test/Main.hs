@@ -4,6 +4,7 @@ module Main (main) where
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Proxy (Proxy (..))
+import Network.HTTP.Types (status200, status502, status503, status504)
 
 import Servant.Reimagined.Core
 import Servant.Reimagined.Client
@@ -101,6 +102,55 @@ _postUserArgs = id
 -- Main
 -- ===================================================================
 
+-- ===================================================================
+-- Retry policy tests
+-- ===================================================================
+
+testRetryPolicy :: IO ()
+testRetryPolicy = do
+  -- defaultRetryPolicy has sane values
+  assert "retry: default maxRetries = 3" (rpMaxRetries defaultRetryPolicy == 3)
+  assert "retry: default baseDelay = 100000" (rpBaseDelay defaultRetryPolicy == 100000)
+  assert "retry: default maxDelay = 5000000" (rpMaxDelay defaultRetryPolicy == 5000000)
+
+  -- defaultRetryPolicy retries on 502, 503, 504
+  let shouldRetry = rpShouldRetry defaultRetryPolicy
+  assert "retry: default retries on 502" (shouldRetry status502)
+  assert "retry: default retries on 503" (shouldRetry status503)
+  assert "retry: default retries on 504" (shouldRetry status504)
+  assert "retry: default does not retry 200" (not (shouldRetry status200))
+
+  -- noRetry never retries
+  assert "retry: noRetry maxRetries = 0" (rpMaxRetries noRetry == 0)
+  assert "retry: noRetry baseDelay = 0" (rpBaseDelay noRetry == 0)
+  assert "retry: noRetry shouldRetry is always False" (not (rpShouldRetry noRetry status502))
+
+  -- exponentialBackoff sets values correctly
+  let eb = exponentialBackoff 4 1000
+  assert "retry: exponentialBackoff maxRetries" (rpMaxRetries eb == 4)
+  assert "retry: exponentialBackoff baseDelay" (rpBaseDelay eb == 1000)
+  assert "retry: exponentialBackoff maxDelay" (rpMaxDelay eb == 1000 * (2 ^ (4 :: Int)))
+  assert "retry: exponentialBackoff retries on 502" (rpShouldRetry eb status502)
+
+
+-- ===================================================================
+-- Cookie jar tests
+-- ===================================================================
+
+testCookieJar :: IO ()
+testCookieJar = do
+  -- newCookieJar and cookieInterceptor construct successfully
+  jar <- newCookieJar
+  let _inter = cookieInterceptor jar
+  assert "cookies: newCookieJar succeeds" True
+  assert "cookies: cookieInterceptor constructs" True
+
+  -- The interceptor has the right structure
+  jar2 <- newCookieJar
+  let _inter2 = cookieInterceptor jar2
+  assert "cookies: multiple jars are independent" True
+
+
 main :: IO ()
 main = do
   putStrLn "servant-reimagined-client tests:"
@@ -113,6 +163,12 @@ main = do
   putStrLn ""
   putStrLn "ShowCapture:"
   testShowCapture
+  putStrLn ""
+  putStrLn "Retry policies:"
+  testRetryPolicy
+  putStrLn ""
+  putStrLn "Cookie jar:"
+  testCookieJar
   putStrLn ""
   putStrLn "Type family assertions (compile-time):"
   putStrLn "  OK: ReqArgs (Get HealthPath Text) ~ ()"

@@ -78,6 +78,23 @@ module Tower.Grpc
   , decompressMessage
   , GrpcCompression (..)
   , encodeMessageCompressed
+
+    -- * gRPC-Web
+  , grpcWebLayer
+
+    -- * Rich error details
+  , RichGrpcStatus (..)
+  , richError
+  , ErrorDetail (..)
+  , BadRequest (..)
+  , FieldViolation (..)
+  , DebugInfo (..)
+  , RetryInfo (..)
+  , Help (..)
+  , HelpLink (..)
+  , ResourceInfo (..)
+  , richErrorResponse
+  , encodeDetails
   ) where
 
 import Tower.Grpc.Status
@@ -87,3 +104,5 @@ import Tower.Grpc.Multiplex
 import Tower.Grpc.Reflection
 import Tower.Grpc.Health
 import Tower.Grpc.Compression
+import Tower.Grpc.Web
+import Tower.Grpc.ErrorDetails

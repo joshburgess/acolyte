@@ -14,6 +14,7 @@ import qualified Data.Text.IO as TIO
 import Servant.Reimagined.Codegen
 import Servant.Reimagined.Codegen.Scaffold
 import Servant.Reimagined.Codegen.Proto (parseProtoFile, protoToIR)
+import Servant.Reimagined.Codegen.ProtoDiff (diffProtos, ProtoDiff (..), DiffSeverity (..))
 
 
 main :: IO ()
@@ -22,6 +23,7 @@ main = do
   case args of
     ("scaffold" : rest) -> runScaffold rest
     ("generate" : rest) -> runGenerate rest
+    ("diff" : rest)     -> runDiff rest
     (f:rest) | not ("-" `isPrefixOf` f) -> runGenerate (f:rest)  -- default to generate
     _ -> usage
 
@@ -39,6 +41,9 @@ usage = do
   putStrLn ""
   putStrLn "  scaffold <spec> --name <project-name> [--dir <output-dir>]"
   putStrLn "    Generate a complete cabal project from a spec."
+  putStrLn ""
+  putStrLn "  diff <old.proto> <new.proto>"
+  putStrLn "    Compare two proto files and report breaking/non-breaking changes."
   putStrLn ""
   putStrLn "Supports JSON, YAML, and proto3. Swagger 2.0 and OpenAPI 3.x auto-detected."
   exitFailure
@@ -87,6 +92,26 @@ runScaffold args = case args of
               , scaffoldDir  = dir
               }
         scaffoldProject cfg api
+
+
+runDiff :: [String] -> IO ()
+runDiff (oldFile:newFile:_) = do
+  oldResult <- parseProtoFile oldFile
+  newResult <- parseProtoFile newFile
+  case (oldResult, newResult) of
+    (Left err, _) -> putStrLn ("Error parsing old file: " ++ show err) >> exitFailure
+    (_, Left err) -> putStrLn ("Error parsing new file: " ++ show err) >> exitFailure
+    (Right oldProto, Right newProto) -> do
+      let diffs = diffProtos oldProto newProto
+      if null diffs
+        then putStrLn "No differences found."
+        else mapM_ printDiff diffs
+  where
+    printDiff (ProtoDiff sev desc) =
+      TIO.putStrLn $ severityTag sev <> " " <> desc
+    severityTag Breaking    = "[BREAKING]"
+    severityTag NonBreaking  = "[non-breaking]"
+runDiff _ = usage
 
 
 -- ===================================================================

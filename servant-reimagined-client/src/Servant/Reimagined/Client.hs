@@ -19,6 +19,16 @@ module Servant.Reimagined.Client
     -- * Interceptors
   , Interceptor (..)
   , noInterceptor
+    -- * Retry policies
+  , RetryPolicy (..)
+  , defaultRetryPolicy
+  , noRetry
+  , exponentialBackoff
+  , withRetry
+    -- * Cookie management
+  , CookieJar
+  , newCookieJar
+  , cookieInterceptor
     -- * Path building
   , BuildPath (..)
   , ShowCapture (..)
@@ -27,3 +37,5 @@ module Servant.Reimagined.Client
 
 import Servant.Reimagined.Client.Core
 import Servant.Reimagined.Client.Call
+import Servant.Reimagined.Client.Retry
+import Servant.Reimagined.Client.Cookies

@@ -879,6 +879,197 @@ testWireCompatibility = do
 
 
 -- ===================================================================
+-- 31b. Negative Int32 wire compatibility
+-- ===================================================================
+
+testNegativeInt32Wire :: IO ()
+testNegativeInt32Wire = do
+  putStrLn "=== Negative Int32 wire compatibility ==="
+
+  -- Proto3 encodes negative int32 as 10-byte varint (sign-extended to 64 bits).
+  -- Simple { sName = Field "test", sAge = Field (-1) }
+  -- Field 1 (Text "test"): tag = 0x0A (field 1, wire type 2), length = 4, "test" = 74 65 73 74
+  -- Field 2 (Int32 -1):    tag = 0x10 (field 2, wire type 0),
+  --   value = varint(0xFFFFFFFFFFFFFFFF) = FF FF FF FF FF FF FF FF FF 01 (10 bytes)
+  let msg = Simple (Field "test") (Field (-1))
+      encoded = encode msg
+      expected = BS.pack
+        [ 0x0A, 0x04, 0x74, 0x65, 0x73, 0x74  -- field 1: "test"
+        , 0x10                                  -- field 2: tag
+        , 0xFF, 0xFF, 0xFF, 0xFF, 0xFF          -- 10-byte varint for -1
+        , 0xFF, 0xFF, 0xFF, 0xFF, 0x01          -- (sign-extended to 64 bits)
+        ]
+  assert "negative int32: encode matches proto3 spec" (encoded == expected)
+
+  -- Reverse: decode known bytes
+  case decode @Simple expected of
+    Right msg' -> do
+      assert "negative int32: decode name" (unField (sName msg') == "test")
+      assert "negative int32: decode age" (unField (sAge msg') == -1)
+    Left err -> error $ "FAIL: negative int32 decode: " ++ show err
+
+
+-- ===================================================================
+-- 31c. Bool field wire format
+-- ===================================================================
+
+testBoolWireFormat :: IO ()
+testBoolWireFormat = do
+  putStrLn "=== Bool field wire format ==="
+
+  -- true encodes as varint 1; false is omitted (proto3 default)
+  -- AllDefaults { dName = "", dAge = 0, dFlag = True }
+  -- name="" -> skipped, age=0 -> skipped
+  -- field 3 (Bool True): tag = 0x18 (field 3, wire type 0), value = varint 1 = 0x01
+  let msgTrue = AllDefaults (Field "") (Field 0) (Field True)
+      encodedTrue = encode msgTrue
+      expectedTrue = BS.pack [0x18, 0x01]
+  assert "bool true: encode matches proto3 spec" (encodedTrue == expectedTrue)
+
+  case decode @AllDefaults expectedTrue of
+    Right msg' -> do
+      assert "bool true: decode flag" (unField (dFlag msg') == True)
+      assert "bool true: decode name default" (unField (dName msg') == "")
+      assert "bool true: decode age default" (unField (dAge msg') == 0)
+    Left err -> error $ "FAIL: bool true decode: " ++ show err
+
+  -- false is proto3 default -> all-default message encodes to empty
+  let msgFalse = AllDefaults (Field "") (Field 0) (Field False)
+      encodedFalse = encode msgFalse
+  assert "bool false: omitted on wire (empty bytes)" (BS.null encodedFalse)
+
+
+-- ===================================================================
+-- 31d. Empty string field wire format
+-- ===================================================================
+
+testEmptyStringWire :: IO ()
+testEmptyStringWire = do
+  putStrLn "=== Empty string field wire format ==="
+
+  -- Proto3: "" is default for string, so present-but-empty is omitted.
+  -- Simple { sName = "", sAge = 42 }
+  -- name="" -> skipped, age=42 -> tag=0x10, varint 42=0x2A
+  let msg = Simple (Field "") (Field 42)
+      encoded = encode msg
+      expected = BS.pack [0x10, 0x2A]
+  assert "empty string: omitted on wire" (encoded == expected)
+
+  case decode @Simple expected of
+    Right msg' -> do
+      assert "empty string: decode name defaults to ''" (unField (sName msg') == "")
+      assert "empty string: decode age" (unField (sAge msg') == 42)
+    Left err -> error $ "FAIL: empty string decode: " ++ show err
+
+
+-- ===================================================================
+-- 31e. Varint edge cases (multi-byte boundaries)
+-- ===================================================================
+
+testVarintEdgeCases :: IO ()
+testVarintEdgeCases = do
+  putStrLn "=== Varint edge cases ==="
+
+  -- Value 128: 2-byte varint 0x80 0x01
+  -- Simple { sName = "", sAge = 128 }
+  -- name="" -> skipped, age=128 -> tag=0x10, varint [0x80, 0x01]
+  let msg128 = Simple (Field "") (Field 128)
+      encoded128 = encode msg128
+      expected128 = BS.pack [0x10, 0x80, 0x01]
+  assert "varint 128: 2-byte encoding" (encoded128 == expected128)
+
+  case decode @Simple expected128 of
+    Right msg' -> assert "varint 128: roundtrip" (unField (sAge msg') == 128)
+    Left err -> error $ "FAIL: varint 128 decode: " ++ show err
+
+  -- Value 16384: 3-byte varint 0x80 0x80 0x01
+  -- Simple { sName = "", sAge = 16384 }
+  let msg16384 = Simple (Field "") (Field 16384)
+      encoded16384 = encode msg16384
+      expected16384 = BS.pack [0x10, 0x80, 0x80, 0x01]
+  assert "varint 16384: 3-byte encoding" (encoded16384 == expected16384)
+
+  case decode @Simple expected16384 of
+    Right msg' -> assert "varint 16384: roundtrip" (unField (sAge msg') == 16384)
+    Left err -> error $ "FAIL: varint 16384 decode: " ++ show err
+
+
+-- ===================================================================
+-- 31f. Nested message wire bytes
+-- ===================================================================
+
+testNestedMessageWire :: IO ()
+testNestedMessageWire = do
+  putStrLn "=== Nested message wire bytes ==="
+
+  -- Person { pName = "Homer", pAddr = Just (Address { city = "NYC", addrZip = 100 }) }
+  --
+  -- Address submessage:
+  --   field 1 (Text "NYC"): tag=0x0A, len=3, 4E 59 43
+  --   field 2 (Int32 100):  tag=0x10, varint 100=0x64
+  --   submessage bytes: 0A 03 4E 59 43 10 64 (7 bytes)
+  --
+  -- Person:
+  --   field 1 (Text "Homer"): tag=0x0A, len=5, 48 6F 6D 65 72
+  --   field 2 (submessage):   tag=0x12 (field 2, wire type 2), len=7, <submessage>
+  let addr = Address (Field "NYC") (Field 100)
+      person = Person (Field "Homer") (Field (Just addr))
+      encoded = encode person
+      expected = BS.pack
+        [ 0x0A, 0x05, 0x48, 0x6F, 0x6D, 0x65, 0x72  -- field 1: "Homer"
+        , 0x12, 0x07                                   -- field 2: tag + length 7
+        , 0x0A, 0x03, 0x4E, 0x59, 0x43                -- submessage field 1: "NYC"
+        , 0x10, 0x64                                   -- submessage field 2: 100
+        ]
+  assert "nested message: encode matches hand-computed bytes" (encoded == expected)
+
+  case decode @Person expected of
+    Right person' -> do
+      assert "nested message: decode name" (unField (pName person') == "Homer")
+      case unField (pAddr person') of
+        Just addr' -> do
+          assert "nested message: decode city" (unField (city addr') == "NYC")
+          assert "nested message: decode zip" (unField (addrZip addr') == 100)
+        Nothing -> error "FAIL: nested message decode: addr is Nothing"
+    Left err -> error $ "FAIL: nested message wire decode: " ++ show err
+
+
+-- ===================================================================
+-- 31g. Repeated field (unpacked) wire bytes
+-- ===================================================================
+
+testRepeatedFieldWire :: IO ()
+testRepeatedFieldWire = do
+  putStrLn "=== Repeated field (unpacked) wire bytes ==="
+
+  -- WithList { wTags = ["ab", "cd"] }
+  -- Each string gets its own tag (field 1, wire type 2 = 0x0A):
+  --   "ab": tag=0x0A, len=2, 61 62
+  --   "cd": tag=0x0A, len=2, 63 64
+  let msg = WithList (Field ["ab", "cd"])
+      encoded = encode msg
+      expected = BS.pack
+        [ 0x0A, 0x02, 0x61, 0x62  -- "ab"
+        , 0x0A, 0x02, 0x63, 0x64  -- "cd"
+        ]
+  assert "repeated unpacked: encode matches hand-computed bytes" (encoded == expected)
+
+  case decode @WithList expected of
+    Right msg' -> assert "repeated unpacked: decode roundtrip"
+                         (unField (wTags msg') == ["ab", "cd"])
+    Left err -> error $ "FAIL: repeated unpacked decode: " ++ show err
+
+  -- Verify that multiple entries for same field are correctly merged on decode
+  -- Manually construct: "ab" entry, then "cd" entry, then "ef" entry
+  let extraEntry = BS.pack [0x0A, 0x02, 0x65, 0x66]  -- "ef"
+      extended = expected <> extraEntry
+  case decode @WithList extended of
+    Right msg' -> assert "repeated unpacked: merge 3 entries"
+                         (unField (wTags msg') == ["ab", "cd", "ef"])
+    Left err -> error $ "FAIL: repeated unpacked merge: " ++ show err
+
+
+-- ===================================================================
 -- 32. Packed repeated field decoding
 -- ===================================================================
 
@@ -1043,6 +1234,12 @@ main = do
   testZigzagNegativeEfficiency
   testLargeMessage
   testWireCompatibility
+  testNegativeInt32Wire
+  testBoolWireFormat
+  testEmptyStringWire
+  testVarintEdgeCases
+  testNestedMessageWire
+  testRepeatedFieldWire
   testPackedRepeatedRoundtrip
   testMixedPackedUnpacked
   testMapRoundtrip

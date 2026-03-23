@@ -27,6 +27,7 @@ packages:
   examples/negotiate
   bench/compile-time
   bench/runtime
+  tower-protobuf
 
 -- Enable all test suites by default (including hedgehog property tests)
 tests: True

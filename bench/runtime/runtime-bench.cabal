@@ -21,6 +21,7 @@ executable runtime-bench
     , servant-reimagined-server
     , tower
     , tower-grpc
+    , tower-protobuf
     , http-core
     , tasty-bench >= 0.3 && < 0.5
     , case-insensitive >= 1.2 && < 1.3

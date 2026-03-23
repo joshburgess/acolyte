@@ -32,6 +32,7 @@ library
     , servant-reimagined-server
     , tower
     , tower-grpc
+    , tower-protobuf
     , http-core
     , bytestring              >= 0.11 && < 0.13
     , text                    >= 2.0  && < 2.2

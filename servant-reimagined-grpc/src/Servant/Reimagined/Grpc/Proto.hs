@@ -26,6 +26,8 @@ import Data.Kind (Type, Constraint)
 import Data.Text (Text)
 import GHC.TypeLits (TypeError, ErrorMessage (..))
 
+import qualified Tower.Protobuf
+
 import Servant.Reimagined.Core.Endpoint (Endpoint, NoBody)
 import Servant.Reimagined.Core.Effect (Requires)
 import Servant.Reimagined.Server.Response (Json)
@@ -54,6 +56,13 @@ import Servant.Reimagined.Server.Response (Json)
 class GrpcCodec a where
   grpcEncode :: a -> ByteString
   grpcDecode :: ByteString -> Maybe a
+
+-- | Any 'Tower.Protobuf.ProtoMessage' automatically gets 'GrpcCodec'.
+-- Users who derive 'ProtoMessage' get gRPC for free -- no separate
+-- 'GrpcCodec' instance needed.
+instance {-# OVERLAPPABLE #-} Tower.Protobuf.ProtoMessage a => GrpcCodec a where
+  grpcEncode = Tower.Protobuf.encode
+  grpcDecode = either (const Nothing) Just . Tower.Protobuf.decode
 
 
 -- | The protobuf message name for .proto generation.

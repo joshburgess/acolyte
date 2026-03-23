@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 -- | Runtime performance benchmarks for servant-reimagined.
@@ -14,10 +15,13 @@ import Test.Tasty.Bench
 import Control.DeepSeq (NFData (..), force)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
+import Data.Int (Int32, Int64)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+import Data.Word (Word64)
 import qualified Data.CaseInsensitive as CI
+import GHC.Generics (Generic)
 import Network.HTTP.Types (statusCode)
 
 import Tower (Service (..), Middleware, before, (|>))
@@ -47,6 +51,16 @@ import Tower.Grpc.Codec
   , decodeMessages
   , GrpcMessage (..)
   )
+import Tower.Protobuf
+  ( ProtoMessage (..)
+  , Field (..)
+  , DecodeError (..)
+  , WireType (..)
+  , encode
+  , decode
+  )
+import Tower.Protobuf.Wire (encodeVarint, decodeVarint)
+import Tower.Protobuf.Encode (ProtoBuilder (..), runProtoBuilder)
 
 
 -- ===================================================================
@@ -58,6 +72,33 @@ instance NFData (Response ByteString) where
 
 instance NFData GrpcMessage where
   rnf (GrpcMessage c p) = rnf c `seq` rnf p
+
+instance NFData WireType where
+  rnf !_ = ()
+
+instance NFData DecodeError where
+  rnf (UnexpectedWireType a b c) = rnf a `seq` rnf b `seq` rnf c
+  rnf TruncatedInput = ()
+  rnf InvalidVarint = ()
+  rnf InvalidUtf8 = ()
+  rnf (InvalidWireType a) = rnf a
+
+
+-- ===================================================================
+-- Protobuf benchmark message
+-- ===================================================================
+
+data BenchMsg = BenchMsg
+  { bmName  :: Field 1 Text
+  , bmAge   :: Field 2 Int32
+  , bmEmail :: Field 3 Text
+  , bmScore :: Field 4 Int64
+  } deriving (Generic)
+
+instance ProtoMessage BenchMsg
+
+instance NFData BenchMsg where
+  rnf (BenchMsg a b c d) = rnf (unField a) `seq` rnf (unField b) `seq` rnf (unField c) `seq` rnf (unField d)
 
 
 -- ===================================================================
@@ -337,6 +378,19 @@ main = do
   _ <- pure $! force encodedMulti10
   _ <- pure $! force encodedMulti100
 
+  -- -------------------------------------------------------------------
+  -- Protobuf encode/decode payloads
+  -- -------------------------------------------------------------------
+  let smallMsg = BenchMsg (Field "Alice") (Field 30) (Field "alice@example.com") (Field 9999)
+  let smallEncoded = encode smallMsg
+  let largeText = T.replicate 10240 "x"   -- 10KB name field
+  let largeMsg = BenchMsg (Field largeText) (Field 30) (Field "alice@example.com") (Field 9999)
+  let largeEncoded = encode largeMsg
+  let varintMaxBS = runProtoBuilder (ProtoBuilder 10 (encodeVarint (maxBound @Word64)))
+  _ <- pure $! force smallEncoded
+  _ <- pure $! force largeEncoded
+  _ <- pure $! force varintMaxBS
+
   defaultMain
     [ -- ---------------------------------------------------------------
       -- 1. Request dispatch throughput
@@ -451,5 +505,26 @@ main = do
         , bench "25-routes/miss" $ nfIO $ do
             req <- mkGet "/nonexistent"
             runService svcScale25 req
+        ]
+
+      -- ---------------------------------------------------------------
+      -- 6. Protobuf encode/decode
+      -- ---------------------------------------------------------------
+    , bgroup "protobuf"
+        [ bgroup "encode"
+            [ bench "small-msg"  $ nf encode smallMsg
+            , bench "large-text" $ nf encode largeMsg
+            ]
+        , bgroup "decode"
+            [ bench "small-msg"  $ nf (decode @BenchMsg) smallEncoded
+            , bench "large-text" $ nf (decode @BenchMsg) largeEncoded
+            ]
+        , bgroup "roundtrip"
+            [ bench "small-msg"  $ nf (decode @BenchMsg . encode) smallMsg
+            ]
+        , bgroup "varint"
+            [ bench "encode" $ nf (\v -> runProtoBuilder (ProtoBuilder 10 (encodeVarint v))) (maxBound @Word64)
+            , bench "decode" $ nf decodeVarint varintMaxBS
+            ]
         ]
     ]

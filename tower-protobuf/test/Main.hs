@@ -837,6 +837,48 @@ testLargeMessage = do
 
 
 -- ===================================================================
+-- 31. Wire compatibility with proto3 spec
+-- ===================================================================
+
+-- | Equivalent of:
+-- message TestCompat {
+--   string name = 1;
+--   int32 id = 2;
+--   bool active = 3;
+-- }
+data TestCompat = TestCompat
+  { tcName   :: Field 1 Text
+  , tcId     :: Field 2 Int32
+  , tcActive :: Field 3 Bool
+  } deriving (Show, Eq, Generic)
+
+instance ProtoMessage TestCompat
+
+testWireCompatibility :: IO ()
+testWireCompatibility = do
+  putStrLn "=== Wire compatibility with proto3 spec ==="
+
+  let msg = TestCompat (Field "alice") (Field 42) (Field True)
+      encoded = encode msg
+
+  -- Expected wire bytes computed from proto3 spec:
+  -- Field 1 (string): tag=0x0A (field 1, wire type 2), length=5, "alice"
+  -- Field 2 (int32):  tag=0x10 (field 2, wire type 0), varint 42 = 0x2A
+  -- Field 3 (bool):   tag=0x18 (field 3, wire type 0), varint 1 = 0x01
+  let expected = BS.pack [0x0A, 0x05, 0x61, 0x6C, 0x69, 0x63, 0x65, 0x10, 0x2A, 0x18, 0x01]
+
+  assert "wire compat: encode matches proto3 spec bytes" (encoded == expected)
+
+  -- Reverse: decode known bytes and verify values
+  case decode @TestCompat expected of
+    Right msg' -> do
+      assert "wire compat: decode name"   (unField (tcName msg') == "alice")
+      assert "wire compat: decode id"     (unField (tcId msg') == 42)
+      assert "wire compat: decode active" (unField (tcActive msg') == True)
+    Left err -> error $ "FAIL: wire compat decode: " ++ show err
+
+
+-- ===================================================================
 -- Main
 -- ===================================================================
 
@@ -878,6 +920,7 @@ main = do
   testOverlongVarintRejection
   testZigzagNegativeEfficiency
   testLargeMessage
+  testWireCompatibility
 
   putStrLn (replicate 40 '-')
   putStrLn "All tests passed!"

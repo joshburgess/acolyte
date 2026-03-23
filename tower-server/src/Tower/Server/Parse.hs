@@ -122,7 +122,7 @@ readBody sock limits headers leftover
         [(cl, "")]
           | cl > maxBodySize limits -> pure (Left "413 Payload Too Large")
           | cl == 0                 -> pure (Right BS.empty)
-          | otherwise               -> Right <$> readExactly sock cl leftover
+          | otherwise               -> readExactly sock cl leftover
         _ -> pure (Left "400 Bad Request: invalid Content-Length")
   -- No body
   | otherwise = pure (Right BS.empty)
@@ -160,32 +160,40 @@ readChunkedBody sock limits = go BS.empty
                 [(n, "")] -> do
                   -- Read n bytes of chunk data + trailing \r\n
                   let needed = n + 2  -- data + \r\n
-                  fullChunk <- ensureBytes sock (recvBufSize limits) needed rest
-                  let chunkData = BS.take n fullChunk
-                      remaining = BS.drop (n + 2) fullChunk
-                  go (acc <> chunkData) remaining
+                  ensureResult <- ensureBytes sock (recvBufSize limits) needed rest
+                  case ensureResult of
+                    Left err -> pure (Left err)
+                    Right fullChunk -> do
+                      let chunkData = BS.take n fullChunk
+                          remaining = BS.drop (n + 2) fullChunk
+                      go (acc <> chunkData) remaining
                 _ -> pure (Left "400 Bad Request: invalid chunk size")
 
 
 -- | Ensure we have at least n bytes, reading from socket if needed.
-ensureBytes :: Socket -> Int -> Int -> ByteString -> IO ByteString
+-- Returns Left if the connection closed before enough bytes arrived.
+ensureBytes :: Socket -> Int -> Int -> ByteString -> IO (Either ByteString ByteString)
 ensureBytes sock bufSize needed buf
-  | BS.length buf >= needed = pure buf
+  | BS.length buf >= needed = pure (Right buf)
   | otherwise = do
       chunk <- recv sock bufSize
       if BS.null chunk
-        then pure buf  -- connection closed
+        then pure (Left "400 Bad Request: connection closed before chunk data complete")
         else ensureBytes sock bufSize needed (buf <> chunk)
 
 
 -- | Read exactly n bytes from leftover + socket.
-readExactly :: Socket -> Int -> ByteString -> IO ByteString
+-- Returns Left if the connection closed before enough bytes arrived.
+readExactly :: Socket -> Int -> ByteString -> IO (Either ByteString ByteString)
 readExactly sock n leftover
-  | BS.length leftover >= n = pure (BS.take n leftover)
+  | BS.length leftover >= n = pure (Right (BS.take n leftover))
   | otherwise = do
       let needed = n - BS.length leftover
       more <- recvAll sock needed
-      pure (leftover <> BS.take needed more)
+      let result = leftover <> BS.take needed more
+      if BS.length result < n
+        then pure (Left "400 Bad Request: connection closed before body complete")
+        else pure (Right result)
 
 
 -- | Receive at least n bytes from a socket.

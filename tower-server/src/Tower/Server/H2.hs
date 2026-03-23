@@ -102,8 +102,9 @@ handleH2Connection _config svc conn =
 -- and the response is sent back via the http2 callback.
 toH2Server :: Service IO (Request Body) (Response Body) -> H2.Server
 toH2Server (Service handler) h2Req _aux respond = do
-  req <- fromH2Request h2Req
-  resp <- handler req
+  resp <- (do
+    req <- fromH2Request h2Req
+    handler req)
     `catch` (\(_ :: SomeException) ->
       pure (Http.Core.Response status500
         [("Content-Type", "text/plain")]

@@ -41,14 +41,24 @@ module Tower.WebSocket.Session
   , withSession
     -- * WebSocket connection abstraction
   , WebSocketConn (..)
+    -- * Errors
+  , SessionError (..)
     -- * Type families
   , Unfold
   ) where
 
 import Servant.Reimagined.Core.Session (SessionType (..))
 
+import Control.Exception (Exception, throwIO)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LBS
+
+
+-- | Error thrown when a session operation fails (e.g. JSON decode error).
+data SessionError = JsonDecodeError String
+  deriving (Show, Eq)
+
+instance Exception SessionError
 
 
 -- | An abstraction over the underlying WebSocket transport.
@@ -83,7 +93,7 @@ recv (Session conn) = do
   bytes <- wsRecv conn
   case Aeson.eitherDecode bytes of
     Right val -> pure (val, Session conn)
-    Left err  -> error ("Session recv: JSON decode error: " ++ err)
+    Left err  -> throwIO (JsonDecodeError err)
 
 
 -- | Offer the peer a choice between two continuations.
@@ -120,14 +130,16 @@ recurse :: Session ('Rec s) -> IO (Session s)
 recurse (Session conn) = pure (Session conn)
 
 
--- | Jump back to the enclosing 'Rec'. Unfolds 'Var' by substituting
--- the full recursive type. The caller must ensure the enclosing
--- 'Rec' type is available via the 'Unfold' type family.
+-- | Jump back to the enclosing 'Rec' body. The return type @s@ is
+-- universally quantified and must be determined by the calling context
+-- (e.g. by passing the result to a function with a known session type).
 --
--- Usage: when the protocol reaches 'Var', call 'loop' to get back
--- a session for the 'Rec' body. The type annotation on the enclosing
--- handler typically provides enough context for GHC to infer the
--- unfolded type.
+-- __Soundness note:__ Haskell's type system cannot enforce that @s@
+-- equals the body of the enclosing 'Rec' without linear types. In
+-- practice, GHC infers the correct @s@ from context. Do not use an
+-- explicit type application to override this — doing so can bypass
+-- protocol tracking. Prefer letting GHC infer the type from a
+-- recursive call or type-annotated binding.
 loop :: Session 'Var -> IO (Session s)
 loop (Session conn) = pure (Session conn)
 

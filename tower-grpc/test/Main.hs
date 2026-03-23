@@ -636,7 +636,7 @@ testCompression = do
   -- Roundtrip: compress then decompress
   let original = "Hello, gRPC compression test! This is a payload."
   let compressed = compressMessage original
-  let decompressed = decompressMessage compressed
+  let Right decompressed = decompressMessage compressed
   assert "compress roundtrip: equality" (decompressed == original)
   assert "compress: output differs from input" (compressed /= original)
 
@@ -650,19 +650,19 @@ testCompression = do
       assert "encodeCompressed: compressed flag set" (gmCompressed msg)
       assert "encodeCompressed: no remainder" (BS.null rest)
       -- Decompress the payload and verify
-      let payload = decompressMessage (gmPayload msg)
+      let Right payload = decompressMessage (gmPayload msg)
       assert "encodeCompressed: payload roundtrip" (payload == "test-payload")
     Nothing -> error "FAIL: could not decode compressed message"
 
   -- Empty payload roundtrip
   let emptyCompressed = compressMessage ""
-  let emptyDecompressed = decompressMessage emptyCompressed
+  let Right emptyDecompressed = decompressMessage emptyCompressed
   assert "compress empty: roundtrip" (emptyDecompressed == "")
 
   -- Large payload (10KB) roundtrip
   let bigPayload = BS.replicate (10 * 1024) 0xAB
   let bigCompressed = compressMessage bigPayload
-  let bigDecompressed = decompressMessage bigCompressed
+  let Right bigDecompressed = decompressMessage bigCompressed
   assert "compress 10KB: roundtrip" (bigDecompressed == bigPayload)
   assert "compress 10KB: compressed differs" (bigCompressed /= bigPayload)
 
@@ -671,7 +671,7 @@ testCompression = do
   let rtEncoded = encodeMessageCompressed roundtripPayload
   case decodeMessage rtEncoded of
     Just (msg, _) -> do
-      let rtDecoded = decompressMessage (gmPayload msg)
+      let Right rtDecoded = decompressMessage (gmPayload msg)
       assert "compress encode/decode roundtrip" (rtDecoded == roundtripPayload)
     Nothing -> error "FAIL: could not decode roundtrip compressed message"
 

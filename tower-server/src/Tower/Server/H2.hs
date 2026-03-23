@@ -30,7 +30,7 @@ import qualified Data.CaseInsensitive as CI
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import Network.HTTP.Types (status500, parseQuery)
+import Network.HTTP.Types (status500, parseQuery, urlDecode)
 import Network.Socket
 
 import qualified Network.HTTP2.Server as H2
@@ -118,7 +118,7 @@ fromH2Request h2Req = do
   let method  = maybe "GET" id (H2.requestMethod h2Req)
       pathRaw = maybe "/" id (H2.requestPath h2Req)
       (pathPart, queryPart) = BS.break (== 0x3F) pathRaw
-      pathSegs = filter (/= "") $ T.splitOn "/" (TE.decodeUtf8 pathPart)
+      pathSegs = filter (/= "") $ map (TE.decodeUtf8Lenient . urlDecode True) $ BS.split 0x2F pathPart
       query = if BS.null queryPart then [] else parseQuery (BS.drop 1 queryPart)
       -- TokenHeaderList = [(Token, FieldValue)]
       -- Token has tokenKey :: CI ByteString, isPseudo :: Bool

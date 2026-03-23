@@ -168,6 +168,14 @@ bidiStreamHandler f = GrpcHandler $ \req -> do
     Left status -> GrpcError status
 
 
+-- | Maximum gRPC request body size (4 MiB).
+--
+-- Protects against unbounded memory consumption from oversized messages.
+-- Individual services can implement their own limits for finer control.
+maxGrpcBodySize :: Int
+maxGrpcBodySize = 4 * 1024 * 1024
+
+
 -- | Build a tower Service that dispatches gRPC requests.
 --
 -- Parses the gRPC path, looks up the handler in the service map,
@@ -179,7 +187,9 @@ grpcServer services = Service $ \req -> do
   case ct of
     Just v | "application/grpc" `BS.isPrefixOf` v -> do
       body <- bodyToStrict (requestBody req)
-      handleGrpc services req body
+      if BS.length body > maxGrpcBodySize
+        then pure $ grpcTrailersOnly (GS.grpcResourceExhausted "Request body too large")
+        else handleGrpc services req body
     _ ->
       pure $ Response status415 [] (fromBytes "Unsupported content type")
 
@@ -192,7 +202,7 @@ handleGrpc
   -> IO (Response Body)
 handleGrpc services req body = do
   let pathRaw = requestPathRaw req
-      (service, method) = parseGrpcPath (TE.decodeUtf8 pathRaw)
+      (service, method) = parseGrpcPath (TE.decodeUtf8Lenient pathRaw)
   case Map.lookup (service, method) services of
     Nothing ->
       pure $ grpcTrailersOnly (grpcUnimplemented
@@ -204,21 +214,25 @@ handleGrpc services req body = do
             Just "gzip" -> Gzip
             _           -> NoCompression
       -- Decompress the body if needed, then decode the request message
-      let decompressedBody = case clientCompression of
+      let decompressResult = case clientCompression of
             Gzip -> decompressGrpcBody body
-            NoCompression -> body
-      let payload = case decodeMessage decompressedBody of
-            Just (msg, _) -> gmPayload msg
-            Nothing       -> decompressedBody  -- fallback: raw bytes
-      let grpcReq = GrpcRequest
-            { grpcService  = service
-            , grpcMethod   = method
-            , grpcBody     = payload
-            , grpcRawBody  = decompressedBody
-            , grpcMetadata = requestHeaders req
-            }
-      resp <- runGrpcHandler handler grpcReq
-      pure $ grpcResponseToHttp resp
+            NoCompression -> Right body
+      case decompressResult of
+        Left err ->
+          pure $ grpcTrailersOnly (grpcResourceExhausted err)
+        Right decompressedBody -> do
+          let payload = case decodeMessage decompressedBody of
+                Just (msg, _) -> gmPayload msg
+                Nothing       -> decompressedBody  -- fallback: raw bytes
+          let grpcReq = GrpcRequest
+                { grpcService  = service
+                , grpcMethod   = method
+                , grpcBody     = payload
+                , grpcRawBody  = decompressedBody
+                , grpcMetadata = requestHeaders req
+                }
+          resp <- runGrpcHandler handler grpcReq
+          pure $ grpcResponseToHttp resp
 
 
 -- | Parse a gRPC path like "/pkg.Service/Method" into (service, method).
@@ -230,6 +244,13 @@ parseGrpcPath path =
 
 
 -- | Convert a GrpcResponse to an HTTP Response with proper trailers.
+--
+-- NOTE: gRPC spec requires grpc-status in HTTP/2 trailers.
+-- In our HTTP/1.1 path, trailers are sent as trailing headers
+-- (which is non-compliant but widely accepted by clients).
+-- For the HTTP/2 path, proper trailer support requires changes
+-- to the H2 bridge to use responseStreamingWithTrailers.
+-- For gRPC-Web, trailers are correctly encoded in the response body.
 grpcResponseToHttp :: GrpcResponse -> Response Body
 grpcResponseToHttp (GrpcUnary status payload) =
   let body = encodeMessage payload

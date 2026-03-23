@@ -39,7 +39,7 @@ import Data.IORef
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import Network.HTTP.Types (status400, status408, status500, statusCode, Query, parseQuery)
+import Network.HTTP.Types (status400, status408, status500, statusCode, Query, parseQuery, urlDecode)
 import Network.Socket
 import Network.Socket.ByteString (recv, sendAll)
 
@@ -196,7 +196,7 @@ handleConnection config svc conn = go `finally` close conn
               exts <- emptyExtensions
               let pathRaw = rhPath reqHead
                   (pathPart, queryPart) = BS8.break (== '?') pathRaw
-                  path = filter (/= "") $ T.splitOn "/" (TE.decodeUtf8 pathPart)
+                  path = filter (/= "") $ map (TE.decodeUtf8Lenient . urlDecode True) $ BS.split 0x2F pathPart
                   query = parseQueryString (BS.drop 1 queryPart)
                   req = Request
                     { requestMethod     = rhMethod reqHead

@@ -109,11 +109,11 @@ prop_encodeMessagesConcat = property $ do
 -- Compression properties
 -- ===================================================================
 
--- | For any ByteString, decompressMessage (compressMessage bs) == bs.
+-- | For any ByteString, decompressMessage (compressMessage bs) == Right bs.
 prop_compressionRoundtrip :: Property
 prop_compressionRoundtrip = property $ do
   bs <- forAll $ Gen.bytes (Range.linear 0 10000)
-  decompressMessage (compressMessage bs) === bs
+  decompressMessage (compressMessage bs) === Right bs
 
 
 -- | For any ByteString, encodeMessageCompressed has flag byte 1 at position 0.

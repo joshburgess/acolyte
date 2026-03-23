@@ -29,7 +29,7 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import Network.HTTP.Types (status400, status500, parseQuery)
+import Network.HTTP.Types (status400, status500, parseQuery, urlDecode)
 import Network.Socket
 import qualified Network.TLS as TLS
 
@@ -97,7 +97,7 @@ handleConn params svc sock = (do
       exts <- emptyExtensions
       let pathRaw = rhPath reqHead
           (pathPart, queryPart) = BS8.break (== '?') pathRaw
-          path = filter (/= "") $ T.splitOn "/" (TE.decodeUtf8 pathPart)
+          path = filter (/= "") $ map (TE.decodeUtf8Lenient . urlDecode True) $ BS.split 0x2F pathPart
           query = if BS.null queryPart then [] else parseQuery (BS.drop 1 queryPart)
           req = Request
             { requestMethod     = rhMethod reqHead

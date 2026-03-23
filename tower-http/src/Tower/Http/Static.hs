@@ -20,9 +20,10 @@ import qualified Data.ByteString.Char8 as BS8
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import Network.HTTP.Types (statusCode)
-import System.Directory (doesFileExist)
+import Network.HTTP.Types (statusCode, mkStatus)
+import System.Directory (canonicalizePath, doesFileExist, getFileSize)
 import System.FilePath ((</>), takeExtension)
+import Data.List (isPrefixOf)
 
 import Tower (Middleware, middleware)
 import Tower.Service (Service (..))
@@ -54,7 +55,7 @@ defaultStaticConfig = StaticConfig
 -- Directory traversal is prevented by rejecting any path containing @".."@.
 staticFilesLayer :: StaticConfig -> Middleware IO (Request ByteString) (Response ByteString)
 staticFilesLayer cfg = middleware $ \(Service inner) -> Service $ \req -> do
-  let rawPath = TE.decodeUtf8 (requestPathRaw req)
+  let rawPath = TE.decodeUtf8Lenient (requestPathRaw req)
       prefix  = normalizePrefix (staticPrefix cfg)
   if T.isPrefixOf prefix rawPath
     then do
@@ -63,10 +64,17 @@ staticFilesLayer cfg = middleware $ \(Service inner) -> Service $ \req -> do
         then pure (badRequest [] "Invalid path")
         else do
           let filePath = staticDir cfg </> relPath
-          exists <- doesFileExist filePath
-          if exists
-            then serveFile filePath
-            else inner req
+          -- Canonicalize both paths to resolve symlinks and ".." segments
+          -- that might bypass the traversal check above.
+          canonPath <- canonicalizePath filePath
+          canonDir  <- canonicalizePath (staticDir cfg)
+          if canonDir `isPrefixOf` canonPath
+            then do
+              exists <- doesFileExist canonPath
+              if exists
+                then serveFile canonPath
+                else inner req
+            else pure (badRequest [] "Invalid path")
     else inner req
 
 
@@ -120,13 +128,24 @@ hasFileExtension path =
   let lastSegment = snd (BS8.spanEnd (/= '/') path)
   in BS8.elem '.' (if BS.null lastSegment then path else BS8.drop 1 lastSegment)
 
+-- | Maximum file size for static file serving (50 MiB).
+-- Files larger than this are rejected with 413 Payload Too Large
+-- to avoid loading excessive data into memory.
+maxStaticFileSize :: Integer
+maxStaticFileSize = 50 * 1024 * 1024
+
 -- | Serve a file from disk with appropriate Content-Type.
+-- Rejects files larger than 'maxStaticFileSize' with 413.
 serveFile :: FilePath -> IO (Response ByteString)
 serveFile filePath = do
-  contents <- BS.readFile filePath
-  let ext  = drop 1 (takeExtension filePath)  -- drop the leading '.'
-      mime = mimeType ext
-  pure (ok [("Content-Type", mime)] contents)
+  size <- getFileSize filePath
+  if size > maxStaticFileSize
+    then pure (Response (mkStatus 413 "Payload Too Large") [] "File too large")
+    else do
+      contents <- BS.readFile filePath
+      let ext  = drop 1 (takeExtension filePath)  -- drop the leading '.'
+          mime = mimeType ext
+      pure (ok [("Content-Type", mime)] contents)
 
 
 -- | Map file extensions to MIME types.

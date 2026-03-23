@@ -76,6 +76,7 @@ module Tower.Grpc
     -- * Compression
   , compressMessage
   , decompressMessage
+  , maxDecompressedSize
   , GrpcCompression (..)
   , encodeMessageCompressed
 

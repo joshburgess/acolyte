@@ -63,11 +63,11 @@ import qualified Data.Text.Read as T
 import Data.Typeable (Typeable)
 import GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
 import Data.Proxy (Proxy (..))
-import Network.HTTP.Types (Status, status400, status422, status500)
+import Network.HTTP.Types (Status, status400, status422, status500, urlDecode)
 
 import qualified Data.Aeson as Aeson
 
-import Http.Core (RequestParts (..), Extensions, lookupExtension)
+import Http.Core (RequestParts (..), Extensions, lookupExtension, insertExtension)
 
 
 -- | A structured server error with status and message.
@@ -165,15 +165,18 @@ newtype PathCapture a = PathCapture { unPathCapture :: a }
 instance (Typeable a, ParseCapture a) => FromRequestParts (PathCapture a) where
   fromRequestParts parts = do
     mCaps <- lookupExtension @CaptureList (rpExtensions parts)
-    pure $ case mCaps of
-      Just (CaptureList (t : _)) ->
+    case mCaps of
+      Just (CaptureList (t : rest)) ->
         case parseCapture @a t of
-          Just val -> Right (PathCapture val)
-          Nothing  -> Left (mkError status400 "Invalid path capture")
+          Just val -> do
+            -- Consume the capture: update CaptureList to remove the head
+            insertExtension (CaptureList rest) (rpExtensions parts)
+            pure $ Right (PathCapture val)
+          Nothing  -> pure $ Left (mkError status400 "Invalid path capture")
       Just (CaptureList []) ->
-        Left (mkError status400 "Missing path capture")
+        pure $ Left (mkError status400 "Missing path capture")
       Nothing ->
-        Left (mkError status500 "CaptureList not found in extensions (router bug)")
+        pure $ Left (mkError status500 "CaptureList not found in extensions (router bug)")
 
 
 -- ===================================================================
@@ -297,7 +300,7 @@ instance (KnownSymbol name, ParseCapture a) => FromRequestParts (QueryParam name
     let name = TE.encodeUtf8 (T.pack (symbolVal (Proxy @name)))
     pure $ case lookup name (rpQuery parts) of
       Just (Just val) ->
-        case parseCapture @a (TE.decodeUtf8 val) of
+        case parseCapture @a (TE.decodeUtf8Lenient val) of
           Just v  -> Right (QueryParam v)
           Nothing -> Left (mkError status400
             ("Invalid query parameter: " <> T.pack (symbolVal (Proxy @name))))
@@ -326,7 +329,7 @@ instance (KnownSymbol name, ParseCapture a) => FromRequestParts (QueryParams nam
     let name = TE.encodeUtf8 (T.pack (symbolVal (Proxy @name)))
         vals = [ v | (k, Just raw) <- rpQuery parts
                    , k == name
-                   , Just v <- [parseCapture @a (TE.decodeUtf8 raw)]
+                   , Just v <- [parseCapture @a (TE.decodeUtf8Lenient raw)]
                ]
     pure (Right (QueryParams vals))
 
@@ -350,7 +353,7 @@ instance (KnownSymbol name, ParseCapture a) => FromRequestParts (OptionalParam n
   fromRequestParts parts = do
     let name = TE.encodeUtf8 (T.pack (symbolVal (Proxy @name)))
     pure $ Right $ OptionalParam $ case lookup name (rpQuery parts) of
-      Just (Just val) -> parseCapture @a (TE.decodeUtf8 val)
+      Just (Just val) -> parseCapture @a (TE.decodeUtf8Lenient val)
       _               -> Nothing
 
 
@@ -498,13 +501,13 @@ newtype StringBody = StringBody { unStringBody :: Text }
   deriving (Show, Eq)
 
 instance FromRequest StringBody where
-  fromRequest _parts body = pure (Right (StringBody (TE.decodeUtf8 body)))
+  fromRequest _parts body = pure (Right (StringBody (TE.decodeUtf8Lenient body)))
 
 instance FromRequestParts StringBody where
   fromRequestParts parts = do
     mBody <- lookupExtension @BodyBytes (rpExtensions parts)
     pure $ case mBody of
-      Just (BodyBytes body) -> Right (StringBody (TE.decodeUtf8 body))
+      Just (BodyBytes body) -> Right (StringBody (TE.decodeUtf8Lenient body))
       Nothing -> Left (mkError status500 "Request body not available (router bug)")
 
 
@@ -640,6 +643,9 @@ instance FromForm a => FromRequestParts (Form a) where
       Nothing -> Left (mkError status500 "Request body not available (router bug)")
 
 -- | Parse @application\/x-www-form-urlencoded@ bytes into key-value pairs.
+--
+-- Uses 'Network.HTTP.Types.urlDecode' for proper percent-decoding
+-- (handles @%XX@ encoding and @+@ as space).
 parseFormUrlEncoded :: ByteString -> [(ByteString, ByteString)]
 parseFormUrlEncoded bs
   | BS.null bs = []
@@ -647,13 +653,7 @@ parseFormUrlEncoded bs
   where
     parsePair p =
       let (k, rest) = BS.break (== 0x3D) p  -- 0x3D = '='
-      in (urlDecode k, urlDecode (BS.drop 1 rest))
-
-    urlDecode = BS.concatMap decodeByte
-    decodeByte 0x2B = " "  -- '+' -> space
-    decodeByte b    = BS.singleton b
-    -- Note: percent-decoding is simplified; production would use
-    -- Network.HTTP.Types.urlDecode, but we avoid the extra import path.
+      in (urlDecode True k, urlDecode True (BS.drop 1 rest))
 
 
 -- ===================================================================
@@ -789,8 +789,8 @@ parsePart chunk
                       (lookup "content-type" headers >>= id)
     in case fieldName of
       Just name -> [FilePart
-        { fpFieldName   = TE.decodeUtf8 name
-        , fpFileName    = TE.decodeUtf8 <$> fileName
+        { fpFieldName   = TE.decodeUtf8Lenient name
+        , fpFileName    = TE.decodeUtf8Lenient <$> fileName
         , fpContentType = contentType
         , fpBody        = bodySection
         }]

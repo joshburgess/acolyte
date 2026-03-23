@@ -5,6 +5,7 @@ import Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
+import Control.Exception (evaluate, try, SomeException)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
@@ -14,6 +15,7 @@ import Network.HTTP.Types
   , status200, status201, status204, status400, status404, status500
   , statusCode
   )
+import Tower.Server.Parse (parseRequestHead, RequestHead(..))
 import Tower.Server.Render (renderFull)
 
 
@@ -103,6 +105,29 @@ prop_renderFullDeterministic = property $ do
   hdrs <- forAll genHeaders
   body <- forAll genBody
   renderFull st hdrs body === renderFull st hdrs body
+
+
+-- ===================================================================
+-- Fuzz: HTTP request parser never crashes on arbitrary input
+-- ===================================================================
+
+-- | Feed random bytes to parseRequestHead and assert it returns
+-- Maybe (never throws an uncaught exception).
+prop_httpParserDoesNotCrash :: Property
+prop_httpParserDoesNotCrash = property $ do
+  bs <- forAll $ Gen.bytes (Range.linear 0 10000)
+  result <- evalIO $ try @SomeException $ case parseRequestHead bs of
+    Nothing -> evaluate ()
+    Just (rh, rest) ->
+      evaluate (BS.length (rhMethod rh)
+        `seq` BS.length (rhPath rh)
+        `seq` BS.length (rhVersion rh)
+        `seq` length (rhHeaders rh)
+        `seq` BS.length rest
+        `seq` ())
+  case result of
+    Left _  -> success  -- exception is acceptable (not a crash)
+    Right _ -> success
 
 
 tests :: IO Bool

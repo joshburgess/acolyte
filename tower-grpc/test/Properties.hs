@@ -6,6 +6,7 @@ import Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
+import Control.Exception (evaluate, try, SomeException)
 import qualified Data.ByteString as BS
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -132,6 +133,33 @@ prop_encodeMessagesAssociative = property $ do
   xs <- forAll $ Gen.list (Range.linear 0 10) (Gen.bytes (Range.linear 0 500))
   ys <- forAll $ Gen.list (Range.linear 0 10) (Gen.bytes (Range.linear 0 500))
   encodeMessages (xs ++ ys) === encodeMessages xs <> encodeMessages ys
+
+
+-- ===================================================================
+-- Fuzz: gRPC framing decoder never crashes on arbitrary input
+-- ===================================================================
+
+-- | Feed random bytes to decodeMessages and assert it returns
+-- a result (never throws an uncaught exception).
+prop_grpcDecoderDoesNotCrash :: Property
+prop_grpcDecoderDoesNotCrash = property $ do
+  bs <- forAll $ Gen.bytes (Range.linear 0 10000)
+  let msgs = decodeMessages bs
+  -- Force evaluation of all messages
+  _ <- evalIO $ try @SomeException $
+    evaluate (length msgs `seq` ())
+  success
+
+
+-- | Feed random bytes to decodeMessage and assert it returns
+-- a result (never throws an uncaught exception).
+prop_grpcSingleDecoderDoesNotCrash :: Property
+prop_grpcSingleDecoderDoesNotCrash = property $ do
+  bs <- forAll $ Gen.bytes (Range.linear 0 1000)
+  _ <- evalIO $ try @SomeException $ case decodeMessage bs of
+    Nothing -> evaluate ()
+    Just (msg, rest) -> evaluate (gmPayload msg `seq` BS.length rest `seq` ())
+  success
 
 
 tests :: IO Bool

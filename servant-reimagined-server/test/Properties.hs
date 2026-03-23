@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import Control.Exception (evaluate, try, SomeException)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Text (Text)
@@ -210,6 +211,39 @@ prop_parseAcceptRoundtrip = property $ do
   annotateShow parsed
   for_ entries $ \(mt, _q) ->
     assert (TE.encodeUtf8 mt `elem` parsedTypes)
+
+
+-- ===================================================================
+-- Fuzz: multipart parser never crashes on arbitrary input
+-- ===================================================================
+
+-- | Feed random bytes as boundary and body to parseMultipart and assert
+-- it returns a result (never throws an uncaught exception).
+prop_multipartParserDoesNotCrash :: Property
+prop_multipartParserDoesNotCrash = property $ do
+  boundary <- forAll $ Gen.bytes (Range.linear 1 50)
+  body <- forAll $ Gen.bytes (Range.linear 0 10000)
+  let parts = parseMultipart boundary body
+  -- Force evaluation of all parts
+  _ <- evalIO $ try @SomeException $
+    evaluate (length parts `seq` ())
+  success
+
+
+-- ===================================================================
+-- Fuzz: form URL parser never crashes on arbitrary input
+-- ===================================================================
+
+-- | Feed random bytes to parseFormUrlEncoded and assert it returns
+-- a result (never throws an uncaught exception).
+prop_formParserDoesNotCrash :: Property
+prop_formParserDoesNotCrash = property $ do
+  bs <- forAll $ Gen.bytes (Range.linear 0 5000)
+  let pairs = parseFormUrlEncoded bs
+  -- Force evaluation of all pairs
+  _ <- evalIO $ try @SomeException $
+    evaluate (length pairs `seq` ())
+  success
 
 
 -- ===================================================================

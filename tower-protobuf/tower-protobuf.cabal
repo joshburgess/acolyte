@@ -75,6 +75,7 @@ test-suite spec
     , bytestring   >= 0.11 && < 0.13
     , text         >= 2.0  && < 2.2
     , containers   >= 0.6  && < 0.8
+    , process      >= 1.6  && < 1.8
 
 test-suite properties
   type: exitcode-stdio-1.0

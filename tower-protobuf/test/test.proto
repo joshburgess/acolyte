@@ -1,0 +1,22 @@
+syntax = "proto3";
+package test;
+
+message SimpleMsg {
+  string name = 1;
+  int32 age = 2;
+  bool active = 3;
+}
+
+message NestedMsg {
+  string title = 1;
+  SimpleMsg author = 2;
+}
+
+message RepeatedMsg {
+  repeated int32 values = 1;
+  repeated string tags = 2;
+}
+
+message MapMsg {
+  map<string, int32> scores = 1;
+}

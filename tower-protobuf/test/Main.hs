@@ -6,14 +6,20 @@
 
 module Main (main) where
 
+import Control.Exception (try, SomeException)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
+import Data.Either (isRight)
 import Data.Int (Int32, Int64)
+import Data.List (isInfixOf)
 import qualified Data.Map.Strict as Map
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Word (Word32, Word64)
 import GHC.Generics (Generic)
+import System.IO (hSetBinaryMode, hFlush, hClose, hGetContents)
+import System.Process (proc, createProcess, waitForProcess,
+                       readProcess, StdStream(..), std_in, std_out, std_err)
 
 import Tower.Protobuf
 import Tower.Protobuf.Wire
@@ -1192,6 +1198,260 @@ testMultipleMaps = do
 
 
 -- ===================================================================
+-- Protoc cross-validation: message types matching test.proto
+-- ===================================================================
+
+-- | Matches test.SimpleMsg in test.proto
+data ProtoSimpleMsg = ProtoSimpleMsg
+  { psName   :: Field 1 Text
+  , psAge    :: Field 2 Int32
+  , psActive :: Field 3 Bool
+  } deriving (Show, Eq, Generic)
+
+instance ProtoMessage ProtoSimpleMsg
+
+-- | Matches test.NestedMsg in test.proto
+data ProtoNestedMsg = ProtoNestedMsg
+  { pnTitle  :: Field 1 Text
+  , pnAuthor :: Field 2 (Maybe ProtoSimpleMsg)
+  } deriving (Show, Eq, Generic)
+
+instance ProtoMessage ProtoNestedMsg
+
+-- | Matches test.RepeatedMsg in test.proto
+data ProtoRepeatedMsg = ProtoRepeatedMsg
+  { prValues :: Field 1 [Int32]
+  , prTags   :: Field 2 [Text]
+  } deriving (Show, Eq, Generic)
+
+instance ProtoMessage ProtoRepeatedMsg
+
+-- | Matches test.MapMsg in test.proto
+data ProtoMapMsg = ProtoMapMsg
+  { pmScores :: Field 1 (ProtoMap Text Int32)
+  } deriving (Show, Eq, Generic)
+
+instance ProtoMessage ProtoMapMsg
+
+
+-- ===================================================================
+-- Protoc cross-validation: helpers
+-- ===================================================================
+
+-- | Check if protoc is available on the system.
+hasProtoc :: IO Bool
+hasProtoc = do
+  result <- try @SomeException (readProcess "protoc" ["--version"] "")
+  pure (isRight result)
+
+-- | Pipe binary bytes to protoc --decode, returning the text-format output.
+protocDecode :: String -> ByteString -> IO String
+protocDecode msgName bytes = do
+  let cp = (proc "protoc" ["--decode=" ++ msgName, "--proto_path=test", "test.proto"])
+        { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
+  (Just hin, Just hout, Just _herr, ph) <- createProcess cp
+  hSetBinaryMode hin True
+  BS.hPut hin bytes
+  hFlush hin
+  hClose hin
+  output <- hGetContents hout
+  _ <- waitForProcess ph
+  pure output
+
+-- | Pipe text-format to protoc --encode, returning the binary output.
+protocEncode :: String -> String -> IO ByteString
+protocEncode msgName textFormat = do
+  let cp = (proc "protoc" ["--encode=" ++ msgName, "--proto_path=test", "test.proto"])
+        { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
+  (Just hin, Just hout, Just _herr, ph) <- createProcess cp
+  hSetBinaryMode hout True
+  hPutStr' hin textFormat
+  hFlush hin
+  hClose hin
+  output <- BS.hGetContents hout
+  _ <- waitForProcess ph
+  pure output
+  where
+    hPutStr' h s = do
+      let bs = BS.pack (map (toEnum . fromEnum) s)
+      BS.hPut h bs
+
+
+-- ===================================================================
+-- Protoc cross-validation: Test A — Our encode -> protoc decode
+-- ===================================================================
+
+testProtocDecodeSimple :: IO ()
+testProtocDecodeSimple = do
+  putStrLn "=== Protoc cross-validation: our encode -> protoc decode (SimpleMsg) ==="
+  let msg = ProtoSimpleMsg (Field "alice") (Field 30) (Field True)
+      bytes = Tower.Protobuf.encode msg
+  output <- protocDecode "test.SimpleMsg" bytes
+  assert "protoc decode: has name" ("name: \"alice\"" `isInfixOf` output)
+  assert "protoc decode: has age" ("age: 30" `isInfixOf` output)
+  assert "protoc decode: has active" ("active: true" `isInfixOf` output)
+
+testProtocDecodeNested :: IO ()
+testProtocDecodeNested = do
+  putStrLn "=== Protoc cross-validation: our encode -> protoc decode (NestedMsg) ==="
+  let author = ProtoSimpleMsg (Field "bob") (Field 25) (Field False)
+      msg = ProtoNestedMsg (Field "My Article") (Field (Just author))
+      bytes = Tower.Protobuf.encode msg
+  output <- protocDecode "test.NestedMsg" bytes
+  assert "protoc decode nested: has title" ("title: \"My Article\"" `isInfixOf` output)
+  assert "protoc decode nested: has author name" ("name: \"bob\"" `isInfixOf` output)
+  assert "protoc decode nested: has author age" ("age: 25" `isInfixOf` output)
+
+testProtocDecodeRepeated :: IO ()
+testProtocDecodeRepeated = do
+  putStrLn "=== Protoc cross-validation: our encode -> protoc decode (RepeatedMsg) ==="
+  let msg = ProtoRepeatedMsg (Field [10, 20, 30]) (Field ["hello", "world"])
+      bytes = Tower.Protobuf.encode msg
+  output <- protocDecode "test.RepeatedMsg" bytes
+  assert "protoc decode repeated: has values" ("values: 10" `isInfixOf` output)
+  assert "protoc decode repeated: has value 30" ("values: 30" `isInfixOf` output)
+  assert "protoc decode repeated: has tag hello" ("tags: \"hello\"" `isInfixOf` output)
+  assert "protoc decode repeated: has tag world" ("tags: \"world\"" `isInfixOf` output)
+
+testProtocDecodeMap :: IO ()
+testProtocDecodeMap = do
+  putStrLn "=== Protoc cross-validation: our encode -> protoc decode (MapMsg) ==="
+  let msg = ProtoMapMsg (Field (ProtoMap (Map.fromList [("alice", 100), ("bob", 200)])))
+      bytes = Tower.Protobuf.encode msg
+  output <- protocDecode "test.MapMsg" bytes
+  assert "protoc decode map: has alice" ("key: \"alice\"" `isInfixOf` output)
+  assert "protoc decode map: has alice score" ("value: 100" `isInfixOf` output)
+  assert "protoc decode map: has bob" ("key: \"bob\"" `isInfixOf` output)
+  assert "protoc decode map: has bob score" ("value: 200" `isInfixOf` output)
+
+
+-- ===================================================================
+-- Protoc cross-validation: Test B — protoc encode -> our decode
+-- ===================================================================
+
+testProtocEncodeSimple :: IO ()
+testProtocEncodeSimple = do
+  putStrLn "=== Protoc cross-validation: protoc encode -> our decode (SimpleMsg) ==="
+  let textFormat = unlines
+        [ "name: \"bob\""
+        , "age: 25"
+        , "active: false"
+        ]
+  bytes <- protocEncode "test.SimpleMsg" textFormat
+  case Tower.Protobuf.decode bytes of
+    Right msg -> do
+      assert "protoc encode: name matches" (unField (psName msg) == "bob")
+      assert "protoc encode: age matches" (unField (psAge msg) == 25)
+      assert "protoc encode: active matches" (unField (psActive msg) == False)
+    Left err -> error $ "FAIL: protoc encode simple decode: " ++ show err
+
+testProtocEncodeNested :: IO ()
+testProtocEncodeNested = do
+  putStrLn "=== Protoc cross-validation: protoc encode -> our decode (NestedMsg) ==="
+  let textFormat = unlines
+        [ "title: \"Research Paper\""
+        , "author {"
+        , "  name: \"carol\""
+        , "  age: 35"
+        , "  active: true"
+        , "}"
+        ]
+  bytes <- protocEncode "test.NestedMsg" textFormat
+  case Tower.Protobuf.decode @ProtoNestedMsg bytes of
+    Right msg -> do
+      assert "protoc encode nested: title matches" (unField (pnTitle msg) == "Research Paper")
+      case unField (pnAuthor msg) of
+        Just author -> do
+          assert "protoc encode nested: author name" (unField (psName author) == "carol")
+          assert "protoc encode nested: author age" (unField (psAge author) == 35)
+          assert "protoc encode nested: author active" (unField (psActive author) == True)
+        Nothing -> error "FAIL: protoc encode nested: author is Nothing"
+    Left err -> error $ "FAIL: protoc encode nested decode: " ++ show err
+
+testProtocEncodeRepeated :: IO ()
+testProtocEncodeRepeated = do
+  putStrLn "=== Protoc cross-validation: protoc encode -> our decode (RepeatedMsg) ==="
+  let textFormat = unlines
+        [ "values: 5"
+        , "values: 10"
+        , "values: 15"
+        , "tags: \"foo\""
+        , "tags: \"bar\""
+        ]
+  bytes <- protocEncode "test.RepeatedMsg" textFormat
+  case Tower.Protobuf.decode @ProtoRepeatedMsg bytes of
+    Right msg -> do
+      assert "protoc encode repeated: values match" (unField (prValues msg) == [5, 10, 15])
+      assert "protoc encode repeated: tags match" (unField (prTags msg) == ["foo", "bar"])
+    Left err -> error $ "FAIL: protoc encode repeated decode: " ++ show err
+
+
+-- ===================================================================
+-- Protoc cross-validation: Test C — roundtrip (our encode -> protoc -> our decode)
+-- ===================================================================
+
+testProtocRoundtrip :: IO ()
+testProtocRoundtrip = do
+  putStrLn "=== Protoc cross-validation: full roundtrip ==="
+  -- Encode with our library, decode to text with protoc, re-encode with protoc,
+  -- decode with our library — should get the same message back.
+  let original = ProtoSimpleMsg (Field "roundtrip") (Field 99) (Field True)
+      bytes1 = Tower.Protobuf.encode original
+  -- Our bytes -> protoc text
+  textOutput <- protocDecode "test.SimpleMsg" bytes1
+  -- protoc text -> protoc bytes
+  bytes2 <- protocEncode "test.SimpleMsg" textOutput
+  -- protoc bytes -> our decode
+  case Tower.Protobuf.decode @ProtoSimpleMsg bytes2 of
+    Right decoded -> assert "full roundtrip: message preserved" (decoded == original)
+    Left err -> error $ "FAIL: full roundtrip decode: " ++ show err
+
+
+-- ===================================================================
+-- Protoc cross-validation: Test D — default values (empty message)
+-- ===================================================================
+
+testProtocDefaults :: IO ()
+testProtocDefaults = do
+  putStrLn "=== Protoc cross-validation: default/empty message ==="
+  -- Encode a default (all-zeros) message with our library
+  let msg = ProtoSimpleMsg (Field "") (Field 0) (Field False)
+      bytes = Tower.Protobuf.encode msg
+  -- Proto3: default values are not encoded on the wire, so the output
+  -- should be empty (protoc --decode shows nothing for default values)
+  assert "default msg: empty encoding" (BS.null bytes)
+  -- Decode an empty message from protoc
+  bytes2 <- protocEncode "test.SimpleMsg" ""
+  case Tower.Protobuf.decode @ProtoSimpleMsg bytes2 of
+    Right decoded -> do
+      assert "protoc default: name is empty" (unField (psName decoded) == "")
+      assert "protoc default: age is 0" (unField (psAge decoded) == 0)
+      assert "protoc default: active is false" (unField (psActive decoded) == False)
+    Left err -> error $ "FAIL: protoc default decode: " ++ show err
+
+
+-- ===================================================================
+-- Protoc cross-validation: entry point
+-- ===================================================================
+
+testProtocCrossValidation :: IO ()
+testProtocCrossValidation = do
+  ok <- hasProtoc
+  if ok
+    then do
+      testProtocDecodeSimple
+      testProtocDecodeNested
+      testProtocDecodeRepeated
+      testProtocDecodeMap
+      testProtocEncodeSimple
+      testProtocEncodeNested
+      testProtocEncodeRepeated
+      testProtocRoundtrip
+      testProtocDefaults
+    else putStrLn "  SKIP: protoc not found (install with: brew install protobuf)"
+
+
+-- ===================================================================
 -- Main
 -- ===================================================================
 
@@ -1245,6 +1505,7 @@ main = do
   testMapRoundtrip
   testEmptyMap
   testMultipleMaps
+  testProtocCrossValidation
 
   putStrLn (replicate 40 '-')
   putStrLn "All tests passed!"

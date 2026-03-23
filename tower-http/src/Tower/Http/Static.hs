@@ -123,10 +123,20 @@ isSpaRoute req =
   in not (hasFileExtension rawPath) && not (BS.isPrefixOf "/api" rawPath)
 
 -- | Check if a path has a file extension.
+-- Only examines the last path segment. Dotfiles (e.g. @.hidden@, @.env@)
+-- are not considered to have a file extension — the dot must not be the
+-- first character.
 hasFileExtension :: ByteString -> Bool
 hasFileExtension path =
-  let lastSegment = snd (BS8.spanEnd (/= '/') path)
-  in BS8.elem '.' (if BS.null lastSegment then path else BS8.drop 1 lastSegment)
+  let segments = filter (not . BS.null) $ BS.split 0x2F path  -- split on '/'
+  in case segments of
+    [] -> False
+    _  -> let lastSeg = last segments
+              dotIdx = BS8.elemIndex '.' lastSeg
+          in case dotIdx of
+               Nothing -> False
+               Just 0  -> False  -- dotfile like .hidden, not a file extension
+               Just _  -> True
 
 -- | Maximum file size for static file serving (50 MiB).
 -- Files larger than this are rejected with 413 Payload Too Large

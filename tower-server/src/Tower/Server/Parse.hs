@@ -157,6 +157,8 @@ readChunkedBody sock limits = go BS.empty
                   rest = BS.drop (idx + 2) buf
               case readHex (BS8.unpack sizeLine) of
                 [(0, "")] -> pure (Right acc)  -- final chunk
+                [(n, "")] | n > maxBodySize limits - BS.length acc ->
+                  pure (Left "413 Payload Too Large")
                 [(n, "")] -> do
                   -- Read n bytes of chunk data + trailing \r\n
                   let needed = n + 2  -- data + \r\n

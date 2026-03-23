@@ -186,6 +186,10 @@ grpcServer services = Service $ \req -> do
   let ct = lookup "content-type" (requestHeaders req)
   case ct of
     Just v | "application/grpc" `BS.isPrefixOf` v -> do
+      -- NOTE: The body is fully buffered by bodyToStrict before the size check.
+      -- The transport layer (tower-server configMaxBodySize, default 2 MiB)
+      -- provides the first line of defense against oversized bodies.
+      -- This check is a secondary safeguard for gRPC-specific limits.
       body <- bodyToStrict (requestBody req)
       if BS.length body > maxGrpcBodySize
         then pure $ grpcTrailersOnly (GS.grpcResourceExhausted "Request body too large")

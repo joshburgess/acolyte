@@ -35,6 +35,7 @@ import System.Timeout (timeout)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
+import Data.Char (toLower)
 import Data.IORef
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -162,6 +163,13 @@ acceptLoop config svc sock = do
 
 
 -- | Handle a single connection (possibly multiple requests via keep-alive).
+--
+-- Known limitation: HTTP pipelining (multiple requests sent before any
+-- response is read) is not supported. If the client pipelines requests,
+-- leftover bytes from the body read (belonging to the next pipelined
+-- request) are discarded. In practice this is not an issue: browsers
+-- do not pipeline HTTP/1.1 requests, and HTTP/2 supersedes pipelining.
+-- The keep-alive loop only handles sequential request-response pairs.
 handleConnection
   :: ServerConfig
   -> Service IO (Request Body) (Response Body)
@@ -223,10 +231,12 @@ handleConnection config svc conn = go `finally` close conn
                 (responseHeaders resp)
                 (responseBody resp)
 
-              -- Keep-alive: check Connection header
+              -- Keep-alive: check Connection header (case-insensitive)
               let connHeader = lookup "connection" (rhHeaders reqHead)
-                  keepAlive = configKeepAlive config
-                    && connHeader /= Just "close"
+                  isClose = case connHeader of
+                    Just v  -> BS8.map toLower v == "close"
+                    Nothing -> False
+                  keepAlive = configKeepAlive config && not isClose
               if keepAlive
                 then go
                 else pure ()

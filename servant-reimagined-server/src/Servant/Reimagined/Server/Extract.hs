@@ -743,13 +743,20 @@ extractBoundary ct
       | w >= 0x41 && w <= 0x5A = w + 0x20
       | otherwise              = w
 
+-- | Maximum number of parts allowed in a multipart body.
+-- Prevents excessive memory/CPU usage from adversarial inputs with
+-- thousands of parts.
+maxMultipartParts :: Int
+maxMultipartParts = 1000
+
 -- | Parse a multipart body given the boundary string.
 -- This is a simplified parser that handles the common case.
+-- Output is capped at 'maxMultipartParts' parts.
 parseMultipart :: ByteString -> ByteString -> [FilePart]
 parseMultipart boundary body =
   let delim = "--" <> boundary
       chunks = splitOnBoundary delim body
-  in concatMap parsePart chunks
+  in take maxMultipartParts (concatMap parsePart chunks)
 
 -- | Split the body on boundary delimiters.
 splitOnBoundary :: ByteString -> ByteString -> [ByteString]

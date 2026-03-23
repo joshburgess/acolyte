@@ -121,8 +121,9 @@ stripComments = go
           let (_, after) = T.breakOn "*/" rest
           in go (T.drop 2 after)  -- skip the */
       | otherwise =
-          let (c, rest) = (T.head t, T.tail t)
-          in T.cons c (go rest)
+          case T.uncons t of
+            Just (c, rest) -> T.cons c (go rest)
+            Nothing        -> T.empty
 
 
 -- | Split on top-level statements, respecting braces.

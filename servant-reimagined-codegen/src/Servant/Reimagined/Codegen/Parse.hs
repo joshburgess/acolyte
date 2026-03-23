@@ -209,8 +209,10 @@ parsePath path =
 
 parseSegment :: Text -> PathSegmentIR
 parseSegment seg
-  | T.head seg == '{' && T.last seg == '}' =
-      let name = T.init (T.tail seg)
+  | Just ('{', inner) <- T.uncons seg
+  , not (T.null inner)
+  , T.last inner == '}' =
+      let name = T.init inner
       in CaptureSegment name "string"
   | otherwise = LitSegment seg
 

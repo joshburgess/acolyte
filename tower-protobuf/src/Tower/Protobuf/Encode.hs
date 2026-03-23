@@ -20,6 +20,8 @@ module Tower.Protobuf.Encode
   , encodePackedField
     -- * Submessage encoding
   , encodeSubmessage
+    -- * Tag encoding (for advanced use)
+  , pbTag
     -- * Proto3 default values
   , ProtoDefault (..)
   ) where

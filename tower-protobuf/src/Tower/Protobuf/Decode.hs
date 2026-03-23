@@ -1,3 +1,6 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 -- | Protobuf decoding: single-pass wire format parser.
 --
 -- Provides 'ProtoDecode' for individual value types and 'DecodeError'
@@ -11,6 +14,8 @@ module Tower.Protobuf.Decode
   , parseFields
     -- * Packed repeated field decoding
   , decodePacked
+    -- * Packed/unpacked repeated entry decoding (Generics support)
+  , DecodeRepeatedEntry (..)
     -- * Errors
   , DecodeError (..)
   ) where
@@ -201,3 +206,120 @@ decodePacked parser (RawBytes bs) = go bs []
           Just (val, rest) -> go rest (val : acc)
           Nothing -> Left TruncatedInput
 decodePacked _ _ = Left (UnexpectedWireType 0 WireLengthDelimited WireVarint)
+
+
+-- ===================================================================
+-- DecodeRepeatedEntry: handles both packed and unpacked entries
+-- ===================================================================
+
+-- | Decode a single raw field entry as one or more values of type @a@.
+--
+-- For packable scalar types (Int32, Int64, Word32, Word64, Bool, Float,
+-- Double, SInt32, SInt64), a 'RawBytes' entry is treated as a packed
+-- blob containing multiple concatenated values. For non-packable types
+-- (Text, ByteString, submessages), 'RawBytes' is decoded as a single
+-- value.
+--
+-- This class is used by the Generics decoder for repeated fields to
+-- transparently handle both packed and unpacked wire encodings.
+class DecodeRepeatedEntry a where
+  decodeRepeatedEntry :: RawField -> Either DecodeError [a]
+
+-- | Default: non-packable types. Decode as a single value.
+instance {-# OVERLAPPABLE #-} ProtoDecode a => DecodeRepeatedEntry a where
+  decodeRepeatedEntry raw = (: []) <$> protoDecodeValue raw
+  {-# INLINE decodeRepeatedEntry #-}
+
+-- Varint-based packable scalars: Int32, Int64, Word32, Word64, Bool
+
+instance DecodeRepeatedEntry Int32 where
+  decodeRepeatedEntry (RawBytes bs) = unpackVarints bs
+  decodeRepeatedEntry raw = (: []) <$> protoDecodeValue raw
+  {-# INLINE decodeRepeatedEntry #-}
+
+instance DecodeRepeatedEntry Int64 where
+  decodeRepeatedEntry (RawBytes bs) = unpackVarints bs
+  decodeRepeatedEntry raw = (: []) <$> protoDecodeValue raw
+  {-# INLINE decodeRepeatedEntry #-}
+
+instance DecodeRepeatedEntry Word32 where
+  decodeRepeatedEntry (RawBytes bs) = unpackVarints bs
+  decodeRepeatedEntry raw = (: []) <$> protoDecodeValue raw
+  {-# INLINE decodeRepeatedEntry #-}
+
+instance DecodeRepeatedEntry Word64 where
+  decodeRepeatedEntry (RawBytes bs) = unpackVarints bs
+  decodeRepeatedEntry raw = (: []) <$> protoDecodeValue raw
+  {-# INLINE decodeRepeatedEntry #-}
+
+instance DecodeRepeatedEntry Bool where
+  decodeRepeatedEntry (RawBytes bs) = unpackVarints bs
+  decodeRepeatedEntry raw = (: []) <$> protoDecodeValue raw
+  {-# INLINE decodeRepeatedEntry #-}
+
+-- Fixed32-based: Float
+instance DecodeRepeatedEntry Float where
+  decodeRepeatedEntry (RawBytes bs) = unpackFixed32s bs
+  decodeRepeatedEntry raw = (: []) <$> protoDecodeValue raw
+  {-# INLINE decodeRepeatedEntry #-}
+
+-- Fixed64-based: Double
+instance DecodeRepeatedEntry Double where
+  decodeRepeatedEntry (RawBytes bs) = unpackFixed64s bs
+  decodeRepeatedEntry raw = (: []) <$> protoDecodeValue raw
+  {-# INLINE decodeRepeatedEntry #-}
+
+-- Varint-based with zigzag: SInt32, SInt64
+instance DecodeRepeatedEntry SInt32 where
+  decodeRepeatedEntry (RawBytes bs) = unpackVarints bs
+  decodeRepeatedEntry raw = (: []) <$> protoDecodeValue raw
+  {-# INLINE decodeRepeatedEntry #-}
+
+instance DecodeRepeatedEntry SInt64 where
+  decodeRepeatedEntry (RawBytes bs) = unpackVarints bs
+  decodeRepeatedEntry raw = (: []) <$> protoDecodeValue raw
+  {-# INLINE decodeRepeatedEntry #-}
+
+
+-- ===================================================================
+-- Unpacking helpers
+-- ===================================================================
+
+-- | Unpack varints from a packed blob, decoding each via 'ProtoDecode'.
+unpackVarints :: ProtoDecode a => ByteString -> Either DecodeError [a]
+unpackVarints = go []
+  where
+    go !acc bs
+      | BS.null bs = Right (reverse acc)
+      | otherwise = case decodeVarint bs of
+          Just (w, rest) -> case protoDecodeValue (RawVarint w) of
+            Right val -> go (val : acc) rest
+            Left err  -> Left err
+          Nothing -> Left TruncatedInput
+{-# INLINE unpackVarints #-}
+
+-- | Unpack fixed32 values from a packed blob.
+unpackFixed32s :: ProtoDecode a => ByteString -> Either DecodeError [a]
+unpackFixed32s = go []
+  where
+    go !acc bs
+      | BS.null bs = Right (reverse acc)
+      | otherwise = case decodeFixed32 bs of
+          Just (w, rest) -> case protoDecodeValue (RawFixed32 w) of
+            Right val -> go (val : acc) rest
+            Left err  -> Left err
+          Nothing -> Left TruncatedInput
+{-# INLINE unpackFixed32s #-}
+
+-- | Unpack fixed64 values from a packed blob.
+unpackFixed64s :: ProtoDecode a => ByteString -> Either DecodeError [a]
+unpackFixed64s = go []
+  where
+    go !acc bs
+      | BS.null bs = Right (reverse acc)
+      | otherwise = case decodeFixed64 bs of
+          Just (w, rest) -> case protoDecodeValue (RawFixed64 w) of
+            Right val -> go (val : acc) rest
+            Left err  -> Left err
+          Nothing -> Left TruncatedInput
+{-# INLINE unpackFixed64s #-}

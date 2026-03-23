@@ -9,6 +9,7 @@ module Main (main) where
 
 import qualified Data.ByteString as BS
 import Data.Int (Int32)
+import qualified Data.Map.Strict as Map
 import Data.Text (Text)
 import Data.Word (Word64)
 import GHC.Generics (Generic)
@@ -21,7 +22,7 @@ import Tower.Protobuf
 import Tower.Protobuf.Wire (encodeFixed32, encodeFixed64, decodeVarint, decodeFixed32,
                             decodeFixed64, encodeLengthDelimited, decodeLengthDelimited,
                             zigzagEncode, zigzagDecode)
-import Tower.Protobuf.Encode (runProtoBuilder, ProtoBuilder(..))
+import Tower.Protobuf.Encode (runProtoBuilder, ProtoBuilder(..), encodePackedField)
 
 
 -- ===================================================================
@@ -191,6 +192,48 @@ prop_zigzagInt64Roundtrip :: Property
 prop_zigzagInt64Roundtrip = property $ do
   n <- forAll $ Gen.int64 Range.linearBounded
   zigzagDecode (zigzagEncode n) === n
+
+
+-- ===================================================================
+-- Packed repeated field properties
+-- ===================================================================
+
+data Packed = Packed
+  { pScores :: Field 1 [Int32]
+  } deriving (Show, Eq, Generic)
+
+instance ProtoMessage Packed
+
+-- | For any [Int32], packed encoding then Generics decode roundtrips.
+prop_packedRoundtrip :: Property
+prop_packedRoundtrip = property $ do
+  xs <- forAll $ Gen.list (Range.linear 0 100) (Gen.int32 Range.linearBounded)
+  let packed = runProtoBuilder (encodePackedField (Field xs :: Field 1 [Int32]))
+  decode @Packed packed === Right (Packed (Field xs))
+
+
+-- ===================================================================
+-- Map field properties
+-- ===================================================================
+
+data WithMap = WithMap
+  { wmLabels :: Field 1 (ProtoMap Text Int32)
+  } deriving (Show, Eq, Generic)
+
+instance ProtoMessage WithMap
+
+genProtoMap :: Gen (ProtoMap Text Int32)
+genProtoMap = do
+  kvs <- Gen.list (Range.linear 0 20)
+    ((,) <$> genText <*> Gen.int32 Range.linearBounded)
+  pure (ProtoMap (Map.fromList kvs))
+
+-- | For any Map Text Int32, encode then decode roundtrips.
+prop_mapRoundtrip :: Property
+prop_mapRoundtrip = property $ do
+  m <- forAll genProtoMap
+  let msg = WithMap (Field m)
+  decode (encode msg) === Right msg
 
 
 -- ===================================================================

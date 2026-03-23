@@ -29,11 +29,12 @@ module Tower.Protobuf.Message
   ) where
 
 import Data.ByteString (ByteString)
+import qualified Data.Map.Strict as Map
 import GHC.Generics
 import GHC.TypeLits (KnownNat, natVal)
 import Data.Proxy (Proxy(..))
 
-import Tower.Protobuf.Wire (WireType(..))
+import Tower.Protobuf.Wire
 import Tower.Protobuf.Field
 import Tower.Protobuf.Encode
 import Tower.Protobuf.Decode
@@ -180,15 +181,16 @@ instance {-# OVERLAPPING #-} (KnownNat n, ProtoDecode a)
 -- K1: repeated field — Field n [a]. Collect all occurrences.
 -- Handles both unpacked (each element tagged separately) and packed
 -- (all elements in a single length-delimited blob) wire encodings.
--- When a 'RawBytes' appears for a repeated field and single-value
--- decoding fails, the bytes are kept as-is (packed decoding for
--- specific scalar types should use 'decodePacked' from Decode).
-instance {-# OVERLAPPING #-} (KnownNat n, ProtoDecode a)
+-- For packable scalar types (Int32, Int64, Word32, Word64, Bool, Float,
+-- Double, SInt32, SInt64), a RawBytes entry is automatically unpacked
+-- into multiple values. For non-packable types (Text, ByteString,
+-- submessages), each RawBytes is decoded as a single value.
+instance {-# OVERLAPPING #-} (KnownNat n, DecodeRepeatedEntry a)
   => GProtoDecode (K1 i (Field n [a])) where
   gProtoDecode rfs =
     let fn = fromIntegral (natVal (Proxy @n))
         raws = [raw | (n', raw) <- rfs, n' == fn]
-    in K1 . Field <$> traverse protoDecodeValue raws
+    in K1 . Field . concat <$> traverse decodeRepeatedEntry raws
   {-# INLINE gProtoDecode #-}
 
 
@@ -205,3 +207,99 @@ lookupLast fn = go Nothing
       | n == fn   = go (Just v) rest
       | otherwise = go acc rest
 {-# INLINE lookupLast #-}
+
+
+-- ===================================================================
+-- ProtoMap: Proto3 map field support
+-- ===================================================================
+
+-- | Proto3 default for ProtoMap: empty map.
+instance ProtoDefault (ProtoMap k v) where
+  protoDefault = ProtoMap Map.empty
+
+-- | Encode a ProtoMap as repeated length-delimited entries.
+-- Each map entry is a submessage with field 1 = key, field 2 = value.
+instance (Ord k, ProtoEncode k, ProtoEncode v) => ProtoEncode (ProtoMap k v) where
+  protoWireType = WireLengthDelimited
+  protoEncodeValue (ProtoMap m) =
+    let encodeEntry k v =
+          let keyEnc   = pbTag 1 (protoWireType @k) <> protoEncodeValue k
+              valEnc   = pbTag 2 (protoWireType @v) <> protoEncodeValue v
+              entryBody = keyEnc <> valEnc
+          in encodeSubmessage entryBody
+    in Map.foldlWithKey' (\acc k v -> acc <> encodeEntry k v) mempty m
+  {-# INLINE protoEncodeValue #-}
+
+-- | Decode a ProtoMap entry from a single RawBytes (one key-value pair submessage).
+-- The caller (repeated field decoder) will collect all entries.
+instance (Ord k, ProtoDecode k, ProtoDefault k, ProtoDecode v, ProtoDefault v)
+  => ProtoDecode (ProtoMap k v) where
+  protoDecodeValue (RawBytes bs) = do
+    -- Parse the entry submessage
+    rfs <- parseFields bs
+    -- Extract key (field 1) and value (field 2), using defaults if absent
+    k <- case lookupLast 1 rfs of
+           Nothing  -> Right protoDefault
+           Just raw -> protoDecodeValue raw
+    v <- case lookupLast 2 rfs of
+           Nothing  -> Right protoDefault
+           Just raw -> protoDecodeValue raw
+    Right (ProtoMap (Map.singleton k v))
+  protoDecodeValue _ = Left (UnexpectedWireType 0 WireLengthDelimited WireVarint)
+  {-# INLINE protoDecodeValue #-}
+
+-- | DecodeRepeatedEntry for ProtoMap: each RawBytes is a single entry.
+instance (Ord k, ProtoDecode k, ProtoDefault k, ProtoDecode v, ProtoDefault v)
+  => DecodeRepeatedEntry (ProtoMap k v) where
+  decodeRepeatedEntry raw = (: []) <$> protoDecodeValue raw
+  {-# INLINE decodeRepeatedEntry #-}
+
+
+-- ===================================================================
+-- ProtoMap Generics encoding/decoding
+-- ===================================================================
+
+-- K1: ProtoMap field — Field n (ProtoMap k v). Encode all entries as
+-- repeated submessages with the same field number.
+instance {-# OVERLAPPING #-}
+  (KnownNat n, Ord k, ProtoEncode k, ProtoEncode v)
+  => GProtoEncode (K1 i (Field n (ProtoMap k v))) where
+  gProtoEncode (K1 (Field (ProtoMap m)))
+    | Map.null m = mempty
+    | otherwise =
+      let fn = fromIntegral (natVal (Proxy @n)) :: Int
+          tag = pbTag fn WireLengthDelimited
+          encodeEntry k v =
+            let keyEnc   = pbTag 1 (protoWireType @k) <> protoEncodeValue k
+                valEnc   = pbTag 2 (protoWireType @v) <> protoEncodeValue v
+                entryBody = keyEnc <> valEnc
+            in tag <> encodeSubmessage entryBody
+      in Map.foldlWithKey' (\acc k v -> acc <> encodeEntry k v) mempty m
+  {-# INLINE gProtoEncode #-}
+
+-- K1: ProtoMap field — Field n (ProtoMap k v). Decode by collecting all
+-- repeated submessage entries for the field number and merging them.
+instance {-# OVERLAPPING #-}
+  (KnownNat n, Ord k, ProtoDecode k, ProtoDefault k, ProtoDecode v, ProtoDefault v)
+  => GProtoDecode (K1 i (Field n (ProtoMap k v))) where
+  gProtoDecode rfs =
+    let fn = fromIntegral (natVal (Proxy @n))
+        raws = [raw | (n', raw) <- rfs, n' == fn]
+    in do
+      entries <- traverse decodeMapEntry raws
+      Right (K1 (Field (ProtoMap (Map.unions entries))))
+  {-# INLINE gProtoDecode #-}
+
+-- | Decode a single map entry submessage into a singleton Map.
+decodeMapEntry :: (Ord k, ProtoDecode k, ProtoDefault k, ProtoDecode v, ProtoDefault v)
+               => RawField -> Either DecodeError (Map.Map k v)
+decodeMapEntry (RawBytes bs) = do
+  rfs <- parseFields bs
+  k <- case lookupLast 1 rfs of
+         Nothing  -> Right protoDefault
+         Just raw -> protoDecodeValue raw
+  v <- case lookupLast 2 rfs of
+         Nothing  -> Right protoDefault
+         Just raw -> protoDecodeValue raw
+  Right (Map.singleton k v)
+decodeMapEntry _ = Left (UnexpectedWireType 0 WireLengthDelimited WireVarint)

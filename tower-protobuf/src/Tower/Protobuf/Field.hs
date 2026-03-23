@@ -15,9 +15,12 @@ module Tower.Protobuf.Field
     -- * Signed integer wrappers (zigzag encoding)
   , SInt32 (..)
   , SInt64 (..)
+    -- * Proto3 map fields
+  , ProtoMap (..)
   ) where
 
 import Data.Int (Int32, Int64)
+import Data.Map.Strict (Map)
 import GHC.TypeLits (Nat, KnownNat, natVal)
 import Data.Proxy (Proxy(..))
 
@@ -44,4 +47,21 @@ newtype SInt32 = SInt32 { unSInt32 :: Int32 }
 -- | Signed 64-bit integer using zigzag encoding on the wire.
 -- Use for fields declared as @sint64@ in .proto files.
 newtype SInt64 = SInt64 { unSInt64 :: Int64 }
+  deriving (Show, Eq, Ord)
+
+
+-- | Proto3 map field: @map\<K, V\>@.
+--
+-- On the wire, a map is encoded as a repeated message where each entry
+-- has field 1 = key and field 2 = value. This newtype wraps 'Map' and
+-- provides the correct protobuf encoding/decoding.
+--
+-- @
+-- data Config = Config
+--   { settings :: Field 1 (ProtoMap Text Text)
+--   , counts   :: Field 2 (ProtoMap Text Int32)
+--   } deriving (Generic)
+-- instance ProtoMessage Config
+-- @
+newtype ProtoMap k v = ProtoMap { unProtoMap :: Map k v }
   deriving (Show, Eq, Ord)

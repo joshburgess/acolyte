@@ -74,6 +74,7 @@ test-suite spec
     , tower-protobuf
     , bytestring   >= 0.11 && < 0.13
     , text         >= 2.0  && < 2.2
+    , containers   >= 0.6  && < 0.8
 
 test-suite properties
   type: exitcode-stdio-1.0
@@ -92,6 +93,7 @@ test-suite properties
     , hedgehog     >= 1.4  && < 1.8
     , bytestring   >= 0.11 && < 0.13
     , text         >= 2.0  && < 2.2
+    , containers   >= 0.6  && < 0.8
 
 source-repository head
   type:     git

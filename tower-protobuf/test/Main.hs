@@ -9,6 +9,7 @@ module Main (main) where
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Int (Int32, Int64)
+import qualified Data.Map.Strict as Map
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Word (Word32, Word64)
@@ -17,7 +18,6 @@ import GHC.Generics (Generic)
 import Tower.Protobuf
 import Tower.Protobuf.Wire
 import Tower.Protobuf.Encode
-import Tower.Protobuf.Decode (RawField(..), parseFields, DecodeError(..))
 import Tower.Protobuf.Decode
 
 
@@ -879,6 +879,128 @@ testWireCompatibility = do
 
 
 -- ===================================================================
+-- 32. Packed repeated field decoding
+-- ===================================================================
+
+data Packed = Packed
+  { pScores :: Field 1 [Int32]
+  } deriving (Show, Eq, Generic)
+
+instance ProtoMessage Packed
+
+testPackedRepeatedRoundtrip :: IO ()
+testPackedRepeatedRoundtrip = do
+  putStrLn "=== Packed repeated field decoding ==="
+
+  -- Encode using packed format (single length-delimited blob)
+  let scores = [10, 20, 30, 40, 50] :: [Int32]
+      packedBytes = runProtoBuilder (encodePackedField (Field scores :: Field 1 [Int32]))
+  -- Decode using Generics decoder (which now handles packed)
+  case decode @Packed packedBytes of
+    Right msg -> assert "packed repeated roundtrip" (unField (pScores msg) == scores)
+    Left err -> error $ "FAIL: packed repeated roundtrip: " ++ show err
+
+  -- Encode using unpacked format (each element individually tagged)
+  let unpackedBytes = runProtoBuilder (encodeRepeatedField (Field scores :: Field 1 [Int32]))
+  case decode @Packed unpackedBytes of
+    Right msg -> assert "unpacked repeated roundtrip" (unField (pScores msg) == scores)
+    Left err -> error $ "FAIL: unpacked repeated roundtrip: " ++ show err
+
+  -- Empty packed field
+  let emptyPacked = runProtoBuilder (encodePackedField (Field [] :: Field 1 [Int32]))
+  case decode @Packed emptyPacked of
+    Right msg -> assert "empty packed roundtrip" (unField (pScores msg) == [])
+    Left err -> error $ "FAIL: empty packed roundtrip: " ++ show err
+
+
+-- ===================================================================
+-- 33. Mixed packed/unpacked entries
+-- ===================================================================
+
+testMixedPackedUnpacked :: IO ()
+testMixedPackedUnpacked = do
+  putStrLn "=== Mixed packed/unpacked entries ==="
+
+  -- Manually construct wire bytes with a packed blob AND individual entries
+  -- for the same field number 1.
+  -- First: unpacked entry for value 1
+  let unpacked1 = runProtoBuilder (encodeRepeatedField (Field [1 :: Int32] :: Field 1 [Int32]))
+  -- Second: packed blob for values [2, 3, 4]
+  let packed234 = runProtoBuilder (encodePackedField (Field [2, 3, 4 :: Int32] :: Field 1 [Int32]))
+  -- Third: unpacked entry for value 5
+  let unpacked5 = runProtoBuilder (encodeRepeatedField (Field [5 :: Int32] :: Field 1 [Int32]))
+  -- Concatenate them (this is valid proto3: decoder must merge all entries)
+  let mixed = unpacked1 <> packed234 <> unpacked5
+  case decode @Packed mixed of
+    Right msg -> assert "mixed packed/unpacked decodes all values"
+                        (unField (pScores msg) == [1, 2, 3, 4, 5])
+    Left err -> error $ "FAIL: mixed packed/unpacked: " ++ show err
+
+
+-- ===================================================================
+-- 34. ProtoMap field roundtrip
+-- ===================================================================
+
+data WithMap = WithMap
+  { wmLabels :: Field 1 (ProtoMap Text Int32)
+  } deriving (Show, Eq, Generic)
+
+instance ProtoMessage WithMap
+
+testMapRoundtrip :: IO ()
+testMapRoundtrip = do
+  putStrLn "=== ProtoMap field roundtrip ==="
+
+  -- Non-empty map
+  let m = Map.fromList [("alpha", 1), ("beta", 2), ("gamma", 3)]
+      msg = WithMap (Field (ProtoMap m))
+  case decode (encode msg) of
+    Right msg' -> assert "map roundtrip" (msg == msg')
+    Left err -> error $ "FAIL: map roundtrip: " ++ show err
+
+
+-- ===================================================================
+-- 35. Empty map
+-- ===================================================================
+
+testEmptyMap :: IO ()
+testEmptyMap = do
+  putStrLn "=== Empty map ==="
+
+  let msg = WithMap (Field (ProtoMap Map.empty))
+      bs = encode msg
+  -- Empty map should encode to empty bytes (no entries)
+  assert "empty map encodes to empty bytes" (BS.null bs)
+
+  case decode @WithMap bs of
+    Right msg' -> assert "empty map roundtrip" (msg == msg')
+    Left err -> error $ "FAIL: empty map roundtrip: " ++ show err
+
+
+-- ===================================================================
+-- 36. Map with multiple entry types
+-- ===================================================================
+
+data WithMaps = WithMaps
+  { wmStrStr :: Field 1 (ProtoMap Text Text)
+  , wmStrInt :: Field 2 (ProtoMap Text Int32)
+  } deriving (Show, Eq, Generic)
+
+instance ProtoMessage WithMaps
+
+testMultipleMaps :: IO ()
+testMultipleMaps = do
+  putStrLn "=== Multiple map fields ==="
+
+  let msg = WithMaps
+              (Field (ProtoMap (Map.fromList [("key1", "val1"), ("key2", "val2")])))
+              (Field (ProtoMap (Map.fromList [("count", 42)])))
+  case decode (encode msg) of
+    Right msg' -> assert "multiple maps roundtrip" (msg == msg')
+    Left err -> error $ "FAIL: multiple maps roundtrip: " ++ show err
+
+
+-- ===================================================================
 -- Main
 -- ===================================================================
 
@@ -921,6 +1043,11 @@ main = do
   testZigzagNegativeEfficiency
   testLargeMessage
   testWireCompatibility
+  testPackedRepeatedRoundtrip
+  testMixedPackedUnpacked
+  testMapRoundtrip
+  testEmptyMap
+  testMultipleMaps
 
   putStrLn (replicate 40 '-')
   putStrLn "All tests passed!"

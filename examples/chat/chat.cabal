@@ -1,0 +1,26 @@
+cabal-version:   3.0
+name:            chat
+version:         0.1.0.0
+synopsis:        WebSocket session-typed chat protocol
+build-type:      Simple
+
+executable chat
+  main-is: Main.hs
+  hs-source-dirs: .
+  default-language: GHC2024
+  default-extensions:
+    DataKinds
+    TypeFamilies
+    TypeOperators
+    OverloadedStrings
+    AllowAmbiguousTypes
+    ScopedTypeVariables
+    DeriveGeneric
+    DeriveAnyClass
+
+  build-depends:
+      base                       >= 4.20 && < 5
+    , servant-reimagined
+    , aeson                      >= 2.1  && < 2.3
+    , bytestring                 >= 0.11 && < 0.13
+    , text                       >= 2.0  && < 2.2

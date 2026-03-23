@@ -34,6 +34,9 @@ module Servant.Reimagined.Core.Versioning
 import Data.Kind (Type, Constraint)
 import GHC.TypeLits (TypeError, ErrorMessage (..))
 
+import Servant.Reimagined.Core.API (type (++))
+import Servant.Reimagined.Core.Effect (Assert)
+
 
 -- | A change to an API between versions.
 data Change
@@ -76,12 +79,6 @@ type family Remove (x :: Type) (xs :: [Type]) :: [Type] where
   Remove x (y ': ys) = y ': Remove x ys
 
 
--- | Type-level list append.
-type family (xs :: [k]) ++ (ys :: [k]) :: [k] where
-  '[]       ++ ys = ys
-  (x ': xs) ++ ys = x ': (xs ++ ys)
-
-
 -- | Check whether a list of changes is backward compatible.
 --
 -- A change set is backward compatible if it contains no 'Removed' changes.
@@ -106,8 +103,4 @@ type family BackwardCompatible (changes :: [Change]) :: Constraint where
       )
 
 
--- | Assert with a custom error message (same as in Effect module).
-type Assert :: Bool -> ErrorMessage -> Constraint
-type family Assert (b :: Bool) (msg :: ErrorMessage) :: Constraint where
-  Assert 'True  _   = ()
-  Assert 'False msg = TypeError msg
+-- Assert imported from Servant.Reimagined.Core.Effect

@@ -14,6 +14,10 @@ module Servant.Reimagined.Core
   , Captures
   , CapturesTuple
   , CountCaptures
+  , At
+  , Param
+  , At2
+  , Param2
 
     -- * Endpoints
   , Endpoint
@@ -26,7 +30,7 @@ module Servant.Reimagined.Core
 
     -- * API specification
   , type API
-  , Serves (..)
+  , Serves
   , Length
   , type (++)
 
@@ -46,6 +50,21 @@ module Servant.Reimagined.Core
   , Validate (..)
   , Versioned
   , ApiVersion (..)
+  , Describe
+  , WithParams
+  , QP
+  , WithHeaders
+  , HH
+
+    -- * Streaming RPC markers
+  , ServerStream
+  , ClientStream
+  , BidiStream
+
+    -- * Response status code annotations
+  , RespondsWith
+  , PostCreated
+  , DeleteNoContent
 
     -- * Session types (WebSocket protocols)
   , SessionType (..)

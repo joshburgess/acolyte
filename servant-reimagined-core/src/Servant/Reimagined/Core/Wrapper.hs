@@ -17,10 +17,29 @@ module Servant.Reimagined.Core.Wrapper
     -- * Versioning prefix
   , Versioned
   , ApiVersion (..)
+    -- * Description
+  , Describe
+    -- * Query parameter annotations
+  , WithParams
+  , QP
+    -- * Header annotations
+  , WithHeaders
+  , HH
+    -- * Streaming RPC markers
+  , ServerStream
+  , ClientStream
+  , BidiStream
+    -- * Response status code annotations
+  , RespondsWith
+  , PostCreated
+  , DeleteNoContent
   ) where
 
 import Data.Kind (Type, Constraint)
-import GHC.TypeLits (Symbol, KnownSymbol)
+import Data.Text (Text)
+import GHC.TypeLits (Symbol, KnownSymbol, Nat)
+
+import Servant.Reimagined.Core.Endpoint (Endpoint, NoBody, Post, Delete)
 
 
 -- | An endpoint that requires authentication.
@@ -90,4 +109,100 @@ data Versioned (version :: Type) (endpoint :: Type)
 
 -- | Class for API version tags.
 class ApiVersion (v :: Type) where
-  versionPrefix :: String
+  versionPrefix :: Text
+
+
+-- | Annotate an endpoint with a human-readable description.
+-- Used by OpenAPI generation for endpoint summaries.
+-- Transparent to routing — delegates all endpoint metadata to the inner type.
+--
+-- @
+-- type API =
+--   '[ Describe "Health check" (Get (At "health") Text)
+--    , Describe "Get user by ID" (Get (Param "users" Int) (Json User))
+--    ]
+-- @
+type Describe :: Symbol -> Type -> Type
+data Describe (desc :: Symbol) (endpoint :: Type)
+
+
+-- | Annotate an endpoint with its query parameters for documentation.
+-- Transparent to routing — the actual extraction still happens in handlers.
+-- Used by OpenAPI generation and client generation to document parameters.
+--
+-- @
+-- type API =
+--   '[ WithParams '[QP "page" Int, QP "limit" Int]
+--        (Get (At "users") (Json [User]))
+--    ]
+-- @
+type WithParams :: [Type] -> Type -> Type
+data WithParams (params :: [Type]) (endpoint :: Type)
+
+-- | A query parameter declaration (name + type).
+type QP :: Symbol -> Type -> Type
+data QP (name :: Symbol) (a :: Type)
+
+
+-- | Annotate an endpoint with its required/optional headers.
+--
+-- @
+-- type API =
+--   '[ WithHeaders '[HH "Authorization" Text, HH "X-Request-Id" Text]
+--        (Get (At "users") (Json [User]))
+--    ]
+-- @
+type WithHeaders :: [Type] -> Type -> Type
+data WithHeaders (headers :: [Type]) (endpoint :: Type)
+
+-- | A header declaration (name + type).
+type HH :: Symbol -> Type -> Type
+data HH (name :: Symbol) (a :: Type)
+
+
+-- | Mark an endpoint as a server-streaming RPC.
+-- The server sends multiple response messages.
+-- Used by .proto generation to emit @stream@ in the return type.
+--
+-- @
+-- type API = '[ ServerStream (Get (At "events") (Json Event)) ]
+-- @
+type ServerStream :: Type -> Type
+data ServerStream (endpoint :: Type)
+
+-- | Mark an endpoint as a client-streaming RPC.
+-- The client sends multiple request messages.
+--
+-- @
+-- type API = '[ ClientStream (Post (At "upload") (Json Chunk) (Json Result)) ]
+-- @
+type ClientStream :: Type -> Type
+data ClientStream (endpoint :: Type)
+
+-- | Mark an endpoint as a bidirectional-streaming RPC.
+-- Both client and server stream messages.
+--
+-- @
+-- type API = '[ BidiStream (Post (At "chat") (Json Msg) (Json Msg)) ]
+-- @
+type BidiStream :: Type -> Type
+data BidiStream (endpoint :: Type)
+
+
+-- | Declare the expected response status code for documentation.
+-- Transparent to routing. Used by OpenAPI generation.
+--
+-- @
+-- type API =
+--   '[ RespondsWith 201 (Post (At "users") (Json CreateUser) (Json User))
+--    , RespondsWith 204 (Delete (Param "users" Int) (Json ()))
+--    ]
+-- @
+type RespondsWith :: Nat -> Type -> Type
+data RespondsWith (status :: Nat) (endpoint :: Type)
+
+-- | Convenience: POST that returns 201 Created.
+type PostCreated path req resp = RespondsWith 201 (Post path req resp)
+
+-- | Convenience: DELETE that returns 204 No Content.
+type DeleteNoContent path = RespondsWith 204 (Delete path NoBody)

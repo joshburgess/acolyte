@@ -46,7 +46,7 @@ build something that could only exist in Haskell.
 
 ## Current Status
 
-Phases 1-6 are complete. Twelve packages are built, tested, and working:
+Phases 1-8 are complete. Fifteen packages are built, tested, and working:
 
 | Phase | Packages | Status |
 |-------|----------|--------|
@@ -56,14 +56,22 @@ Phases 1-6 are complete. Twelve packages are built, tested, and working:
 | 4 (interpretations) | `servant-reimagined-client`, `servant-reimagined-openapi` | Done |
 | 5 (native server) | `tower-server` (zero-WAI HTTP/1.1 + TLS) | Done |
 | 6 (polish) | `servant-reimagined` (facade), `servant-reimagined-test` | Done |
+| 7 (gRPC) | `tower-grpc`, `servant-reimagined-grpc` | Done |
+| 8 (WebSocket) | `tower-websocket` (session-typed WebSocket runtime) | Done |
 
-48 modules, 200+ tests, 10 test suites, ~7 seconds clean build on GHC 9.10.3.
+40 test suites, 43 hedgehog property tests across 8 suites, 612+ unit assertions, ~7 seconds clean build on GHC 9.10.3.
 
 Compile-time benchmarks confirm linear scaling: 1 to 16 endpoints
 compiles in constant time (0.16–0.17s). No exponential blowup.
 
-Remaining: `servant-reimagined-grpc` (unified REST + gRPC), HTTP/2 in
-tower-server, session-typed WebSocket runtime enforcement.
+Completed since Phase 6: gRPC wire protocol and API interpretation
+(`tower-grpc`, `servant-reimagined-grpc`), HTTP/2 in `tower-server`,
+content negotiation (`Servant.Reimagined.Server.Negotiate`), REST+gRPC
+multiplexing (`Tower.Grpc.Multiplex`), server reflection
+(`Tower.Grpc.Reflection`), bidirectional `.proto` codegen.
+
+All planned features are complete, including session-typed WebSocket
+runtime enforcement (`tower-websocket`).
 
 ## Project Documents
 
@@ -72,7 +80,7 @@ tower-server, session-typed WebSocket runtime enforcement.
 - `TYPEWAY-ANALYSIS.md` — Detailed analysis of typeway's 12 improvements
   over Servant, with Haskell translation sketches for each.
 
-- `ARCHITECTURE.md` — Complete package structure (12 packages), dependency
+- `ARCHITECTURE.md` — Complete package structure (15 packages), dependency
   graph, the two-layer middleware model, backend agnosticism design,
   handler monad decision, error handling strategy, and build phases.
 

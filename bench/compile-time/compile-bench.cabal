@@ -1,0 +1,45 @@
+cabal-version:   3.0
+name:            compile-bench
+version:         0.1.0.0
+synopsis:        Compile-time benchmarks for servant-reimagined
+build-type:      Simple
+
+common shared
+  default-language: GHC2021
+  default-extensions:
+    DataKinds
+    OverloadedStrings
+    TypeApplications
+  build-depends:
+      base                       >= 4.20 && < 5
+    , servant-reimagined-core
+    , servant-reimagined-server
+    , tower
+    , http-core
+    , text                       >= 2.0  && < 2.2
+    , bytestring                 >= 0.11 && < 0.13
+
+executable bench-1
+  import: shared
+  main-is: Bench1.hs
+  hs-source-dirs: .
+
+executable bench-4
+  import: shared
+  main-is: Bench4.hs
+  hs-source-dirs: .
+
+executable bench-8
+  import: shared
+  main-is: Bench8.hs
+  hs-source-dirs: .
+
+executable bench-16
+  import: shared
+  main-is: Bench16.hs
+  hs-source-dirs: .
+
+executable bench-32
+  import: shared
+  main-is: Bench32.hs
+  hs-source-dirs: .

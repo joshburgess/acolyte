@@ -19,15 +19,20 @@ module Servant.Reimagined.Core.Path
   , CapturesTuple
   , CountCaptures
     -- * Re-exports for convenience
+    -- * Path construction helpers
+  , At
+  , Param
+  , At2
+  , Param2
+    -- * Re-exports for convenience
   , Symbol
   , Nat
   , Type
   ) where
 
-import Data.Kind (Type, Constraint)
+import Data.Kind (Type)
+import Data.Text (Text)
 import GHC.TypeLits (Symbol, Nat, type (+))
-import Data.Type.Bool (If)
-import Data.Type.Equality (type (==))
 
 
 -- | A segment in a URL path, used at the type level.
@@ -57,7 +62,7 @@ type family Captures (path :: [PathSegment]) :: [Type] where
   Captures '[]                    = '[]
   Captures (Lit _       ': rest)  = Captures rest
   Captures (Capture t   ': rest)  = t ': Captures rest
-  Captures (CaptureRest ': _)     = '[[String]]
+  Captures (CaptureRest ': _)     = '[[Text]]
 
 
 -- | Count the number of captures in a path (for arity checking).
@@ -91,3 +96,35 @@ type family CapturesTuple (cs :: [Type]) :: Type where
   CapturesTuple '[a, b, c, d, e, f]          = (a, b, c, d, e, f)
   CapturesTuple '[a, b, c, d, e, f, g]       = (a, b, c, d, e, f, g)
   CapturesTuple '[a, b, c, d, e, f, g, h]    = (a, b, c, d, e, f, g, h)
+
+
+-- | A single literal path segment. The most common path pattern.
+--
+-- @
+-- type API = '[ Get (At "health") Text ]
+-- -- equivalent to: Get '[ 'Lit "health" ] Text
+-- @
+type At (s :: Symbol) = '[ 'Lit s ]
+
+-- | A literal segment followed by a typed capture.
+--
+-- @
+-- type API = '[ Get (Param "users" Int) (Json User) ]
+-- -- equivalent to: Get '[ 'Lit "users", 'Capture Int ] (Json User)
+-- @
+type Param (s :: Symbol) (t :: Type) = '[ 'Lit s, 'Capture t ]
+
+-- | Two literal segments.
+--
+-- @
+-- type API = '[ Get (At2 "api" "health") Text ]
+-- -- equivalent to: Get '[ 'Lit "api", 'Lit "health" ] Text
+-- @
+type At2 (s1 :: Symbol) (s2 :: Symbol) = '[ 'Lit s1, 'Lit s2 ]
+
+-- | Two literal segments followed by a typed capture.
+--
+-- @
+-- type API = '[ Get (Param2 "api" "users" Int) (Json User) ]
+-- @
+type Param2 (s1 :: Symbol) (s2 :: Symbol) (t :: Type) = '[ 'Lit s1, 'Lit s2, 'Capture t ]

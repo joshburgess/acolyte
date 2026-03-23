@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -- | Type-level content negotiation.
 --
 -- A single endpoint can serve multiple content types. The handler
@@ -25,6 +26,7 @@ module Servant.Reimagined.Core.Negotiate
   ) where
 
 import Data.Kind (Type)
+import Data.Text (Text)
 
 
 -- | A response that supports multiple content types via negotiation.
@@ -45,7 +47,7 @@ data Negotiate (formats :: [Type]) (a :: Type)
 -- uses this to match against @Accept@ headers.
 class ContentFormat (fmt :: Type) where
   -- | The MIME type for this format (e.g., "application/json").
-  contentType :: String
+  contentType :: Text
 
   -- | Default quality weight for this format (0.0–1.0).
   -- Used to break ties when the client has no preference.

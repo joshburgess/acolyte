@@ -32,11 +32,9 @@ executable realworld
 
   build-depends:
       base                       >= 4.20 && < 5
+    , servant-reimagined
     , servant-reimagined-core
     , servant-reimagined-server
-    , tower
-    , tower-http
-    , tower-server
     , http-core
     , aeson                      >= 2.1  && < 2.3
     , bytestring                 >= 0.11 && < 0.13

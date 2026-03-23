@@ -17,6 +17,18 @@ module Servant.Reimagined.Codegen
     parseSpec
   , ParseError (..)
   , readSpecFile
+    -- * Proto parsing
+  , parseProtoFile
+  , parseProtoText
+  , protoToIR
+  , generateFromProto
+  , ProtoFile (..)
+  , ProtoService (..)
+  , ProtoRpc (..)
+  , ProtoMessage (..)
+  , ProtoField (..)
+  , ProtoEnum (..)
+  , ProtoParseError (..)
     -- * IR
   , ApiIR (..)
   , EndpointIR (..)
@@ -40,6 +52,7 @@ import System.FilePath (takeExtension)
 import Servant.Reimagined.Codegen.IR
 import Servant.Reimagined.Codegen.Parse
 import Servant.Reimagined.Codegen.Emit
+import Servant.Reimagined.Codegen.Proto
 
 
 -- | Read and parse a spec file. Supports both JSON and YAML.
@@ -62,3 +75,14 @@ readSpecFile path = do
   case mVal of
     Nothing  -> pure (Left (InvalidJSON "Failed to decode file (tried JSON and YAML)"))
     Just val -> pure (parseSpec val)
+
+
+-- | Generate Haskell code from a .proto file.
+generateFromProto :: FilePath -> IO Text
+generateFromProto path = do
+  result <- parseProtoFile path
+  case result of
+    Left err -> error (show err)
+    Right proto -> do
+      let ir = protoToIR proto
+      pure (emitModule defaultEmitConfig ir)

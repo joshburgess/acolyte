@@ -7,7 +7,11 @@ description:
   the server and client. One type, three interpretations.
 
 license:         BSD-3-Clause
+license-file:    ../LICENSE
 author:          Josh Burgess
+maintainer:      Josh Burgess
+homepage:        https://github.com/joshburgess/servant-reimagined
+bug-reports:     https://github.com/joshburgess/servant-reimagined/issues
 build-type:      Simple
 
 library
@@ -45,6 +49,9 @@ library
     StandaloneKindSignatures
     DefaultSignatures
     DeriveGeneric
+    StrictData
+
+  ghc-options: -Wall -funbox-strict-fields
 
 test-suite spec
   type: exitcode-stdio-1.0
@@ -59,6 +66,9 @@ test-suite spec
     AllowAmbiguousTypes
     ScopedTypeVariables
     DeriveGeneric
+    StrictData
+
+  ghc-options: -Wall -rtsopts "-with-rtsopts=-K1K"
 
   build-depends:
       base                    >= 4.20 && < 5
@@ -67,3 +77,7 @@ test-suite spec
     , aeson                   >= 2.1  && < 2.3
     , bytestring              >= 0.11 && < 0.13
     , text                    >= 2.0  && < 2.2
+
+source-repository head
+  type:     git
+  location: https://github.com/joshburgess/servant-reimagined.git

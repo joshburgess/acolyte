@@ -69,18 +69,22 @@ data Body
 -- Constructors
 -- ===================================================================
 
+-- | Create a body from a strict 'ByteString'.
 fromBytes :: ByteString -> Body
 fromBytes = BodyStrict
 {-# INLINE fromBytes #-}
 
+-- | Create a body from a lazy 'ByteString', forcing it to strict bytes.
 fromLazyBytes :: LBS.ByteString -> Body
 fromLazyBytes = BodyStrict . LBS.toStrict
 {-# INLINE fromLazyBytes #-}
 
+-- | Create a body from a 'Builder', rendering it to strict bytes.
 fromBuilder :: Builder.Builder -> Body
 fromBuilder = BodyStrict . LBS.toStrict . Builder.toLazyByteString
 {-# INLINE fromBuilder #-}
 
+-- | Create a body from 'Text', UTF-8 encoding it to bytes.
 fromText :: Text -> Body
 fromText = BodyStrict . TE.encodeUtf8
 {-# INLINE fromText #-}
@@ -114,9 +118,11 @@ streamFromList chunks = do
         writeIORef ref rest
         pure (Just (Chunk c))
 
+-- | Create a body served from a file on disk, with an optional byte range.
 fileBody :: FilePath -> Maybe FileRange -> Body
 fileBody = BodyFile
 
+-- | An empty body (for HEAD responses, 204, 304, etc.).
 emptyBody :: Body
 emptyBody = BodyEmpty
 

@@ -11,7 +11,11 @@ description:
   to run on warp, or any other adapter.
 
 license:         BSD-3-Clause
+license-file:    ../LICENSE
 author:          Josh Burgess
+maintainer:      Josh Burgess
+homepage:        https://github.com/joshburgess/servant-reimagined
+bug-reports:     https://github.com/joshburgess/servant-reimagined/issues
 build-type:      Simple
 
 library
@@ -26,6 +30,10 @@ library
     Servant.Reimagined.Server.Combine
     Servant.Reimagined.Server.CombineEffects
     Servant.Reimagined.Server.Validate
+    Servant.Reimagined.Server.ToHandler
+    Servant.Reimagined.Server.MkApi
+    Servant.Reimagined.Server.Negotiate
+    Servant.Reimagined.Server.Named
 
   build-depends:
       base                    >= 4.20 && < 5
@@ -56,6 +64,9 @@ library
     FlexibleInstances
     FlexibleContexts
     ScopedTypeVariables
+    StrictData
+
+  ghc-options: -Wall -funbox-strict-fields
 
 test-suite spec
   type: exitcode-stdio-1.0
@@ -72,6 +83,9 @@ test-suite spec
     UndecidableInstances
     ConstraintKinds
     ScopedTypeVariables
+    StrictData
+
+  ghc-options: -Wall -rtsopts "-with-rtsopts=-K1K"
 
   build-depends:
       base                    >= 4.20 && < 5
@@ -83,3 +97,29 @@ test-suite spec
     , bytestring              >= 0.11 && < 0.13
     , text                    >= 2.0  && < 2.2
     , http-types              >= 0.12 && < 0.13
+    , case-insensitive        >= 1.2  && < 1.3
+
+test-suite properties
+  type: exitcode-stdio-1.0
+  main-is: Properties.hs
+  hs-source-dirs: test
+  default-language: GHC2024
+  default-extensions:
+    DataKinds
+    OverloadedStrings
+    StrictData
+  ghc-options: -Wall
+  build-depends:
+      base                    >= 4.20 && < 5
+    , servant-reimagined-server
+    , servant-reimagined-core
+    , http-core
+    , hedgehog                >= 1.4  && < 1.8
+    , aeson                   >= 2.1  && < 2.3
+    , bytestring              >= 0.11 && < 0.13
+    , text                    >= 2.0  && < 2.2
+    , http-types              >= 0.12 && < 0.13
+
+source-repository head
+  type:     git
+  location: https://github.com/joshburgess/servant-reimagined.git

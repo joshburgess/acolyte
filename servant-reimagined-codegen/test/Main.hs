@@ -2,11 +2,12 @@
 module Main (main) where
 
 import qualified Data.Aeson as Aeson
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, isNothing)
 import Data.Text (Text)
 import qualified Data.Text as T
 
 import Servant.Reimagined.Codegen
+import Servant.Reimagined.Codegen.Proto
 
 
 assert :: String -> Bool -> IO ()
@@ -218,6 +219,120 @@ isCapture (CaptureSegment _ _) = True
 isCapture _ = False
 
 
+-- ===================================================================
+-- Proto3 test
+-- ===================================================================
+
+testProtoText :: Text
+testProtoText = T.unlines
+  [ "syntax = \"proto3\";"
+  , "package test;"
+  , ""
+  , "import \"google/protobuf/empty.proto\";"
+  , ""
+  , "// A greeting service"
+  , "service Greeter {"
+  , "  rpc SayHello (HelloRequest) returns (HelloReply);"
+  , "  rpc SayGoodbye (HelloRequest) returns (google.protobuf.Empty);"
+  , "}"
+  , ""
+  , "/* Request message */"
+  , "message HelloRequest {"
+  , "  string name = 1;"
+  , "  int32 age = 2;"
+  , "  repeated string tags = 3;"
+  , "  optional string nickname = 4;"
+  , "}"
+  , ""
+  , "message HelloReply {"
+  , "  string message = 1;"
+  , "}"
+  , ""
+  , "enum Status {"
+  , "  UNKNOWN = 0;"
+  , "  ACTIVE = 1;"
+  , "  INACTIVE = 2;"
+  , "}"
+  ]
+
+testProtoParse :: IO ()
+testProtoParse = do
+  case parseProtoText testProtoText of
+    Left err -> error $ "FAIL: proto parse error: " ++ show err
+    Right pf -> do
+      assert "proto: syntax is proto3" (protoSyntax pf == "proto3")
+      assert "proto: package is test" (protoPackage pf == "test")
+      assert "proto: 1 import" (length (protoImports pf) == 1)
+      assert "proto: 1 service" (length (protoServices pf) == 1)
+      assert "proto: 2 messages" (length (protoMessages pf) == 2)
+      assert "proto: 1 enum" (length (protoEnums pf) == 1)
+
+      let svc = head (protoServices pf)
+      assert "proto: service name is Greeter" (psName svc == "Greeter")
+      assert "proto: 2 rpcs" (length (psRpcs svc) == 2)
+
+      let rpc1 = head (psRpcs svc)
+      assert "proto: rpc name is SayHello" (prName rpc1 == "SayHello")
+      assert "proto: rpc input is HelloRequest" (prInputType rpc1 == "HelloRequest")
+      assert "proto: rpc output is HelloReply" (prOutputType rpc1 == "HelloReply")
+      assert "proto: no client streaming" (not (prClientStream rpc1))
+      assert "proto: no server streaming" (not (prServerStream rpc1))
+
+      let msg1 = head (protoMessages pf)
+      assert "proto: message name is HelloRequest" (pmName msg1 == "HelloRequest")
+      assert "proto: 4 fields" (length (pmFields msg1) == 4)
+
+      let f1 = head (pmFields msg1)
+      assert "proto: field type is string" (pfFieldType f1 == "string")
+      assert "proto: field name is name" (pfFieldName f1 == "name")
+      assert "proto: field number is 1" (pfFieldNumber f1 == 1)
+
+      let f3 = pmFields msg1 !! 2
+      assert "proto: repeated field" (pfRepeated f3)
+
+      let f4 = pmFields msg1 !! 3
+      assert "proto: optional field" (pfOptional f4)
+
+      let enum1 = head (protoEnums pf)
+      assert "proto: enum name is Status" (peName enum1 == "Status")
+      assert "proto: 3 enum values" (length (peValues enum1) == 3)
+
+testProtoToIR :: IO ()
+testProtoToIR = do
+  case parseProtoText testProtoText of
+    Left err -> error $ "FAIL: proto parse error: " ++ show err
+    Right pf -> do
+      let ir = protoToIR pf
+      assert "proto IR: title is package name" (apiTitle ir == "test")
+      assert "proto IR: 2 endpoints" (length (apiEndpoints ir) == 2)
+      assert "proto IR: 3 schemas (2 messages + 1 enum)" (length (apiSchemas ir) == 3)
+
+      let ep1 = head (apiEndpoints ir)
+      assert "proto IR: method is POST" (epMethod ep1 == POST)
+      assert "proto IR: path is /Greeter/SayHello"
+        (epPath ep1 == [LitSegment "Greeter", LitSegment "SayHello"])
+      assert "proto IR: has request body" (isJust (epRequestBody ep1))
+      assert "proto IR: has response type" (isJust (epResponseType ep1))
+
+      let ep2 = apiEndpoints ir !! 1
+      assert "proto IR: SayGoodbye has no response (Empty)"
+        (isNothing (epResponseType ep2))
+
+testProtoCodeGen :: IO ()
+testProtoCodeGen = do
+  case parseProtoText testProtoText of
+    Left err -> error $ "FAIL: proto parse error: " ++ show err
+    Right pf -> do
+      let ir = protoToIR pf
+          code = emitModule defaultEmitConfig ir
+      assert "proto codegen: has module declaration" (T.isInfixOf "module Generated.API" code)
+      assert "proto codegen: has Post" (T.isInfixOf "Post " code)
+      assert "proto codegen: has HelloRequest data type" (T.isInfixOf "data HelloRequest" code)
+      assert "proto codegen: has HelloReply data type" (T.isInfixOf "data HelloReply" code)
+      assert "proto codegen: has path type with Greeter" (T.isInfixOf "Greeter" code)
+      assert "proto codegen: has handler stubs" (T.isInfixOf "TODO: implement" code)
+
+
 main :: IO ()
 main = do
   putStrLn "servant-reimagined-codegen tests:"
@@ -233,5 +348,14 @@ main = do
   putStrLn ""
   putStrLn "Code generation (Swagger 2.0):"
   testSwagger2CodeGen
+  putStrLn ""
+  putStrLn "Proto3 parsing:"
+  testProtoParse
+  putStrLn ""
+  putStrLn "Proto3 -> IR conversion:"
+  testProtoToIR
+  putStrLn ""
+  putStrLn "Proto3 code generation:"
+  testProtoCodeGen
   putStrLn ""
   putStrLn "All servant-reimagined-codegen tests passed."

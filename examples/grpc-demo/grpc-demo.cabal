@@ -1,0 +1,29 @@
+cabal-version:   3.0
+name:            grpc-demo
+version:         0.1.0.0
+synopsis:        REST + gRPC from the same API type
+build-type:      Simple
+
+executable grpc-demo
+  main-is: Main.hs
+  hs-source-dirs: .
+  default-language: GHC2024
+  default-extensions:
+    DataKinds
+    TypeFamilies
+    TypeOperators
+    OverloadedStrings
+    AllowAmbiguousTypes
+    ScopedTypeVariables
+
+  build-depends:
+      base                       >= 4.20 && < 5
+    , servant-reimagined
+    , tower-grpc
+    , tower-server
+    , http-core
+    , servant-reimagined-grpc
+    , servant-reimagined-openapi
+    , aeson                      >= 2.1  && < 2.3
+    , bytestring                 >= 0.11 && < 0.13
+    , text                       >= 2.0  && < 2.2

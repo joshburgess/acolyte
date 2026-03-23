@@ -80,14 +80,14 @@ testMiddleware = do
   ref <- newIORef ([] :: [String])
   let svc :: Service IO String String
       svc = Service $ \req -> do
-        modifyIORef ref (++ ["handler:" ++ req])
+        modifyIORef' ref (++ ["handler:" ++ req])
         pure ("resp:" ++ req)
 
       logging :: Middleware IO String String
       logging = middleware $ \inner -> Service $ \req -> do
-        modifyIORef ref (++ ["before"])
+        modifyIORef' ref (++ ["before"])
         resp <- runService inner req
-        modifyIORef ref (++ ["after"])
+        modifyIORef' ref (++ ["after"])
         pure resp
 
   let svc' = svc |> logging
@@ -107,11 +107,11 @@ testBefore = do
   ref <- newIORef ([] :: [String])
   let svc :: Service IO String String
       svc = Service $ \req -> do
-        modifyIORef ref (++ ["handler"])
+        modifyIORef' ref (++ ["handler"])
         pure req
 
       logBefore :: Middleware IO String String
-      logBefore = before $ \req -> modifyIORef ref (++ ["before:" ++ req])
+      logBefore = before $ \req -> modifyIORef' ref (++ ["before:" ++ req])
 
   let svc' = svc |> logBefore
   _ <- runService svc' "x"
@@ -128,11 +128,11 @@ testAfter = do
   ref <- newIORef ([] :: [String])
   let svc :: Service IO String String
       svc = Service $ \req -> do
-        modifyIORef ref (++ ["handler"])
+        modifyIORef' ref (++ ["handler"])
         pure ("resp:" ++ req)
 
       logAfter :: Middleware IO String String
-      logAfter = after $ \_ resp -> modifyIORef ref (++ ["after:" ++ resp])
+      logAfter = after $ \_ resp -> modifyIORef' ref (++ ["after:" ++ resp])
 
   let svc' = svc |> logAfter
   _ <- runService svc' "x"
@@ -149,14 +149,14 @@ testAround = do
   ref <- newIORef ([] :: [String])
   let svc :: Service IO String String
       svc = Service $ \req -> do
-        modifyIORef ref (++ ["handler:" ++ req])
+        modifyIORef' ref (++ ["handler:" ++ req])
         pure req
 
       wrap :: Middleware IO String String
       wrap = around $ \req callInner -> do
-        modifyIORef ref (++ ["around:before"])
+        modifyIORef' ref (++ ["around:before"])
         resp <- callInner (req ++ "!")
-        modifyIORef ref (++ ["around:after"])
+        modifyIORef' ref (++ ["around:after"])
         pure (resp ++ "!!")
 
   let svc' = svc |> wrap
@@ -176,14 +176,14 @@ testPipeComposition = do
   ref <- newIORef ([] :: [String])
   let svc :: Service IO String String
       svc = Service $ \req -> do
-        modifyIORef ref (++ ["handler"])
+        modifyIORef' ref (++ ["handler"])
         pure req
 
       layer1 :: Middleware IO String String
-      layer1 = before $ \_ -> modifyIORef ref (++ ["L1"])
+      layer1 = before $ \_ -> modifyIORef' ref (++ ["L1"])
 
       layer2 :: Middleware IO String String
-      layer2 = before $ \_ -> modifyIORef ref (++ ["L2"])
+      layer2 = before $ \_ -> modifyIORef' ref (++ ["L2"])
 
   -- svc |> layer1 |> layer2
   -- layer2 wraps (layer1 wraps svc)
@@ -203,14 +203,14 @@ testComposeLayer = do
   ref <- newIORef ([] :: [String])
   let svc :: Service IO String String
       svc = Service $ \req -> do
-        modifyIORef ref (++ ["handler"])
+        modifyIORef' ref (++ ["handler"])
         pure req
 
       layer1 :: Middleware IO String String
-      layer1 = before $ \_ -> modifyIORef ref (++ ["L1"])
+      layer1 = before $ \_ -> modifyIORef' ref (++ ["L1"])
 
       layer2 :: Middleware IO String String
-      layer2 = before $ \_ -> modifyIORef ref (++ ["L2"])
+      layer2 = before $ \_ -> modifyIORef' ref (++ ["L2"])
 
       -- composed applies layer1 first (inner), then layer2 (outer)
       composed = composeLayer layer2 layer1
@@ -243,11 +243,11 @@ testRightToLeft = do
   ref <- newIORef ([] :: [String])
   let svc :: Service IO String String
       svc = Service $ \req -> do
-        modifyIORef ref (++ ["handler"])
+        modifyIORef' ref (++ ["handler"])
         pure req
 
       layer1 :: Middleware IO String String
-      layer1 = before $ \_ -> modifyIORef ref (++ ["L1"])
+      layer1 = before $ \_ -> modifyIORef' ref (++ ["L1"])
 
   let svc' = layer1 <| svc
   _ <- runService svc' "x"

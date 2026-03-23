@@ -29,6 +29,7 @@ data CompressionConfig = CompressionConfig
     -- Below this, compression overhead exceeds savings.
   } deriving (Show)
 
+-- | Default compression config: minimum body size of 860 bytes.
 defaultCompression :: CompressionConfig
 defaultCompression = CompressionConfig
   { compMinSize = 860

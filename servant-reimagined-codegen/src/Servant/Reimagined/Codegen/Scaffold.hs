@@ -22,11 +22,13 @@ import Servant.Reimagined.Codegen.IR
 import Servant.Reimagined.Codegen.Emit
 
 
+-- | Configuration for project scaffolding (project name and output directory).
 data ScaffoldConfig = ScaffoldConfig
   { scaffoldName    :: !Text    -- ^ Project/package name
   , scaffoldDir     :: !FilePath -- ^ Output directory
   } deriving (Show)
 
+-- | Default scaffold configuration: project name @"my-api"@ in the current directory.
 defaultScaffoldConfig :: ScaffoldConfig
 defaultScaffoldConfig = ScaffoldConfig
   { scaffoldName = "my-api"
@@ -34,6 +36,7 @@ defaultScaffoldConfig = ScaffoldConfig
   }
 
 
+-- | Generate a complete cabal project from an API IR and scaffold configuration.
 scaffoldProject :: ScaffoldConfig -> ApiIR -> IO ()
 scaffoldProject cfg api = do
   let name = scaffoldName cfg

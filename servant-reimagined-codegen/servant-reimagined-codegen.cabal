@@ -10,7 +10,11 @@ description:
   generation for free.
 
 license:         BSD-3-Clause
+license-file:    ../LICENSE
 author:          Josh Burgess
+maintainer:      Josh Burgess
+homepage:        https://github.com/joshburgess/servant-reimagined
+bug-reports:     https://github.com/joshburgess/servant-reimagined/issues
 build-type:      Simple
 
 library
@@ -19,6 +23,7 @@ library
     Servant.Reimagined.Codegen.Parse
     Servant.Reimagined.Codegen.IR
     Servant.Reimagined.Codegen.Emit
+    Servant.Reimagined.Codegen.Proto
     Servant.Reimagined.Codegen.Scaffold
 
   build-depends:
@@ -36,6 +41,9 @@ library
   default-extensions:
     OverloadedStrings
     DeriveGeneric
+    StrictData
+
+  ghc-options: -Wall -funbox-strict-fields
 
 executable servant-reimagined-codegen
   main-is: Main.hs
@@ -58,6 +66,9 @@ test-suite spec
   default-language: GHC2024
   default-extensions:
     OverloadedStrings
+    StrictData
+
+  ghc-options: -Wall -rtsopts "-with-rtsopts=-K1K"
 
   build-depends:
       base                       >= 4.20 && < 5
@@ -65,3 +76,7 @@ test-suite spec
     , aeson                      >= 2.1  && < 2.3
     , bytestring                 >= 0.11 && < 0.13
     , text                       >= 2.0  && < 2.2
+
+source-repository head
+  type:     git
+  location: https://github.com/joshburgess/servant-reimagined.git

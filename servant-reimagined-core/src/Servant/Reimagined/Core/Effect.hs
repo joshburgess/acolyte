@@ -34,7 +34,8 @@ module Servant.Reimagined.Core.Effect
 
 import Data.Kind (Type, Constraint)
 import GHC.TypeLits (TypeError, ErrorMessage (..))
-import Data.Type.Bool (If)
+
+import Servant.Reimagined.Core.API (type (++))
 
 
 -- ===================================================================
@@ -105,11 +106,6 @@ type family RequiredEffects (api :: [Type]) :: [Type] where
     e ': RequiredEffects ('[inner] ++ rest)
   RequiredEffects (_ ': rest) = RequiredEffects rest
 
--- | Type-level list append.
-type family (xs :: [k]) ++ (ys :: [k]) :: [k] where
-  '[]       ++ ys = ys
-  (x ': xs) ++ ys = x ': (xs ++ ys)
-
 
 -- ===================================================================
 -- AllEffectsProvided: the compile-time completeness check
@@ -123,12 +119,9 @@ type family Assert (b :: Bool) (msg :: ErrorMessage) :: Constraint where
 
 -- | Verify that every effect required by the API is in the provided list.
 --
--- Walks the API list. For each @Requires e _@, checks that @e@ is in
--- @provided@. If any effect is missing, produces a compile error
--- naming the missing effect.
---
--- Non-@Requires@ endpoints pass through without checks.
--- Nested @Requires@ are checked recursively.
+-- Two-step design: 'RequiredEffects' collects all effect tags from
+-- the API, then 'AllIn' checks each one against the provided list.
+-- This separates collection from verification.
 --
 -- @
 -- -- Compiles: Auth and Cors are both provided.
@@ -137,20 +130,20 @@ type family Assert (b :: Bool) (msg :: ErrorMessage) :: Constraint where
 -- -- Fails: Auth is missing.
 -- bad :: AllEffectsProvided MyAPI '[Cors] => ()
 -- @
-type AllEffectsProvided :: [Type] -> [Type] -> Constraint
-type family AllEffectsProvided (api :: [Type]) (provided :: [Type]) :: Constraint where
-  AllEffectsProvided '[] _ = ()
+type AllEffectsProvided (api :: [Type]) (provided :: [Type]) =
+  AllIn (RequiredEffects api) provided
 
-  AllEffectsProvided (Requires e inner ': rest) provided =
+-- | Check that every effect in @required@ is present in @provided@.
+-- Produces a clear compile error naming the first missing effect.
+type AllIn :: [Type] -> [Type] -> Constraint
+type family AllIn (required :: [Type]) (provided :: [Type]) :: Constraint where
+  AllIn '[] _ = ()
+  AllIn (e ': es) provided =
     ( Assert (HasEffect e provided)
         ( 'Text "Missing middleware effect: " ':<>: 'ShowType e
           ':$$: 'Text "This effect is required by an endpoint but was not provided."
           ':$$: 'Text "Add .provide @" ':<>: 'ShowType e
                 ':<>: 'Text " to the server builder."
         )
-    , AllEffectsProvided '[inner] provided
-    , AllEffectsProvided rest provided
+    , AllIn es provided
     )
-
-  AllEffectsProvided (_ ': rest) provided =
-    AllEffectsProvided rest provided

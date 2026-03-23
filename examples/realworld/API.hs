@@ -3,6 +3,9 @@
 --
 -- The entire API is described as a single Haskell type. This drives
 -- server routing, handler wiring, and compile-time checks.
+--
+-- Path types use a shared prefix ('ApiV') and the 'At', 'At2',
+-- 'Param' helpers with '++' for concise, composable definitions.
 module API where
 
 import Data.Text (Text)
@@ -12,32 +15,35 @@ import Types
 
 
 -- ===================================================================
--- Path types (using GHC.TypeLits — no TH needed)
+-- Path types — shared prefix + At/Param helpers
 -- ===================================================================
 
+-- | All paths share the @/api@ prefix.
+type ApiV = At "api"
+
 -- Auth
-type LoginPath    = '[ 'Lit "api", 'Lit "users", 'Lit "login" ]
-type RegisterPath = '[ 'Lit "api", 'Lit "users" ]
+type LoginPath    = ApiV ++ At2 "users" "login"
+type RegisterPath = ApiV ++ At "users"
 
 -- User
-type UserPath     = '[ 'Lit "api", 'Lit "user" ]
+type UserPath     = ApiV ++ At "user"
 
 -- Profiles
-type ProfilePath  = '[ 'Lit "api", 'Lit "profiles", 'Capture Text ]
-type FollowPath   = '[ 'Lit "api", 'Lit "profiles", 'Capture Text, 'Lit "follow" ]
+type ProfilePath  = ApiV ++ Param "profiles" Text
+type FollowPath   = ApiV ++ Param "profiles" Text ++ At "follow"
 
 -- Articles
-type ArticlesPath    = '[ 'Lit "api", 'Lit "articles" ]
-type ArticleFeedPath = '[ 'Lit "api", 'Lit "articles", 'Lit "feed" ]
-type ArticlePath     = '[ 'Lit "api", 'Lit "articles", 'Capture Text ]
-type FavoritePath    = '[ 'Lit "api", 'Lit "articles", 'Capture Text, 'Lit "favorite" ]
+type ArticlesPath    = ApiV ++ At "articles"
+type ArticleFeedPath = ApiV ++ At2 "articles" "feed"
+type ArticlePath     = ApiV ++ Param "articles" Text
+type FavoritePath    = ApiV ++ Param "articles" Text ++ At "favorite"
 
 -- Comments
-type CommentsPath = '[ 'Lit "api", 'Lit "articles", 'Capture Text, 'Lit "comments" ]
-type CommentPath  = '[ 'Lit "api", 'Lit "articles", 'Capture Text, 'Lit "comments", 'Capture Int ]
+type CommentsPath = ApiV ++ Param "articles" Text ++ At "comments"
+type CommentPath  = ApiV ++ Param "articles" Text ++ At "comments" ++ '[ 'Capture Int ]
 
 -- Tags
-type TagsPath = '[ 'Lit "api", 'Lit "tags" ]
+type TagsPath = ApiV ++ At "tags"
 
 
 -- ===================================================================
@@ -50,29 +56,33 @@ type TagsPath = '[ 'Lit "api", 'Lit "tags" ]
 
 type RealWorldAPI =
   '[ -- Auth (public)
-     Post LoginPath    (Json LoginRequest)    (Json User)      -- POST /api/users/login
-   , Post RegisterPath (Json RegisterRequest) (Json User)      -- POST /api/users
+     Describe "Log in an existing user"
+       (Post LoginPath (Json LoginRequest) (Json User))           -- POST /api/users/login
+   , Describe "Register a new user"
+       (PostCreated RegisterPath (Json RegisterRequest) (Json User)) -- POST /api/users (201)
 
      -- User (auth required)
-   , Requires Auth (Get UserPath (Json User))                   -- GET  /api/user
+   , Requires Auth (Get UserPath (Json User))                     -- GET  /api/user
    , Requires Auth (Put UserPath (Json UpdateUserRequest) (Json User))  -- PUT  /api/user
 
      -- Profiles
-   , Get ProfilePath (Json Profile)                             -- GET  /api/profiles/:username
-   , Requires Auth (Post FollowPath (Json ()) (Json Profile))   -- POST /api/profiles/:username/follow
-   , Requires Auth (Delete FollowPath (Json Profile))           -- DELETE /api/profiles/:username/follow
+   , Get ProfilePath (Json Profile)                               -- GET  /api/profiles/:username
+   , Requires Auth (Post FollowPath (Json ()) (Json Profile))     -- POST /api/profiles/:username/follow
+   , Requires Auth (Delete FollowPath (Json Profile))             -- DELETE /api/profiles/:username/follow
 
      -- Articles
-   , Get ArticlesPath (Json ArticlesResponse)                   -- GET  /api/articles
-   , Requires Auth (Get ArticleFeedPath (Json ArticlesResponse)) -- GET  /api/articles/feed
-   , Get ArticlePath (Json Article)                             -- GET  /api/articles/:slug
+   , Describe "List articles, optionally filtered"
+       (WithParams '[QP "tag" Text, QP "author" Text, QP "limit" Int, QP "offset" Int]
+         (Get ArticlesPath (Json ArticlesResponse)))              -- GET  /api/articles
+   , Requires Auth (Get ArticleFeedPath (Json ArticlesResponse))  -- GET  /api/articles/feed
+   , Get ArticlePath (Json Article)                               -- GET  /api/articles/:slug
    , Requires Auth (Post ArticlesPath (Json CreateArticleRequest) (Json Article))  -- POST /api/articles
-   , Requires Auth (Delete ArticlePath (Json Article))          -- DELETE /api/articles/:slug
+   , Requires Auth (DeleteNoContent ArticlePath)                  -- DELETE /api/articles/:slug (204)
 
      -- Comments
-   , Get CommentsPath (Json [Comment])                          -- GET  /api/articles/:slug/comments
+   , Get CommentsPath (Json [Comment])                            -- GET  /api/articles/:slug/comments
    , Requires Auth (Post CommentsPath (Json CreateCommentRequest) (Json Comment))  -- POST /api/articles/:slug/comments
 
      -- Tags
-   , Get TagsPath (Json TagsResponse)                           -- GET  /api/tags
+   , Get TagsPath (Json TagsResponse)                             -- GET  /api/tags
    ]

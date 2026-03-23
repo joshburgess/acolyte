@@ -194,6 +194,7 @@ callEndpoint client args = do
 -- Helpers
 -- ===================================================================
 
+-- | Join a base URL with path segments to form a complete URL.
 buildUrl :: Text -> [Text] -> Text
 buildUrl base segments = base <> "/" <> T.intercalate "/" segments
 

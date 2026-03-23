@@ -8,7 +8,11 @@ description:
   types from the component packages.
 
 license:         BSD-3-Clause
+license-file:    ../LICENSE
 author:          Josh Burgess
+maintainer:      Josh Burgess
+homepage:        https://github.com/joshburgess/servant-reimagined
+bug-reports:     https://github.com/joshburgess/servant-reimagined/issues
 build-type:      Simple
 
 library
@@ -22,8 +26,14 @@ library
     , servant-reimagined-server
     , servant-reimagined-client
     , servant-reimagined-openapi
+    , servant-reimagined-grpc
     , tower
+    , tower-http
+    , tower-server
+    , tower-grpc
+    , tower-websocket
     , http-core
+    , http-types                 >= 0.12
 
   hs-source-dirs: src
   default-language: GHC2024
@@ -33,3 +43,10 @@ library
     TypeOperators
     OverloadedStrings
     AllowAmbiguousTypes
+    StrictData
+
+  ghc-options: -Wall -funbox-strict-fields
+
+source-repository head
+  type:     git
+  location: https://github.com/joshburgess/servant-reimagined.git

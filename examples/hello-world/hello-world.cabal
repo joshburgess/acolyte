@@ -18,13 +18,6 @@ executable hello-world
 
   build-depends:
       base                       >= 4.20 && < 5
-    , servant-reimagined-core
-    , servant-reimagined-server
-    , tower
-    , tower-http
-    , tower-server
-    , http-core
-    , aeson                      >= 2.1  && < 2.3
+    , servant-reimagined
     , bytestring                 >= 0.11 && < 0.13
     , text                       >= 2.0  && < 2.2
-    , http-types                 >= 0.12 && < 0.13

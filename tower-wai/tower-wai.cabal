@@ -8,7 +8,11 @@ description:
   above is backend-agnostic.
 
 license:         BSD-3-Clause
+license-file:    ../LICENSE
 author:          Josh Burgess
+maintainer:      Josh Burgess
+homepage:        https://github.com/joshburgess/servant-reimagined
+bug-reports:     https://github.com/joshburgess/servant-reimagined/issues
 build-type:      Simple
 
 library
@@ -29,6 +33,9 @@ library
   default-language: GHC2024
   default-extensions:
     OverloadedStrings
+    StrictData
+
+  ghc-options: -Wall -funbox-strict-fields
 
 test-suite spec
   type: exitcode-stdio-1.0
@@ -37,6 +44,9 @@ test-suite spec
   default-language: GHC2024
   default-extensions:
     OverloadedStrings
+    StrictData
+
+  ghc-options: -Wall -rtsopts "-with-rtsopts=-K1K"
 
   build-depends:
       base         >= 4.20 && < 5
@@ -48,3 +58,7 @@ test-suite spec
     , warp         >= 3.3  && < 3.5
     , bytestring   >= 0.11 && < 0.13
     , http-types   >= 0.12 && < 0.13
+
+source-repository head
+  type:     git
+  location: https://github.com/joshburgess/servant-reimagined.git

@@ -1,0 +1,22 @@
+cabal-version:   3.0
+name:            custom-extractors
+version:         0.1.0.0
+synopsis:        Custom extractor example (FromRequestParts / FromRequest)
+build-type:      Simple
+
+executable custom-extractors
+  main-is: Main.hs
+  hs-source-dirs: .
+  default-language: GHC2024
+  default-extensions:
+    DataKinds
+    OverloadedStrings
+
+  build-depends:
+      base                       >= 4.20 && < 5
+    , servant-reimagined
+    , aeson                      >= 2.1  && < 2.3
+    , bytestring                 >= 0.11 && < 0.13
+    , case-insensitive           >= 1.2  && < 1.3
+    , text                       >= 2.0  && < 2.2
+    , http-types                 >= 0.12 && < 0.13

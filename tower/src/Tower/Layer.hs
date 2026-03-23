@@ -77,7 +77,7 @@ type Middleware m req resp = Layer m req resp req resp
 -- @
 middleware :: (Service m req resp -> Service m req resp) -> Middleware m req resp
 middleware = Layer
-{-# INLINE middleware #-}
+{-# INLINABLE middleware #-}
 
 
 -- | Apply a layer to a service, producing a new service.
@@ -87,7 +87,7 @@ middleware = Layer
 -- @
 applyLayer :: Layer m reqI respI reqO respO -> Service m reqI respI -> Service m reqO respO
 applyLayer (Layer f) = f
-{-# INLINE applyLayer #-}
+{-# INLINABLE applyLayer #-}
 
 
 -- | Apply a layer to a service (operator form, left-to-right).
@@ -133,13 +133,13 @@ composeLayer
   -> Layer m req1 resp1 req2 resp2
   -> Layer m req1 resp1 req3 resp3
 composeLayer (Layer outer) (Layer inner) = Layer (outer . inner)
-{-# INLINE composeLayer #-}
+{-# INLINABLE composeLayer #-}
 
 
 -- | The identity layer — wraps a service without modification.
 identity :: Layer m req resp req resp
 identity = Layer id
-{-# INLINE identity #-}
+{-# INLINABLE identity #-}
 
 
 -- | Run a callback before the service processes the request.
@@ -152,7 +152,7 @@ before :: Monad m => (req -> m ()) -> Middleware m req resp
 before hook = Layer $ \(Service inner) -> Service $ \req -> do
   hook req
   inner req
-{-# INLINE before #-}
+{-# INLINABLE before #-}
 
 
 -- | Run a callback after the service produces the response.
@@ -166,7 +166,7 @@ after hook = Layer $ \(Service inner) -> Service $ \req -> do
   resp <- inner req
   hook req resp
   pure resp
-{-# INLINE after #-}
+{-# INLINABLE after #-}
 
 
 -- | Run a callback that wraps the entire service call.
@@ -183,4 +183,4 @@ after hook = Layer $ \(Service inner) -> Service $ \req -> do
 around :: (req -> (req -> m resp) -> m resp) -> Middleware m req resp
 around wrapper = Layer $ \(Service inner) -> Service $ \req ->
   wrapper req inner
-{-# INLINE around #-}
+{-# INLINABLE around #-}

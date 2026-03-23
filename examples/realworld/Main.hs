@@ -12,14 +12,7 @@ module Main (main) where
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS8
 
-import Tower
-import Tower.Service (Service (..))
-import Tower.Http
-import Tower.Server (runServerBS)
-import Http.Core
-
-import Servant.Reimagined.Core
-import Servant.Reimagined.Server
+import Servant.Reimagined.Prelude
 
 import API
 import Types
@@ -34,37 +27,22 @@ import Handlers
 buildService :: Store -> Service IO (Request ByteString) (Response ByteString)
 buildService store = run
   $ provide @Auth authMw
-  $ effectfulServer @RealWorldAPI
-    ( wrapHandler @(Post LoginPath (Json LoginRequest) (Json User))
-        (loginHandler store)
-    , wrapHandler @(Post RegisterPath (Json RegisterRequest) (Json User))
-        (registerHandler store)
-    , wrapHandler @(Requires Auth (Get UserPath (Json User)))
-        (getCurrentUserHandler store)
-    , wrapHandler @(Requires Auth (Put UserPath (Json UpdateUserRequest) (Json User)))
-        (updateUserHandler store)
-    , wrapHandler @(Get ProfilePath (Json Profile))
-        (getProfileHandler store)
-    , wrapHandler @(Requires Auth (Post FollowPath (Json ()) (Json Profile)))
-        (followHandler store)
-    , wrapHandler @(Requires Auth (Delete FollowPath (Json Profile)))
-        (unfollowHandler store)
-    , wrapHandler @(Get ArticlesPath (Json ArticlesResponse))
-        (listArticlesHandler store)
-    , wrapHandler @(Requires Auth (Get ArticleFeedPath (Json ArticlesResponse)))
-        (feedHandler store)
-    , wrapHandler @(Get ArticlePath (Json Article))
-        (getArticleHandler store)
-    , wrapHandler @(Requires Auth (Post ArticlesPath (Json CreateArticleRequest) (Json Article)))
-        (createArticleHandler store)
-    , wrapHandler @(Requires Auth (Delete ArticlePath (Json Article)))
-        (deleteArticleHandler store)
-    , wrapHandler @(Get CommentsPath (Json [Comment]))
-        (getCommentsHandler store)
-    , wrapHandler @(Requires Auth (Post CommentsPath (Json CreateCommentRequest) (Json Comment)))
-        (createCommentHandler store)
-    , wrapHandler @(Get TagsPath (Json TagsResponse))
-        (tagsHandler store)
+  $ effectfulApi @RealWorldAPI
+    ( loginHandler store
+    , registerHandler store
+    , getCurrentUserHandler store
+    , updateUserHandler store
+    , getProfileHandler store
+    , followHandler store
+    , unfollowHandler store
+    , listArticlesHandler store
+    , feedHandler store
+    , getArticleHandler store
+    , createArticleHandler store
+    , deleteArticleHandler store
+    , getCommentsHandler store
+    , createCommentHandler store
+    , tagsHandler store
     )
   where
     -- Auth middleware: no-op (auth is checked in handlers via Authorization header)

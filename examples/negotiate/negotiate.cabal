@@ -1,0 +1,21 @@
+cabal-version:   3.0
+name:            negotiate
+version:         0.1.0.0
+synopsis:        Content negotiation example (JSON or plain text via Accept header)
+build-type:      Simple
+
+executable negotiate
+  main-is: Main.hs
+  hs-source-dirs: .
+  default-language: GHC2024
+  default-extensions:
+    DataKinds
+    OverloadedStrings
+
+  build-depends:
+      base                       >= 4.20 && < 5
+    , servant-reimagined
+    , aeson                      >= 2.1  && < 2.3
+    , bytestring                 >= 0.11 && < 0.13
+    , text                       >= 2.0  && < 2.2
+    , http-types                 >= 0.12 && < 0.13

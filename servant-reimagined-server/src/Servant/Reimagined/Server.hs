@@ -27,6 +27,27 @@ module Servant.Reimagined.Server
   , Extension (..)
   , Optional (..)
   , ReqMethod (..)
+  , QueryParam (..)
+  , QueryParams (..)
+  , OptionalParam (..)
+  , HeaderMap (..)
+  , BodyBytes (..)
+  , StringBody (..)
+  , Form (..)
+  , FromForm (..)
+  , RawForm (..)
+  , Multipart (..)
+  , FilePart (..)
+  , parseFormUrlEncoded
+  , parseMultipart
+  , FullRequest (..)
+  , RawQuery (..)
+  , OriginalUri (..)
+  , MatchedPath (..)
+  , NestedPath (..)
+  , ConnectInfo (..)
+  , RawPathParams (..)
+  , ParseCapture (..)
   , ServerError (..)
   , mkError
 
@@ -47,6 +68,9 @@ module Servant.Reimagined.Server
   , mkHandler1Body
   , mkHandler2PartsBody
 
+    -- * Ergonomic handler conversion
+  , ToHandler (..)
+
     -- * Router (low-level)
   , Router
   , emptyRouter
@@ -54,7 +78,6 @@ module Servant.Reimagined.Server
   , dispatch
   , serve
   , serveWithState
-  , ParseCapture (..)
   , CaptureList (..)
   , injectCaptures
 
@@ -67,9 +90,16 @@ module Servant.Reimagined.Server
   , BuildServer (..)
   , BuildHandlers (..)
 
+    -- * Ergonomic server construction (no wrapHandler needed)
+  , mkApi
+  , BuildApi (..)
+  , toBoundHandler
+
     -- * Effectful server (typed middleware tracking)
   , EffectfulServer (..)
   , effectfulServer
+  , effectfulApi
+  , fromRouter
   , provide
   , run
 
@@ -83,11 +113,23 @@ module Servant.Reimagined.Server
   , combineServer8
   , subRouter
 
-    -- * Combined effectful server
-  , CombinedServer (..)
+    -- * Combined effectful server (backward-compatible aliases)
+  , CombinedServer
   , combinedFromRouter
   , provideEffect
   , runCombined
+
+    -- * Named routes (record-based handler registration)
+  , NamedApi (..)
+  , mkNamedApi
+  , effectfulNamedApi
+
+    -- * Content negotiation
+  , FormatEncoder (..)
+  , NegotiatedResponse (..)
+  , negotiate
+  , parseAccept
+  , matchFormat
 
     -- * Runtime validation
   , validationLayer
@@ -103,3 +145,7 @@ import Servant.Reimagined.Server.Effects
 import Servant.Reimagined.Server.Combine
 import Servant.Reimagined.Server.CombineEffects
 import Servant.Reimagined.Server.Validate
+import Servant.Reimagined.Server.ToHandler
+import Servant.Reimagined.Server.MkApi
+import Servant.Reimagined.Server.Named
+import Servant.Reimagined.Server.Negotiate

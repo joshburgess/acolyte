@@ -39,32 +39,39 @@ Target compiler: **GHC 9.10.3**.
 ## Package Overview
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    servant-reimagined                    │
-│               (facade / re-export package)               │
-└───────┬──────────┬──────────┬───────────┬───────────────┘
-        │          │          │           │
-        ▼          ▼          ▼           ▼
-  ┌──────────┐ ┌────────┐ ┌─────────┐ ┌──────┐
-  │  server   │ │ client │ │ openapi │ │ grpc │
-  └────┬─────┘ └───┬────┘ └────┬────┘ └──┬───┘
-       │           │           │          │
-       ▼           ▼           ▼          ▼
-  ┌─────────────────────────────────────────────┐
-  │             servant-reimagined-core          │
-  │        (type-level API specification)        │
-  └─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                         servant-reimagined                            │
+│                    (facade / re-export package)                       │
+└──┬────────┬──────────┬──────────┬──────────┬──────────┬─────────────┘
+   │        │          │          │          │          │
+   ▼        ▼          ▼          ▼          ▼          ▼
+ server   client    openapi     grpc     codegen      test
 
-  ┌──────────┐     ┌──────────────┐
-  │  tower    │     │  tower-http  │
-  │ (service  │◄────│  (HTTP-      │
-  │  +layer)  │     │  specific    │
-  └──────────┘     │  middleware) │
-       ▲            └──────────────┘
-       │
-  ┌────┴─────┐
-  │  server   │  (also used by grpc)
-  └──────────┘
+   │        │          │          │          │
+   └────────┴──────────┴──────┬───┴──────────┘
+                              ▼
+              ┌───────────────────────────────┐
+              │    servant-reimagined-core     │
+              │  (type-level API specification)│
+              └───────────────────────────────┘
+
+  ┌──────────┐   ┌──────────────┐   ┌──────────────┐
+  │  tower    │   │  tower-http  │   │  tower-grpc  │
+  │ (service  │◄──│  (HTTP       │   │  (gRPC wire  │
+  │  +layer)  │◄──│  middleware) │   │  protocol,   │
+  └──────────┘   └──────────────┘   │  dispatch,   │
+       ▲                             │  multiplex,  │
+       │◄────────────────────────────│  reflection) │
+       │                             └──────────────┘
+  ┌────┴──────────┐
+  │  tower-server  │  HTTP/1.1 + HTTP/2 (no WAI)
+  └───────────────┘
+  ┌───────────────┐
+  │   tower-wai   │  WAI/warp adapter
+  └───────────────┘
+  ┌─────────────────┐
+  │ tower-websocket  │  WebSocket session types
+  └─────────────────┘
 ```
 
 ---
@@ -174,23 +181,24 @@ framework's handler dispatch, not at the generic service level.
                                  │ wrapped by
                                  ▼
   ┌──────────────────────────────────────────────────────────────┐
-  │  tower / tower-http                                           │
+  │  tower / tower-http / tower-grpc                              │
   │  Generic middleware: CORS, tracing, compression, timeouts.    │
+  │  gRPC wire protocol: framing, status, dispatch, multiplex.    │
   │  Operates on http-core Request/Response. No endpoint types.   │
   │  Effect system tracks which middleware is present (phantom).   │
   └──────────────────────────────┬───────────────────────────────┘
                                  │
-              ┌──────────────────┼──────────────────┐
-              ▼                  ▼                   ▼
-  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-  │    tower-wai    │ │   tower-snap    │ │  tower-lambda   │
-  │ converts to WAI │ │ converts to Snap│ │ converts to λ   │
-  └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
-           ▼                   ▼                    ▼
-  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-  │      warp       │ │      snap       │ │   AWS Lambda    │
-  │  TCP, TLS, H2   │ │                 │ │                 │
-  └─────────────────┘ └─────────────────┘ └─────────────────┘
+       ┌─────────────┬──────────┼──────────────────┐
+       ▼             ▼          ▼                   ▼
+  ┌────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+  │tower-server│ │    tower-wai    │ │   tower-snap    │ │  tower-lambda   │
+  │ HTTP/1.1 + │ │ converts to WAI │ │ converts to Snap│ │ converts to λ   │
+  │ HTTP/2     │ └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
+  │ (no WAI)   │          ▼                   ▼                    ▼
+  └────────────┘ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+                 │      warp       │ │      snap       │ │   AWS Lambda    │
+                 │  TCP, TLS, H2   │ │                 │ │                 │
+                 └─────────────────┘ └─────────────────┘ └─────────────────┘
 ```
 
 The bottom two rows are **swappable**. Everything above the adapter
@@ -338,9 +346,15 @@ and path segments. The request body is already strict bytes at this point
 | `tower` | Generic (any req/resp) | No |
 | `http-core` | Defines them | No |
 | `tower-http` | Yes | No |
+| `tower-grpc` | Yes | No |
+| `tower-server` | Yes | No |
 | `servant-reimagined-core` | No types (pure type-level) | No |
 | `servant-reimagined-server` | Yes | No |
 | `servant-reimagined-client` | Yes | No |
+| `servant-reimagined-grpc` | Yes | No |
+| `servant-reimagined-openapi` | No (generates specs) | No |
+| `servant-reimagined-codegen` | No (generates code) | No |
+| `servant-reimagined-test` | Yes | No |
 | `tower-wai` | Yes (converts to/from WAI) | **Yes** (only package that does) |
 | `warp` | No (external) | Yes (external) |
 
@@ -944,42 +958,45 @@ module Servant.Reimagined.Prelude
 ## Dependency Graph
 
 ```
-                    ┌──────────────────────────┐
-                    │   servant-reimagined     │
-                    │       (facade)           │
-                    └──┬───┬────┬────┬────────┘
-                       │   │    │    │
-           ┌───────────┘   │    │    └──────────────┐
-           ▼               ▼    ▼                    ▼
-   ┌───────────────┐ ┌─────────────┐ ┌──────────────────┐ ┌──────────────────┐
-   │    server     │ │   client    │ │     openapi      │ │      grpc        │
-   │               │ │             │ │                  │ │                  │
-   │ warp/wai      │ │ http-client │ │ aeson            │ │ proto-lens       │
-   │ tower         │ │ aeson       │ │                  │ │ http2            │
-   │ tower-http    │ │             │ │                  │ │ tower            │
-   │ aeson         │ │             │ │                  │ │                  │
-   └───────┬───────┘ └──────┬──────┘ └────────┬─────────┘ └────────┬─────────┘
-           │                │                  │                    │
-           └────────────────┴──────────────────┴────────────────────┘
-                                       │
-                                       ▼
-                          ┌────────────────────────┐
-                          │ servant-reimagined-core │
-                          │                        │
-                          │   depends on: base     │
-                          └────────────────────────┘
+                    ┌───────────────────────────────┐
+                    │      servant-reimagined        │
+                    │          (facade)              │
+                    └─┬───┬────┬────┬────┬────┬────┘
+                      │   │    │    │    │    │
+        ┌─────────────┘   │    │    │    │    └────────────┐
+        ▼        ▼        ▼    ▼    ▼    ▼                 ▼
+   ┌─────────┐ ┌────────┐ ┌────────┐ ┌──────┐ ┌─────────┐ ┌──────┐
+   │ server  │ │ client │ │openapi │ │ grpc │ │ codegen │ │ test │
+   └────┬────┘ └───┬────┘ └───┬────┘ └──┬───┘ └────┬────┘ └──┬───┘
+        │          │          │         │          │          │
+        └──────────┴──────────┴────┬────┴──────────┘          │
+                                   ▼                          │
+                     ┌────────────────────────┐               │
+                     │ servant-reimagined-core │◄──────────────┘
+                     │                        │
+                     │   depends on: base     │
+                     └────────────────────────┘
 
 
-   ┌────────────┐      ┌──────────────────┐
-   │   tower    │◄─────│   tower-http     │
-   │            │      │                  │
-   │ base       │      │ tower            │
-   │            │      │ http-types       │
-   └────────────┘      │ bytestring       │
-        ▲              │ aeson            │
-        │              └──────────────────┘
+   ┌────────────┐    ┌──────────────────┐    ┌──────────────────┐
+   │   tower    │◄───│   tower-http     │    │   tower-grpc     │
+   │            │    │                  │    │                  │
+   │ base       │    │ tower            │    │ tower            │
+   │            │◄───│ http-types       │    │ http-core        │
+   └────────────┘    │ bytestring       │    │ bytestring       │
+        ▲            │ aeson            │    │ http2            │
+        │            └──────────────────┘    └──────────────────┘
         │
-   Used by: server, grpc
+   ┌────┴───────────┐
+   │  tower-server   │  HTTP/1.1 + HTTP/2 (no WAI)
+   │  tower, http2   │
+   └────────────────┘
+   ┌────────────────┐
+   │   tower-wai    │  WAI/warp adapter
+   │  tower, wai    │
+   └────────────────┘
+
+   Used by: server, grpc, tower-server, tower-wai
 ```
 
 **Key properties of this graph:**
@@ -991,12 +1008,18 @@ module Servant.Reimagined.Prelude
   separate dependency trees. A project could use `tower` without any
   servant-reimagined packages.
 
-- `server`, `client`, `openapi`, and `grpc` are **siblings** — none depends
-  on another. You can use the client without the server, or OpenAPI without
-  either.
+- `server`, `client`, `openapi`, `grpc`, `codegen`, and `test` are
+  **siblings** — none depends on another. You can use the client without the
+  server, or OpenAPI without either.
 
-- `tower-http` depends on `tower` but not on `servant-reimagined-core`. Its
-  middleware layers work with any `tower` service, not just this framework.
+- `tower-http` and `tower-grpc` depend on `tower` but not on
+  `servant-reimagined-core`. Their layers work with any `tower` service.
+
+- `tower-server` provides a WAI-free HTTP/1.1 + HTTP/2 backend. It depends
+  on `tower` and `http2`, and is the native backend for gRPC serving.
+
+- REST and gRPC can be **multiplexed** on the same port via `tower-grpc`'s
+  `multiplex` combinator, which routes by content-type.
 
 ---
 
@@ -1007,8 +1030,8 @@ module Servant.Reimagined.Prelude
 | `typeway-core` | `servant-reimagined-core` | Direct equivalent. Haskell version is simpler — TypeLits eliminates marker type workarounds. |
 | `typeway-server` | `servant-reimagined-server` | Direct equivalent. Uses `tower` instead of importing tower crate directly. |
 | `typeway-client` | `servant-reimagined-client` | Direct equivalent. |
-| `typeway-openapi` | `servant-reimagined-openapi` | Direct equivalent. |
-| `typeway-grpc` | `servant-reimagined-grpc` | Direct equivalent. |
+| `typeway-openapi` | `servant-reimagined-openapi` | Direct equivalent. Also supports Swagger 2.0. |
+| `typeway-grpc` | `servant-reimagined-grpc` | Direct equivalent. GrpcCodec, .proto generation, mkGrpcServiceMap. |
 | `typeway-protobuf` | (folded into `servant-reimagined-grpc`) | Haskell has `proto-lens`; less need for a custom codec package. |
 | `typeway-macros` | (not needed) | Haskell has TypeLits for string literals and GHC.Generics for deriving. No proc macros needed for core functionality. TH may be used sparingly for convenience but is not architecturally required. |
 | `typeway` (facade) | `servant-reimagined` | Direct equivalent. |
@@ -1016,6 +1039,10 @@ module Servant.Reimagined.Prelude
 | (no equivalent) | `tower` | **New library.** Rust has tower; Haskell does not have an equivalent. |
 | (no equivalent) | `http-core` | **New library.** Rust has the `http` crate; Haskell has no backend-agnostic Request/Response types. |
 | (no equivalent) | `tower-http` | **New library.** HTTP middleware built on `tower` + `http-core`. |
+| (no equivalent) | `tower-grpc` | **New library.** gRPC wire protocol: framing, status, dispatch, multiplexing, reflection. |
+| (no equivalent) | `tower-server` | **New library.** Tower-native HTTP/1.1 + HTTP/2 server. No WAI dependency. |
+| (no equivalent) | `servant-reimagined-codegen` | Code generation from OpenAPI/Swagger/.proto specs to Haskell API types. |
+| (no equivalent) | `servant-reimagined-test` | Testing utilities for REST and gRPC services. |
 
 ---
 
@@ -1123,22 +1150,38 @@ The dependency graph dictates the natural build order:
 2. **`servant-reimagined-core`** — depends only on `base`. Pure type-level
    work. Get the API vocabulary right before building interpreters.
 
-3. **`tower-http`** — depends on `tower`. Can be developed in parallel with
-   the core once `tower` is stable.
+3. **`http-core`** — backend-agnostic Request/Response types. Depends on
+   `base`, `bytestring`, `text`, `http-types`.
 
-4. **`servant-reimagined-server`** — depends on core + tower. The first
+4. **`tower-http`** — depends on `tower` + `http-core`. Can be developed in
+   parallel with the core once `tower` is stable.
+
+5. **`tower-server`** — tower-native HTTP/1.1 + HTTP/2 server. Depends on
+   `tower`, `http-core`, `http2`. No WAI.
+
+6. **`tower-wai`** — WAI/warp adapter. Depends on `tower`, `http-core`, `wai`.
+
+7. **`tower-grpc`** — gRPC wire protocol. Depends on `tower`, `http-core`.
+   Provides framing, status, dispatch, multiplexing, and reflection.
+
+8. **`servant-reimagined-server`** — depends on core + tower. The first
    "it works" milestone: define an API type, write handlers, run a server.
 
-5. **`servant-reimagined-client`** — depends on core. Can be developed in
+9. **`servant-reimagined-client`** — depends on core. Can be developed in
    parallel with the server.
 
-6. **`servant-reimagined-openapi`** — depends on core. Can be developed in
-   parallel with server and client.
+10. **`servant-reimagined-openapi`** — depends on core. Can be developed in
+    parallel with server and client. Supports OpenAPI 3.1 + Swagger 2.0.
 
-7. **`servant-reimagined-grpc`** — depends on core + tower. The most complex
-   interpretation. Build last.
+11. **`servant-reimagined-grpc`** — depends on core + tower + tower-grpc.
+    gRPC interpretation, GrpcCodec, .proto generation, mkGrpcServiceMap.
 
-8. **`servant-reimagined`** — facade. Trivial once the others exist.
+12. **`servant-reimagined-codegen`** — code generation from OpenAPI/Swagger/
+    .proto specs to Haskell API types.
+
+13. **`servant-reimagined-test`** — testing utilities for REST and gRPC.
+
+14. **`servant-reimagined`** — facade. Trivial once the others exist.
 
 ---
 

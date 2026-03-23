@@ -12,77 +12,51 @@ module Main (main) where
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS8
-import qualified Data.ByteString.Lazy as LBS
-import Data.IORef
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Aeson as Aeson
-import Network.HTTP.Types (status200, status400, status500)
 
-import Tower
-import Tower.Service (Service (..))
-import Tower.Http
-import Tower.Server (runServerBS)
-import Http.Core
-
-import Servant.Reimagined.Core
-import Servant.Reimagined.Server
+import Servant.Reimagined.Prelude
 
 
 -- ===================================================================
--- 1. Define the API as types
+-- 1. Define the API as types (using path helpers)
 -- ===================================================================
-
-type HealthPath   = '[ 'Lit "health" ]
-type UsersPath    = '[ 'Lit "users" ]
-type UserByIdPath = '[ 'Lit "users", 'Capture Int ]
 
 -- The API type: endpoints with effects
 type MyAPI =
-  '[ Get  HealthPath   Text                         -- GET /health (public)
-   , Requires Auth (Get UsersPath (Json [Text]))     -- GET /users (needs auth)
-   , Get  UserByIdPath (Json Text)                   -- GET /users/:id
+  '[ Get  (At "health")     Text                         -- GET /health (public)
+   , Requires Auth (Get (At "users") (Json [Text]))      -- GET /users (needs auth)
+   , Get  (Param "users" Int) (Json Text)                -- GET /users/:id
    ]
 
 
 -- ===================================================================
--- 2. Write handlers
+-- 2. Write handlers (ergonomic style using ToHandler)
 -- ===================================================================
 
 -- Health check: no extractors, returns plain text
-healthHandler :: HandlerFn
-healthHandler _parts _body = pure $ intoResponse ("ok" :: Text)
+healthHandler :: IO Text
+healthHandler = pure "ok"
 
 -- List users: returns JSON array
-listUsersHandler :: HandlerFn
-listUsersHandler _parts _body =
-  pure $ intoResponse (Json (["alice", "bob", "charlie"] :: [Text]))
+listUsersHandler :: IO (Json [Text])
+listUsersHandler = pure (Json ["alice", "bob", "charlie"])
 
--- Get user by ID: reads capture from extensions
-getUserHandler :: HandlerFn
-getUserHandler parts _body = do
-  mCaps <- lookupExtension @CaptureList (rpExtensions parts)
-  case mCaps of
-    Just (CaptureList (idText : _)) ->
-      case parseCapture @Int idText of
-        Just n  -> pure $ intoResponse (Json (T.pack ("user-" ++ show n)))
-        Nothing -> pure $ intoResponse (mkError status400 "invalid user ID")
-    _ -> pure $ intoResponse (mkError status500 "missing path capture")
+-- Get user by ID: PathCapture extracts and parses the capture automatically
+getUserHandler :: PathCapture Int -> IO (Json Text)
+getUserHandler (PathCapture n) = pure (Json (T.pack ("user-" ++ show n)))
 
 
 -- ===================================================================
 -- 3. Build server with typed effect tracking
 -- ===================================================================
 
--- Wire handlers using mkServer (compile-time checked: 3 endpoints, 3 handlers)
+-- Wire handlers positionally — no wrapHandler, no toHandler, no type annotations.
+-- effectfulApi + provide + run tracks middleware effects at compile time.
 apiService :: Service IO (Request ByteString) (Response ByteString)
 apiService = run
   $ provide @Auth authMiddleware
-  $ effectfulServer @MyAPI
-      ( wrapHandler @(Get HealthPath Text) healthHandler
-      , wrapHandler @(Requires Auth (Get UsersPath (Json [Text]))) listUsersHandler
-      , wrapHandler @(Get UserByIdPath (Json Text)) getUserHandler
-      )
+  $ effectfulApi @MyAPI (healthHandler, listUsersHandler, getUserHandler)
 
 -- A placeholder auth middleware (in real code, verify JWT/session)
 authMiddleware :: Middleware IO (Request ByteString) (Response ByteString)

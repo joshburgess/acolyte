@@ -12,15 +12,17 @@
 --             ]
 --
 -- main = runWarp 3000
+--   $ run
+--   $ provide @Auth authMw
+--   $ provide @Cors corsMw
 --   $ effectfulServer @API handlers
---   & provide @Auth (secureHeadersLayer defaultSecureHeaders)
---   & provide @Cors (someCorsMw)
---   & run    -- only compiles because Auth and Cors are provided
 -- @
 module Servant.Reimagined.Server.Effects
   ( -- * Builder
     EffectfulServer (..)
   , effectfulServer
+  , effectfulApi
+  , fromRouter
     -- * Adding effects
   , provide
     -- * Finalizing
@@ -29,7 +31,6 @@ module Servant.Reimagined.Server.Effects
 
 import Data.Kind (Type)
 import Data.ByteString (ByteString)
-import Data.Proxy (Proxy (..))
 
 import Tower (Middleware, Service)
 import Tower.Service (Service (..))
@@ -39,6 +40,8 @@ import Http.Core (Request, Response)
 import Servant.Reimagined.Core.API (Serves)
 import Servant.Reimagined.Core.Effect (AllEffectsProvided)
 import Servant.Reimagined.Server.Wiring (BuildServer, mkServer)
+import Servant.Reimagined.Server.MkApi (BuildApi, mkApi)
+import Servant.Reimagined.Server.Router (Router, serve)
 
 
 -- | A server builder that tracks which effects have been provided.
@@ -46,6 +49,9 @@ import Servant.Reimagined.Server.Wiring (BuildServer, mkServer)
 -- @api@ is the API type (type-level list of endpoints).
 -- @provided@ is the type-level list of effects discharged so far.
 -- Starts as @'[]@ and grows with each 'provide' call.
+--
+-- Used for both single-API servers (via 'effectfulServer') and
+-- combined multi-sub-API servers (via 'fromRouter').
 data EffectfulServer (api :: [Type]) (provided :: [Type]) = EffectfulServer
   { esService :: !(Service IO (Request ByteString) (Response ByteString))
   }
@@ -60,12 +66,42 @@ effectfulServer
 effectfulServer handlers = EffectfulServer (mkServer @api handlers)
 
 
--- | Declare that a middleware effect has been provided, and apply
--- the corresponding tower middleware.
+-- | Create an effectful server from an API type and plain handler functions.
+--
+-- Like 'effectfulServer' but uses 'mkApi' — no 'wrapHandler' or
+-- 'toHandler' ceremony needed.
 --
 -- @
--- & provide @Auth authMiddleware
+-- effectfulApi \@API (healthHandler, getUserHandler)
 -- @
+effectfulApi
+  :: forall api handlers
+   . (Serves api handlers, BuildApi api handlers)
+  => handlers
+  -> EffectfulServer api '[]
+effectfulApi handlers = EffectfulServer (mkApi @api handlers)
+
+
+-- | Create an effectful server from a pre-built router.
+--
+-- Used with sub-API composition:
+--
+-- @
+-- fromRouter @FullAPI
+--   $ subRouter @API2 h2
+--   $ subRouter @API1 h1
+--   $ emptyRouter
+-- @
+fromRouter
+  :: forall api
+   . Router
+  -> EffectfulServer api '[]
+fromRouter router = EffectfulServer (serve router)
+
+
+-- | Provide a middleware that satisfies an effect requirement, applying it to the server.
+--
+-- Usage: @provide \@Auth authMiddleware@
 provide
   :: forall e api provided
    . Middleware IO (Request ByteString) (Response ByteString)

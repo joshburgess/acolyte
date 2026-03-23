@@ -1,194 +1,315 @@
 # servant-reimagined
 
-A composable, type-safe web framework for Haskell where the API is a type,
-the middleware is tracked at compile time, and the backend is pluggable.
+[![CI](https://github.com/joshburgess/servant-reimagined/actions/workflows/ci.yml/badge.svg)](https://github.com/joshburgess/servant-reimagined/actions/workflows/ci.yml)
+
+A composable, type-safe web framework for Haskell. Your API is a type,
+your middleware is tracked at compile time, and your backend is pluggable.
 
 Built on GHC 9.10.3. Informed by Rust's tower/axum/typeway ecosystem.
 
-## What this is
+## Prerequisites
 
-Six packages that together provide something the Haskell ecosystem has
-never had: a layered, composable web framework architecture where each
-layer is independent and swappable.
+- [GHC 9.10.3](https://www.haskell.org/ghcup/) (install via ghcup)
+- [cabal-install](https://www.haskell.org/cabal/) >= 3.10
 
-```
-servant-reimagined-server    (framework: API types -> handlers -> tower Service)
-         |
-   tower / tower-http        (composition: Service/Layer/Middleware)
-         |
-      http-core              (shared types: Request/Response/Extensions)
-         |
-      tower-wai              (adapter: runs on warp — swappable)
-         |
-       warp                  (HTTP engine: TCP, TLS, HTTP/2)
+```sh
+ghcup install ghc 9.10.3
+ghcup set ghc 9.10.3
 ```
 
-## Quick example
+## Quick start
+
+Clone and build:
+
+```sh
+git clone <repo-url> servant-reimagined
+cd servant-reimagined
+cabal build all        # ~7s clean build
+cabal test all         # 40 test suites, 612+ assertions, 43 hedgehog properties
+```
+
+Run the hello-world example:
+
+```sh
+cabal run hello-world
+```
+
+In another terminal:
+
+```sh
+curl http://localhost:3000/health        # -> ok
+curl http://localhost:3000/users         # -> ["alice","bob","charlie"]
+curl http://localhost:3000/users/42      # -> "user-42"
+```
+
+## Your first API in 4 steps
+
+### 1. Define the API as a type
+
+Endpoints are a promoted list. Paths use type-level strings. Captures
+are typed.
 
 ```haskell
+{-# LANGUAGE DataKinds #-}
+
 import Servant.Reimagined.Core
 import Servant.Reimagined.Server
-import Tower
-import Tower.Http (secureHeadersLayer, defaultSecureHeaders)
-import Tower.Wai (runWarp)
 
--- 1. Define the API as a type
-type HealthPath = '[ 'Lit "health" ]
-type UsersPath  = '[ 'Lit "users" ]
+type HealthPath = At "health"           -- expands to '[ 'Lit "health" ]
+type UsersPath  = At "users"            -- expands to '[ 'Lit "users" ]
 
 type API =
-  '[ Get HealthPath   Text
-   , Get UsersPath    (Json [Text])
+  '[ Get HealthPath   Text              -- GET /health -> Text
+   , Get UsersPath    (Json [Text])     -- GET /users  -> JSON array
    ]
-
--- 2. Wire handlers (compile-time checked: wrong count = type error)
-server = mkServer @API
-  ( wrapHandler @(Get HealthPath Text)
-      (mkHandler0 (pure ("ok" :: Text)))
-  , wrapHandler @(Get UsersPath (Json [Text]))
-      (mkHandler0 (pure (Json ["alice", "bob"])))
-  )
-
--- 3. Add middleware via tower's |> operator
-app = server |> secureHeadersLayer defaultSecureHeaders
-
--- 4. Run on warp (or any other backend adapter)
-main = runWarp 3000 app
 ```
 
-## With typed middleware effects
+### 2. Write handlers
+
+Handlers are plain IO functions. The type signature *is* the extraction
+— arguments are automatically pulled from the request.
 
 ```haskell
--- API declares what middleware each endpoint requires
+healthHandler :: IO Text
+healthHandler = pure "ok"
+
+listUsersHandler :: IO (Json [Text])
+listUsersHandler = pure (Json ["alice", "bob"])
+
+-- Path captures are typed and extracted automatically:
+getUser :: PathCapture Int -> IO (Json Text)
+getUser (PathCapture uid) = pure (Json (T.pack ("user-" ++ show uid)))
+```
+
+No monad transformers, no `liftIO`, no manual extraction boilerplate.
+
+### 3. Wire handlers to the API
+
+`mkApi` checks at compile time that you have the right number of
+handlers and that each one matches its endpoint type. No `wrapHandler`,
+no `toHandler` — just pass your functions positionally.
+
+```haskell
+import Tower (Service, (|>))
+import Tower.Http (secureHeadersLayer, defaultSecureHeaders)
+
+server :: Service IO (Request ByteString) (Response ByteString)
+server = mkApi @API (healthHandler, listUsersHandler)
+```
+
+### 4. Add middleware and run
+
+Middleware composes with `|>`. Pick a backend — `tower-server` (zero
+WAI) or `tower-wai` (warp).
+
+```haskell
+import Tower.Server (runServerBS)
+
+main :: IO ()
+main = do
+  let app = server |> secureHeadersLayer defaultSecureHeaders
+  runServerBS 3000 app
+```
+
+That's it. You have a running server with OWASP security headers,
+compile-time route checking, and no WAI dependency.
+
+## Typed middleware effects
+
+Endpoints can declare what middleware they require. The compiler
+enforces that you provide it.
+
+```haskell
 type EffectAPI =
   '[ Requires Auth (Get UserPath (Json User))  -- needs auth
    , Get HealthPath Text                        -- no requirements
    ]
 
--- Server builder tracks effects as phantom types.
--- Missing 'provide' = compile error.
 app = run
     $ provide @Auth authMiddleware
     $ effectfulServer @EffectAPI (authHandler, healthHandler)
 ```
 
-Forget to provide auth? The compiler tells you:
+Forget `provide @Auth`? You get a compile error:
 
 ```
 Missing middleware effect: Auth
 This effect is required by an endpoint but was not provided.
-Add .provide @Auth to the server builder.
 ```
+
+## Testing without a network
+
+`servant-reimagined-test` dispatches requests directly through the
+tower Service — no ports, no sockets, deterministic.
+
+```haskell
+import Servant.Reimagined.Test
+
+test :: IO ()
+test = do
+  let svc = mkServer @API (health, users)
+  resp <- get svc "/health"
+  resp `shouldHaveStatus` 200
+  resp `shouldHaveBody` "ok"
+```
+
+## WebSocket session types
+
+WebSocket protocols are enforced at compile time via phantom-typed
+session handles. Each operation (send, recv, offer, select) transitions
+the type-level state, so the compiler rejects out-of-order messages.
+
+```haskell
+import Tower.WebSocket
+import Servant.Reimagined.Core.Session (SessionType (..))
+
+type EchoProtocol = 'Send Text ('Recv Text 'End)
+
+echoHandler :: Session EchoProtocol -> IO ()
+echoHandler session = do
+  session'         <- send ("hello" :: Text) session
+  (msg, session'') <- recv session'
+  close session''
+```
+
+The protocol type drives correctness: calling `recv` when the protocol
+expects `send` is a type error. Branching protocols use `Offer` / `Select`,
+and recursive protocols use `Rec` / `Var` with `recurse` / `loop`.
+
+## gRPC from the same API type
+
+The same API type drives REST and gRPC:
+
+```haskell
+-- REST server:
+restSvc = mkServer @API restHandlers
+
+-- gRPC server (same API type!):
+grpcSvc = grpcServer (mkGrpcServiceMap @API "pkg" "Svc" grpcHandlers)
+
+-- Multiplex REST + gRPC on a single port:
+combined = multiplexServices restSvc grpcSvc
+
+-- .proto file with full message definitions:
+proto = generateProto @API "pkg" "Svc"
+
+-- Or go the other way — .proto → API types:
+-- cabal run proto-codegen -- service.proto
+```
+
+Run on HTTP/2 via tower-server (zero WAI):
+
+```haskell
+main = runServerH2 (defaultH2Config 50051) grpcSvc
+```
+
+Features: REST+gRPC multiplexing (`Tower.Grpc.Multiplex`), content
+negotiation (`Servant.Reimagined.Server.Negotiate`), server reflection
+(`Tower.Grpc.Reflection`), bidirectional `.proto` codegen, client
+streaming and bidirectional streaming handlers, gRPC health check
+service (`Tower.Grpc.Health`), and gzip compression
+(`Tower.Grpc.Compression`).
+
+See the [gRPC guide](docs/GRPC.md) for the full walkthrough.
+
+## Architecture
+
+```
+servant-reimagined-server    API types -> REST handlers -> tower Service
+servant-reimagined-grpc      API types -> gRPC handlers -> tower Service
+         |                            |
+   tower / tower-http / tower-grpc   Service/Layer/Middleware/gRPC framing
+         |
+      http-core              Backend-agnostic Request/Response
+         |
+  tower-wai | tower-server   Pick your backend (HTTP/1.1 + HTTP/2)
+         |           |
+       warp      raw sockets
+
+  tower-websocket            WebSocket session types (protocol-enforced)
+```
+
+Each layer is independent. `tower` knows nothing about HTTP. `http-core`
+knows nothing about WAI. `tower-grpc` knows nothing about API types.
+The server produces a `Service` — it doesn't know or care what runs it.
 
 ## Packages
 
-| Package | Purpose | Depends on |
-|---------|---------|------------|
-| [`servant-reimagined-core`](servant-reimagined-core/) | Type-level API: endpoints, paths, effects, sessions, versioning | `base` only |
-| [`tower`](tower/) | Service/Layer/Middleware composition | `base` only |
-| [`http-core`](http-core/) | Backend-agnostic Request/Response/Extensions | `base`, `http-types` |
-| [`tower-http`](tower-http/) | HTTP middleware: security headers, request ID, tracing | `tower`, `http-core` |
-| [`tower-wai`](tower-wai/) | WAI/warp backend adapter (the only WAI-aware package) | `tower`, `http-core`, `wai`, `warp` |
-| [`tower-server`](tower-server/) | Tower-native HTTP/1.1 server — zero WAI dependency | `tower`, `http-core`, `network` |
-| [`servant-reimagined-server`](servant-reimagined-server/) | Handler dispatch, routing, extractors, EffectfulServer | `core`, `tower`, `http-core` |
-| [`servant-reimagined-client`](servant-reimagined-client/) | Type-safe HTTP client derived from API types | `core`, `http-client` |
-| [`servant-reimagined-openapi`](servant-reimagined-openapi/) | OpenAPI 3.1 spec generation from API types | `core`, `aeson` |
-| [`servant-reimagined-test`](servant-reimagined-test/) | Testing utilities (direct dispatch, assertions) | `core`, `server`, `http-core` |
-| [`servant-reimagined`](servant-reimagined/) | Facade — re-exports everything | all of the above |
+| Package | What it does |
+|---------|-------------|
+| [`servant-reimagined-core`](servant-reimagined-core/) | Type-level API: endpoints, paths, effects, sessions, versioning. Depends on `base` only. |
+| [`tower`](tower/) | Service/Layer/Middleware composition. Depends on `base` only. Standalone — use it anywhere. |
+| [`http-core`](http-core/) | Backend-agnostic Request, Response, Extensions (typed heterogeneous map). |
+| [`tower-http`](tower-http/) | HTTP middleware: security headers, request ID, tracing, CORS, gzip, timeouts. |
+| [`tower-wai`](tower-wai/) | WAI/warp backend adapter. The only package that imports WAI. |
+| [`tower-server`](tower-server/) | Tower-native HTTP/1.1 + HTTP/2 server with TLS. Zero WAI dependency. |
+| [`tower-grpc`](tower-grpc/) | gRPC wire protocol: framing, status codes, service dispatch. No protobuf dependency. |
+| [`servant-reimagined-server`](servant-reimagined-server/) | Handler wiring, routing, extractors, effect tracking. |
+| [`servant-reimagined-client`](servant-reimagined-client/) | Type-safe HTTP client derived from the same API type. |
+| [`servant-reimagined-openapi`](servant-reimagined-openapi/) | OpenAPI 3.1 + Swagger 2.0 spec generation from API types. |
+| [`servant-reimagined-codegen`](servant-reimagined-codegen/) | Generate API types from OpenAPI/Swagger specs. |
+| [`servant-reimagined-grpc`](servant-reimagined-grpc/) | gRPC interpretation: `GrpcCodec`, `GrpcReady`, `.proto` generation, `mkGrpcServiceMap`. |
+| [`servant-reimagined-test`](servant-reimagined-test/) | Direct-dispatch testing: no network, no ports. |
+| [`tower-websocket`](tower-websocket/) | WebSocket session types: phantom-typed `Session` handle enforces send/recv protocol at compile time. |
+| [`servant-reimagined`](servant-reimagined/) | Facade — re-exports everything for convenience. |
 
-## Design philosophy
+## Examples
 
-**Composable over monolithic.** Every package has a clear boundary and
-minimal dependencies. `tower` knows nothing about HTTP. `http-core` knows
-nothing about WAI. The server produces a tower `Service` — it doesn't know
-or care what runs it.
+The `examples/` directory contains 11 complete applications:
 
-**Pluggable backends.** WAI and warp are confined to `tower-wai`. Swap it
-for `tower-snap`, `tower-lambda`, or raw sockets — nothing above the
-adapter changes.
+- [`examples/minimal`](examples/minimal/) — simplest possible server (1 endpoint)
+- [`examples/hello-world`](examples/hello-world/) — 3 endpoints, effect tracking, middleware stack
+- [`examples/crud`](examples/crud/) — full CRUD with named routes and structured errors
+- [`examples/auth`](examples/auth/) — custom authentication extractors
+- [`examples/custom-extractors`](examples/custom-extractors/) — writing your own request extractors
+- [`examples/grpc-demo`](examples/grpc-demo/) — gRPC server with .proto generation
+- [`examples/chat`](examples/chat/) — session-typed WebSocket chat
+- [`examples/negotiate`](examples/negotiate/) — content negotiation (JSON, XML, plain text)
+- [`examples/versioned-api`](examples/versioned-api/) — API versioning with typed version headers
+- [`examples/realworld`](examples/realworld/) — RealWorld spec API types split into 6 sub-APIs
+- [`examples/realworld-combined`](examples/realworld-combined/) — full RealWorld backend: 15 endpoints across 6 sub-APIs with handlers, in-memory store, and combined effect tracking
 
-**Compile-time correctness.** Missing handler? Type error. Missing
-middleware? Type error. Wrong handler arity? Type error. Breaking API
-change? Type error.
+## Key design decisions
 
-**Fast compilation.** Promoted lists instead of recursive `:<|>` trees.
-Closed type families instead of open instances. Flat tuple indexing instead
-of recursive constraint solving. Benchmarked: 1 to 16 endpoints compiles
-in constant time (0.16–0.17s). No exponential blowup.
+- **Promoted lists, not trees.** APIs are `'[endpoint1, endpoint2, ...]`.
+  Compile time scales linearly, not exponentially.
+- **IO handlers.** No `ExceptT`, no `ReaderT`. State via extractors
+  (`AppState`), errors via `Either`.
+- **tower Service as the boundary.** The server produces it, the backend
+  consumes it. Middleware composes with `|>`.
+- **WAI is confined.** Only `tower-wai` imports WAI. Swap it for
+  `tower-server`, a Lambda adapter, or anything else.
+- **Compile times are first-class.** 1 to 32 endpoints compile in
+  constant time (~1.3s including GHC startup).
+- **Runtime is fast.** 142 ns dispatch, 14 ns gRPC decode, middleware
+  adds zero overhead. See the [**Performance Guide**](docs/PERFORMANCE.md)
+  for full benchmarks and analysis.
+- **Optional type-level annotations.** Endpoints can be wrapped with
+  `Describe`, `WithParams`, `WithHeaders`, `RespondsWith` / `PostCreated` /
+  `DeleteNoContent`, and streaming markers (`ServerStream`, `ClientStream`,
+  `BidiStream`) for richer OpenAPI specs and client generation -- without
+  changing routing or handler signatures. See the
+  [tutorial](docs/TUTORIAL.md#step-8-annotating-endpoints-for-documentation)
+  for details.
 
-**IO handlers, not monadic stacks.** No `ExceptT`, no `liftIO`. Handlers
-are plain `IO` functions. State via extractors, errors via `Either`.
+## Next steps
 
-## Two-layer middleware model
-
-There are two fundamentally different kinds of middleware, operating at
-different levels:
-
-**Layer 1 — Generic middleware (tower Layers):** CORS, compression,
-tracing, timeouts. These wrap the entire server as
-`Service -> Service`. They know nothing about endpoint types. The effect
-system tracks them via phantom types on the builder.
-
-**Layer 2 — Per-endpoint typed wrappers:** `Protected`, `Validated`,
-`Versioned`, `Requires`. These are type-level wrappers on individual
-endpoints in the API type. They modify handler dispatch with full type
-information — auth enforcement, body validation, version prefixing.
-
-Users never drop to raw WAI. All typed middleware lives above the tower
-boundary where endpoint type information is available.
-
-## Current status
-
-**Phases 1-6 complete.** The full framework is built and working:
-
-- Type-level API definition with compile-time completeness checks
-- Service/Layer/Middleware composition with `|>` piping
-- Backend-agnostic Request/Response types with streaming body support
-- HTTP middleware: security headers, request ID, tracing, CORS,
-  compression (gzip), timeouts
-- Two backend adapters: `tower-wai` (warp) and `tower-server` (zero WAI)
-- TLS support in tower-server
-- Automatic handler wiring from API types
-- EffectfulServer with phantom-type effect tracking
-- Type-safe HTTP client derived from API types
-- OpenAPI 3.1 spec generation from API types
-- Testing utilities (direct dispatch, no network needed)
-- Compile-time benchmarks confirming linear scaling
-- 12 packages, 48 modules, 200+ tests, 10 test suites passing
-
-**Remaining:**
-
-- `servant-reimagined-grpc` — unified REST + gRPC serving
-- HTTP/2 support in tower-server (types defined, implementation pending)
-- Session-typed WebSocket runtime enforcement (LinearTypes)
-
-## Example
-
-See [`examples/hello-world`](examples/hello-world/) for a complete
-application that defines an API with effects, wires handlers, stacks
-middleware (CORS, security headers, tracing, request ID), and runs on
-tower-server.
-
-```sh
-cabal run hello-world
-# Then: curl http://localhost:3000/health
-#        curl http://localhost:3000/users
-#        curl http://localhost:3000/users/42
-```
-
-## Building
-
-Requires GHC 9.10.3.
-
-```sh
-cabal build all     # build everything (~7s clean)
-cabal test all      # run all 10 test suites
-```
-
-## Project documents
-
-- [`VISION.md`](VISION.md) — goals, philosophy, key decisions
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) — package structure, dependency
-  graph, two-layer model, backend agnosticism, design decisions
-- [`TYPEWAY-ANALYSIS.md`](TYPEWAY-ANALYSIS.md) — analysis of the Rust
-  typeway framework and how its ideas translate to Haskell
+- Read the [**Tutorial**](docs/TUTORIAL.md) — a step-by-step walkthrough
+  building a complete API
+- Read the [**Design Philosophy**](docs/DESIGN-PHILOSOPHY.md) — why every
+  decision was made, compile-time performance analysis, Servant comparison
+- Read the [**Data Flow**](docs/DATA-FLOW.md) — request-to-response flow
+  diagrams for HTTP/1.1, HTTP/2, gRPC, and the compile-time type checking flow
+- Coming from Servant? Read the [**Migration Guide**](docs/MIGRATING-FROM-SERVANT.md)
+  — side-by-side comparison of every concept
+- Read the [**Error Handling Guide**](docs/ERROR-HANDLING.md) for patterns
+  on structured errors, early return, and fallible extractors
+- Read the [**Streaming Guide**](docs/STREAMING.md) for large request/response
+  bodies
+- Read the [**gRPC Guide**](docs/GRPC.md) for serving gRPC from the same API
+  type
+- Read the [**Performance Guide**](docs/PERFORMANCE.md) — compile-time and
+  runtime benchmarks with analysis
+- Browse the [examples](examples/) for patterns to copy
+- See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full design
+- See [`VISION.md`](VISION.md) for project goals

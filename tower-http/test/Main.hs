@@ -127,7 +127,7 @@ testRequestId = do
 testTrace :: IO ()
 testTrace = do
   ref <- newIORef ([] :: [TraceEntry])
-  let svc = echoService |> traceLayer (\e -> modifyIORef ref (++ [e]))
+  let svc = echoService |> traceLayer (\e -> modifyIORef' ref (++ [e]))
   req <- mkReq methodPost "/users"
 
   _ <- runService svc req
@@ -150,7 +150,7 @@ testComposition = do
   ridLayer <- requestIdLayer
   let svc = echoService
             |> ridLayer
-            |> traceLayer (\e -> modifyIORef ref (++ [e]))
+            |> traceLayer (\e -> modifyIORef' ref (++ [e]))
             |> secureHeadersLayer defaultSecureHeaders
   req <- mkReq methodGet "/health"
   resp <- runService svc req

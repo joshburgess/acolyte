@@ -7,6 +7,7 @@ module Main (main) where
 
 import Servant.Reimagined.Core
 import Data.Kind (Type, Constraint)
+import Data.Text (Text)
 import GHC.TypeLits (Symbol)
 import Data.Proxy (Proxy (..))
 
@@ -80,22 +81,23 @@ type TestAPI =
 data H1; data H2; data H3; data H4
 
 -- 3 endpoints, 3 handlers — compiles
-_servesOk :: Int
-_servesOk = handlerCount @TestAPI @(H1, H2, H3)
+_servesOk :: Serves TestAPI (H1, H2, H3) => ()
+_servesOk = ()
 
 -- 1 endpoint, 1 handler — compiles
 type SingleAPI = '[ Get UsersPath (Json [User]) ]
-_servesSingle :: Int
-_servesSingle = handlerCount @SingleAPI @H1
+_servesSingle :: Serves SingleAPI H1 => ()
+_servesSingle = ()
 
 -- 2 endpoints, 2 handlers — compiles
 type TwoAPI = '[ Get UsersPath (Json [User]), Get UserByIdPath (Json User) ]
-_servesTwo :: Int
-_servesTwo = handlerCount @TwoAPI @(H1, H2)
+_servesTwo :: Serves TwoAPI (H1, H2) => ()
+_servesTwo = ()
 
 -- NEGATIVE: 3 endpoints, 2 handlers — uncomment to see compile error:
--- _servesBad :: Int
--- _servesBad = handlerCount @TestAPI @(H1, H2)
+-- "API has 3 endpoint(s) but 2 handler(s) were provided."
+-- _servesBad :: Serves TestAPI (H1, H2) => ()
+-- _servesBad = ()
 
 
 -- ===================================================================
@@ -231,19 +233,102 @@ type NegotiatedEndpoint =
 -- This compiles — Negotiate is just a type wrapper
 type NegotiatedAPI = '[ NegotiatedEndpoint, Get HealthPath String ]
 
-_negotiatedServes :: Int
-_negotiatedServes = handlerCount @NegotiatedAPI @(H1, H2)
+_negotiatedServes :: Serves NegotiatedAPI (H1, H2) => ()
+_negotiatedServes = ()
 
 -- ContentFormat instances provide runtime metadata
-_jsonType :: String
+_jsonType :: Text
 _jsonType = contentType @JsonFormat
 
-_xmlType :: String
+_xmlType :: Text
 _xmlType = contentType @XmlFormat
 
 
 -- ===================================================================
--- 8. KnownMethod runtime demoting
+-- 8. Path construction helpers
+-- ===================================================================
+
+-- At "health" should equal '[ 'Lit "health" ]
+type AtHealthOk = At "health" ~ '[ 'Lit "health" ]
+
+-- Param "users" Int should equal '[ 'Lit "users", 'Capture Int ]
+type ParamUsersOk = Param "users" Int ~ '[ 'Lit "users", 'Capture Int ]
+
+_assertPathHelpers :: (AtHealthOk, ParamUsersOk) => ()
+_assertPathHelpers = ()
+
+-- Describe wrapper compiles in an API type
+type DescribedAPI =
+  '[ Describe "Health check" (Get (At "health") String)
+   , Describe "Get user by ID" (Get (Param "users" Int) (Json User))
+   ]
+
+_describedServes :: Serves DescribedAPI (H1, H2) => ()
+_describedServes = ()
+
+
+-- ===================================================================
+-- 9. WithParams / WithHeaders annotation tests
+-- ===================================================================
+
+-- WithParams compiles and is transparent to Serves
+type ParamAPI =
+  '[ WithParams '[QP "page" Int, QP "limit" Int]
+       (Get (At "users") (Json [User]))
+   ]
+
+_paramServes :: Serves ParamAPI H1 => ()
+_paramServes = ()
+
+-- WithHeaders compiles and is transparent to Serves
+type HeaderAPI =
+  '[ WithHeaders '[HH "Authorization" Text]
+       (Get (At "users") (Json [User]))
+   ]
+
+_headerServes :: Serves HeaderAPI H1 => ()
+_headerServes = ()
+
+-- Combined: both annotations compose
+type ParamHeaderAPI =
+  '[ WithParams '[QP "page" Int]
+       (WithHeaders '[HH "Authorization" Text]
+         (Get (At "users") (Json [User])))
+   ]
+
+_paramHeaderServes :: Serves ParamHeaderAPI H1 => ()
+_paramHeaderServes = ()
+
+
+-- ===================================================================
+-- 10. Streaming marker tests
+-- ===================================================================
+
+-- Streaming markers compile
+type StreamAPI =
+  '[ ServerStream (Get (At "events") (Json [User]))
+   , ClientStream (Post (At "upload") (Json User) (Json User))
+   , BidiStream (Post (At "chat") (Json User) (Json User))
+   ]
+_streamServes :: Serves StreamAPI (H1, H2, H3) => ()
+_streamServes = ()
+
+
+-- ===================================================================
+-- 11. RespondsWith / status code annotation tests
+-- ===================================================================
+
+-- RespondsWith compiles
+type StatusAPI =
+  '[ RespondsWith 201 (Post (At "users") (Json User) (Json User))
+   , DeleteNoContent (At "users")
+   ]
+_statusServes :: Serves StatusAPI (H1, H2) => ()
+_statusServes = ()
+
+
+-- ===================================================================
+-- 12. KnownMethod runtime demoting
 -- ===================================================================
 
 _methodGet :: Method
@@ -268,6 +353,6 @@ main = do
   putStrLn $ "  GET     = " ++ show _methodGet
   putStrLn $ "  POST    = " ++ show _methodPost
   putStrLn $ "  DELETE  = " ++ show _methodDelete
-  putStrLn $ "  Serves TestAPI (H1,H2,H3): handlerCount = " ++ show _servesOk
-  putStrLn $ "  JSON content type: " ++ _jsonType
-  putStrLn $ "  XML  content type: " ++ _xmlType
+  putStrLn   "  Serves TestAPI (H1,H2,H3): OK (constraint synonym)"
+  putStrLn $ "  JSON content type: " ++ show _jsonType
+  putStrLn $ "  XML  content type: " ++ show _xmlType

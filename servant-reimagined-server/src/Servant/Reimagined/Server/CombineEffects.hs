@@ -1,22 +1,16 @@
--- | Effect-tracked combined server.
+-- | Backward-compatible aliases for combined effect-tracked servers.
 --
--- Combines multiple sub-APIs and verifies that all required effects
--- across ALL sub-APIs are provided before the server can start.
+-- 'CombinedServer' is now a type alias for 'EffectfulServer'.
+-- 'provideEffect' and 'runCombined' are aliases for 'provide' and 'run'.
+-- 'combinedFromRouter' is an alias for 'fromRouter'.
 --
--- @
--- type FullAPI = UsersAPI ++ ArticlesAPI
---
--- server = runCombined @FullAPI
---   $ provide @Auth authMw
---   $ combinedEffectful
---       (subRouter @UsersAPI usersHandlers)
---       (subRouter @ArticlesAPI articleHandlers)
--- @
+-- New code should use 'EffectfulServer', 'provide', 'run', and
+-- 'fromRouter' directly from "Servant.Reimagined.Server.Effects".
 module Servant.Reimagined.Server.CombineEffects
-  ( -- * Combined effectful server
-    CombinedServer (..)
+  ( -- * Combined effectful server (aliases)
+    CombinedServer
   , combinedFromRouter
-    -- * Effect tracking
+    -- * Effect tracking (aliases)
   , provideEffect
   , runCombined
   ) where
@@ -25,53 +19,40 @@ import Data.ByteString (ByteString)
 import Data.Kind (Type)
 
 import Tower (Middleware)
-import Tower.Service (Service)
-import Tower.Layer (applyLayer)
 import Http.Core (Request, Response)
 
 import Servant.Reimagined.Core.Effect (AllEffectsProvided)
-import Servant.Reimagined.Server.Router (Router, serve)
+import Servant.Reimagined.Server.Router (Router)
+import Servant.Reimagined.Server.Effects
+  ( EffectfulServer, fromRouter, provide, run )
+import Tower.Service (Service)
 
 
--- | A combined server with phantom-tracked effects.
---
--- @fullApi@ is the combined API type (e.g., @UsersAPI ++ ArticlesAPI@).
--- @provided@ is the type-level list of effects discharged so far.
-data CombinedServer (fullApi :: [Type]) (provided :: [Type]) = CombinedServer
-  { csService :: !(Service IO (Request ByteString) (Response ByteString))
-  }
+-- | Alias for 'EffectfulServer'. Kept for backward compatibility.
+type CombinedServer = EffectfulServer
 
-
--- | Create a combined server from a pre-built router.
---
--- @
--- let router = subRouter @API2 h2 $ subRouter @API1 h1 $ emptyRouter
--- combinedFromRouter @FullAPI router
--- @
+-- | Alias for 'fromRouter'. Kept for backward compatibility.
 combinedFromRouter
   :: forall fullApi
    . Router
-  -> CombinedServer fullApi '[]
-combinedFromRouter router = CombinedServer (serve router)
+  -> EffectfulServer fullApi '[]
+combinedFromRouter = fromRouter
+{-# INLINE combinedFromRouter #-}
 
-
--- | Declare that a middleware effect has been provided.
+-- | Alias for 'provide'. Kept for backward compatibility.
 provideEffect
   :: forall e fullApi provided
    . Middleware IO (Request ByteString) (Response ByteString)
-  -> CombinedServer fullApi provided
-  -> CombinedServer fullApi (e ': provided)
-provideEffect mw (CombinedServer svc) =
-  CombinedServer (applyLayer mw svc)
+  -> EffectfulServer fullApi provided
+  -> EffectfulServer fullApi (e ': provided)
+provideEffect = provide @e
+{-# INLINE provideEffect #-}
 
-
--- | Finalize the combined server.
---
--- Only compiles if every 'Requires' across ALL sub-APIs in @fullApi@
--- has been provided.
+-- | Alias for 'run'. Kept for backward compatibility.
 runCombined
   :: forall fullApi provided
    . AllEffectsProvided fullApi provided
-  => CombinedServer fullApi provided
+  => EffectfulServer fullApi provided
   -> Service IO (Request ByteString) (Response ByteString)
-runCombined (CombinedServer svc) = svc
+runCombined = run
+{-# INLINE runCombined #-}

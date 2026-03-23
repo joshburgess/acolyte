@@ -69,6 +69,7 @@ data ServerConfig = ServerConfig
 onException :: ServerConfig -> SomeException -> IO ()
 onException = configOnException
 
+-- | Default server configuration for the given port, binding to @127.0.0.1@.
 defaultConfig :: Int -> ServerConfig
 defaultConfig port = ServerConfig
   { configPort           = port
@@ -83,6 +84,17 @@ defaultConfig port = ServerConfig
 
 
 -- | Run the server on the given port.
+--
+-- For long-running production deployments, run with these RTS options:
+--
+-- @
+-- +RTS -Fd30 --nonmoving-gc -RTS
+-- @
+--
+-- * @-Fd30@ returns unused memory to the OS every 30 seconds
+--   (prevents resident memory from staying high after traffic spikes)
+-- * @--nonmoving-gc@ uses the non-moving garbage collector for lower
+--   GC pause latency (important for request-serving processes)
 runServer :: Int -> Service IO (Request Body) (Response Body) -> IO ()
 runServer port svc = runServerConfig (defaultConfig port) svc
 

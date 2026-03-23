@@ -28,8 +28,8 @@ import API
 -- Auth helper: extract username from "Token xxx" header
 -- ===================================================================
 
-getAuthUser :: Store -> RequestParts -> IO (Maybe StoredUser)
-getAuthUser store parts = do
+getAuthUser :: Store -> FullRequest -> IO (Maybe StoredUser)
+getAuthUser store (FullRequest parts) = do
   let mAuth = lookup "authorization" (rpHeaders parts)
   case mAuth of
     Just authHeader -> do
@@ -81,16 +81,13 @@ slugify = T.intercalate "-" . T.words . T.toLower
 -- ===================================================================
 
 -- POST /api/users/login
-loginHandler :: Store -> HandlerFn
-loginHandler store parts body =
-  case Aeson.eitherDecodeStrict' body of
-    Left err -> pure $ intoResponse (mkError status422 (T.pack err))
-    Right (LoginRequest email pass) -> do
-      users <- readIORef (storeUsers store)
-      case findByEmail email (Map.elems users) of
-        Just u | suPassword u == pass ->
-          pure $ intoResponse (Json (storedToUser u))
-        _ -> pure $ intoResponse (mkError status401 "invalid email or password")
+loginHandler :: Store -> JsonBody LoginRequest -> IO (Either ServerError (Json User))
+loginHandler store (JsonBody (LoginRequest email pass)) = do
+  users <- readIORef (storeUsers store)
+  case findByEmail email (Map.elems users) of
+    Just u | suPassword u == pass ->
+      pure $ Right (Json (storedToUser u))
+    _ -> pure $ Left (mkError status401 "invalid email or password")
 
 findByEmail :: Text -> [StoredUser] -> Maybe StoredUser
 findByEmail _ [] = Nothing
@@ -99,63 +96,54 @@ findByEmail email (u:us)
   | otherwise = findByEmail email us
 
 -- POST /api/users (register)
-registerHandler :: Store -> HandlerFn
-registerHandler store parts body =
-  case Aeson.eitherDecodeStrict' body of
-    Left err -> pure $ intoResponse (mkError status422 (T.pack err))
-    Right (RegisterRequest username email pass) -> do
-      let token = "tok-" <> username  -- fake token
-          su = StoredUser username email pass "" Nothing token
-      modifyIORef' (storeUsers store) (Map.insert username su)
-      pure $ intoResponse (Json (storedToUser su))
+registerHandler :: Store -> JsonBody RegisterRequest -> IO (Json User)
+registerHandler store (JsonBody (RegisterRequest username email pass)) = do
+  let token = "tok-" <> username  -- fake token
+      su = StoredUser username email pass "" Nothing token
+  modifyIORef' (storeUsers store) (Map.insert username su)
+  pure (Json (storedToUser su))
 
 -- GET /api/user (current user, auth required)
-getCurrentUserHandler :: Store -> HandlerFn
-getCurrentUserHandler store parts _body = do
-  mUser <- getAuthUser store parts
+getCurrentUserHandler :: Store -> FullRequest -> IO (Either ServerError (Json User))
+getCurrentUserHandler store req = do
+  mUser <- getAuthUser store req
   case mUser of
-    Just u  -> pure $ intoResponse (Json (storedToUser u))
-    Nothing -> pure $ intoResponse (mkError status401 "not authenticated")
+    Just u  -> pure $ Right (Json (storedToUser u))
+    Nothing -> pure $ Left (mkError status401 "not authenticated")
 
 -- PUT /api/user (update user, auth required)
-updateUserHandler :: Store -> HandlerFn
-updateUserHandler store parts body = do
-  mUser <- getAuthUser store parts
+updateUserHandler :: Store -> FullRequest -> JsonBody UpdateUserRequest -> IO (Either ServerError (Json User))
+updateUserHandler store req (JsonBody (UpdateUserRequest mEmail mUsername mBio mImage)) = do
+  mUser <- getAuthUser store req
   case mUser of
-    Nothing -> pure $ intoResponse (mkError status401 "not authenticated")
-    Just u -> case Aeson.eitherDecodeStrict' body of
-      Left err -> pure $ intoResponse (mkError status422 (T.pack err))
-      Right (UpdateUserRequest mEmail mUsername mBio mImage) -> do
-        let updated = u
-              { suEmail    = fromMaybe (suEmail u) mEmail
-              , suUsername = fromMaybe (suUsername u) mUsername
-              , suBio      = fromMaybe (suBio u) mBio
-              , suImage    = mImage
-              }
-        modifyIORef' (storeUsers store) (Map.insert (suUsername updated) updated)
-        pure $ intoResponse (Json (storedToUser updated))
+    Nothing -> pure $ Left (mkError status401 "not authenticated")
+    Just u -> do
+      let updated = u
+            { suEmail    = fromMaybe (suEmail u) mEmail
+            , suUsername = fromMaybe (suUsername u) mUsername
+            , suBio      = fromMaybe (suBio u) mBio
+            , suImage    = mImage
+            }
+      modifyIORef' (storeUsers store) (Map.insert (suUsername updated) updated)
+      pure $ Right (Json (storedToUser updated))
 
 -- GET /api/profiles/:username
-getProfileHandler :: Store -> HandlerFn
-getProfileHandler store parts _body = do
-  mCaps <- lookupExtension @CaptureList (rpExtensions parts)
-  case mCaps of
-    Just (CaptureList (username : _)) -> do
-      users <- readIORef (storeUsers store)
-      case Map.lookup username users of
-        Just u -> do
-          profile <- storedToProfile store Nothing u
-          pure $ intoResponse (Json profile)
-        Nothing -> pure $ intoResponse (mkError status404 "profile not found")
-    _ -> pure $ intoResponse (mkError status404 "missing username")
+getProfileHandler :: Store -> PathCapture Text -> IO (Either ServerError (Json Profile))
+getProfileHandler store (PathCapture username) = do
+  users <- readIORef (storeUsers store)
+  case Map.lookup username users of
+    Just u -> do
+      profile <- storedToProfile store Nothing u
+      pure $ Right (Json profile)
+    Nothing -> pure $ Left (mkError status404 "profile not found")
 
 -- POST /api/profiles/:username/follow
-followHandler :: Store -> HandlerFn
-followHandler store parts _body = do
-  mUser <- getAuthUser store parts
-  mCaps <- lookupExtension @CaptureList (rpExtensions parts)
-  case (mUser, mCaps) of
-    (Just viewer, Just (CaptureList (target : _))) -> do
+followHandler :: Store -> PathCapture Text -> FullRequest -> IO (Either ServerError (Json Profile))
+followHandler store (PathCapture target) req = do
+  mUser <- getAuthUser store req
+  case mUser of
+    Nothing -> pure $ Left (mkError status401 "not authenticated")
+    Just viewer -> do
       modifyIORef' (storeFollows store) $ \follows ->
         Map.insertWith (\_ old -> if target `elem` old then old else target : old)
           (suUsername viewer) [target] follows
@@ -163,42 +151,40 @@ followHandler store parts _body = do
       case Map.lookup target users of
         Just u -> do
           profile <- storedToProfile store (Just (suUsername viewer)) u
-          pure $ intoResponse (Json profile)
-        Nothing -> pure $ intoResponse (mkError status404 "user not found")
-    _ -> pure $ intoResponse (mkError status401 "not authenticated")
+          pure $ Right (Json profile)
+        Nothing -> pure $ Left (mkError status404 "user not found")
 
 -- DELETE /api/profiles/:username/follow
-unfollowHandler :: Store -> HandlerFn
-unfollowHandler store parts _body = do
-  mUser <- getAuthUser store parts
-  mCaps <- lookupExtension @CaptureList (rpExtensions parts)
-  case (mUser, mCaps) of
-    (Just viewer, Just (CaptureList (target : _))) -> do
+unfollowHandler :: Store -> PathCapture Text -> FullRequest -> IO (Either ServerError (Json Profile))
+unfollowHandler store (PathCapture target) req = do
+  mUser <- getAuthUser store req
+  case mUser of
+    Nothing -> pure $ Left (mkError status401 "not authenticated")
+    Just viewer -> do
       modifyIORef' (storeFollows store) $ \follows ->
         Map.adjust (filter (/= target)) (suUsername viewer) follows
       users <- readIORef (storeUsers store)
       case Map.lookup target users of
         Just u -> do
           profile <- storedToProfile store (Just (suUsername viewer)) u
-          pure $ intoResponse (Json profile)
-        Nothing -> pure $ intoResponse (mkError status404 "user not found")
-    _ -> pure $ intoResponse (mkError status401 "not authenticated")
+          pure $ Right (Json profile)
+        Nothing -> pure $ Left (mkError status404 "user not found")
 
 -- GET /api/articles
-listArticlesHandler :: Store -> HandlerFn
-listArticlesHandler store _parts _body = do
+listArticlesHandler :: Store -> IO (Json ArticlesResponse)
+listArticlesHandler store = do
   articles <- readIORef (storeArticles store)
   users <- readIORef (storeUsers store)
   let arts = Map.elems articles
   jsonArts <- mapM (storedToArticle store Nothing users) arts
-  pure $ intoResponse (Json (ArticlesResponse jsonArts (length jsonArts)))
+  pure (Json (ArticlesResponse jsonArts (length jsonArts)))
 
 -- GET /api/articles/feed (auth required)
-feedHandler :: Store -> HandlerFn
-feedHandler store parts _body = do
-  mUser <- getAuthUser store parts
+feedHandler :: Store -> FullRequest -> IO (Either ServerError (Json ArticlesResponse))
+feedHandler store req = do
+  mUser <- getAuthUser store req
   case mUser of
-    Nothing -> pure $ intoResponse (mkError status401 "not authenticated")
+    Nothing -> pure $ Left (mkError status401 "not authenticated")
     Just viewer -> do
       follows <- readIORef (storeFollows store)
       let following = fromMaybe [] (Map.lookup (suUsername viewer) follows)
@@ -206,95 +192,81 @@ feedHandler store parts _body = do
       users <- readIORef (storeUsers store)
       let arts = filter (\a -> saAuthor a `elem` following) (Map.elems articles)
       jsonArts <- mapM (storedToArticle store (Just (suUsername viewer)) users) arts
-      pure $ intoResponse (Json (ArticlesResponse jsonArts (length jsonArts)))
+      pure $ Right (Json (ArticlesResponse jsonArts (length jsonArts)))
 
 -- GET /api/articles/:slug
-getArticleHandler :: Store -> HandlerFn
-getArticleHandler store parts _body = do
-  mCaps <- lookupExtension @CaptureList (rpExtensions parts)
-  case mCaps of
-    Just (CaptureList (slug : _)) -> do
-      articles <- readIORef (storeArticles store)
-      users <- readIORef (storeUsers store)
-      case Map.lookup slug articles of
-        Just a -> do
-          art <- storedToArticle store Nothing users a
-          pure $ intoResponse (Json art)
-        Nothing -> pure $ intoResponse (mkError status404 "article not found")
-    _ -> pure $ intoResponse (mkError status404 "missing slug")
+getArticleHandler :: Store -> PathCapture Text -> IO (Either ServerError (Json Article))
+getArticleHandler store (PathCapture slug) = do
+  articles <- readIORef (storeArticles store)
+  users <- readIORef (storeUsers store)
+  case Map.lookup slug articles of
+    Just a -> do
+      art <- storedToArticle store Nothing users a
+      pure $ Right (Json art)
+    Nothing -> pure $ Left (mkError status404 "article not found")
 
 -- POST /api/articles (auth required)
-createArticleHandler :: Store -> HandlerFn
-createArticleHandler store parts body = do
-  mUser <- getAuthUser store parts
+createArticleHandler :: Store -> FullRequest -> JsonBody CreateArticleRequest -> IO (Either ServerError (Json Article))
+createArticleHandler store req (JsonBody (CreateArticleRequest title desc artBody tags)) = do
+  mUser <- getAuthUser store req
   case mUser of
-    Nothing -> pure $ intoResponse (mkError status401 "not authenticated")
-    Just viewer -> case Aeson.eitherDecodeStrict' body of
-      Left err -> pure $ intoResponse (mkError status422 (T.pack err))
-      Right (CreateArticleRequest title desc artBody tags) -> do
-        now <- getCurrentTime
-        let slug = slugify title
-            sa = StoredArticle slug title desc artBody tags (suUsername viewer) now now []
-        modifyIORef' (storeArticles store) (Map.insert slug sa)
-        users <- readIORef (storeUsers store)
-        art <- storedToArticle store (Just (suUsername viewer)) users sa
-        pure $ intoResponse (Json art)
+    Nothing -> pure $ Left (mkError status401 "not authenticated")
+    Just viewer -> do
+      now <- getCurrentTime
+      let slug = slugify title
+          sa = StoredArticle slug title desc artBody tags (suUsername viewer) now now []
+      modifyIORef' (storeArticles store) (Map.insert slug sa)
+      users <- readIORef (storeUsers store)
+      art <- storedToArticle store (Just (suUsername viewer)) users sa
+      pure $ Right (Json art)
 
 -- DELETE /api/articles/:slug (auth required)
-deleteArticleHandler :: Store -> HandlerFn
-deleteArticleHandler store parts _body = do
-  mCaps <- lookupExtension @CaptureList (rpExtensions parts)
-  case mCaps of
-    Just (CaptureList (slug : _)) -> do
+deleteArticleHandler :: Store -> PathCapture Text -> FullRequest -> IO (Either ServerError (Json Article))
+deleteArticleHandler store (PathCapture slug) req = do
+  mUser <- getAuthUser store req
+  case mUser of
+    Nothing -> pure $ Left (mkError status401 "not authenticated")
+    Just _viewer -> do
       articles <- readIORef (storeArticles store)
       users <- readIORef (storeUsers store)
       case Map.lookup slug articles of
         Just a -> do
           modifyIORef' (storeArticles store) (Map.delete slug)
           art <- storedToArticle store Nothing users a
-          pure $ intoResponse (Json art)
-        Nothing -> pure $ intoResponse (mkError status404 "article not found")
-    _ -> pure $ intoResponse (mkError status404 "missing slug")
+          pure $ Right (Json art)
+        Nothing -> pure $ Left (mkError status404 "article not found")
 
 -- GET /api/articles/:slug/comments
-getCommentsHandler :: Store -> HandlerFn
-getCommentsHandler store parts _body = do
-  mCaps <- lookupExtension @CaptureList (rpExtensions parts)
-  case mCaps of
-    Just (CaptureList (slug : _)) -> do
-      comments <- readIORef (storeComments store)
-      users <- readIORef (storeUsers store)
-      let slugComments = filter (\c -> scArticle c == slug) comments
-      jsonComments <- mapM (storedToComment store Nothing users) slugComments
-      pure $ intoResponse (Json jsonComments)
-    _ -> pure $ intoResponse (Json ([] :: [Comment]))
+getCommentsHandler :: Store -> PathCapture Text -> IO (Json [Comment])
+getCommentsHandler store (PathCapture slug) = do
+  comments <- readIORef (storeComments store)
+  users <- readIORef (storeUsers store)
+  let slugComments = filter (\c -> scArticle c == slug) comments
+  jsonComments <- mapM (storedToComment store Nothing users) slugComments
+  pure (Json jsonComments)
 
 -- POST /api/articles/:slug/comments (auth required)
-createCommentHandler :: Store -> HandlerFn
-createCommentHandler store parts body = do
-  mUser <- getAuthUser store parts
-  mCaps <- lookupExtension @CaptureList (rpExtensions parts)
-  case (mUser, mCaps) of
-    (Just viewer, Just (CaptureList (slug : _))) ->
-      case Aeson.eitherDecodeStrict' body of
-        Left err -> pure $ intoResponse (mkError status422 (T.pack err))
-        Right (CreateCommentRequest cBody) -> do
-          now <- getCurrentTime
-          cid <- atomicModifyIORef' (storeNextId store) (\n -> (n + 1, n))
-          let sc = StoredComment cid cBody (suUsername viewer) slug now
-          modifyIORef' (storeComments store) (sc :)
-          users <- readIORef (storeUsers store)
-          comment <- storedToComment store (Just (suUsername viewer)) users sc
-          pure $ intoResponse (Json comment)
-    _ -> pure $ intoResponse (mkError status401 "not authenticated")
+createCommentHandler :: Store -> PathCapture Text -> FullRequest -> JsonBody CreateCommentRequest -> IO (Either ServerError (Json Comment))
+createCommentHandler store (PathCapture slug) req (JsonBody (CreateCommentRequest cBody)) = do
+  mUser <- getAuthUser store req
+  case mUser of
+    Nothing -> pure $ Left (mkError status401 "not authenticated")
+    Just viewer -> do
+      now <- getCurrentTime
+      cid <- atomicModifyIORef' (storeNextId store) (\n -> (n + 1, n))
+      let sc = StoredComment cid cBody (suUsername viewer) slug now
+      modifyIORef' (storeComments store) (sc :)
+      users <- readIORef (storeUsers store)
+      comment <- storedToComment store (Just (suUsername viewer)) users sc
+      pure $ Right (Json comment)
 
 -- GET /api/tags
-tagsHandler :: Store -> HandlerFn
-tagsHandler store _parts _body = do
+tagsHandler :: Store -> IO (Json TagsResponse)
+tagsHandler store = do
   articles <- readIORef (storeArticles store)
   let allTags = concatMap saTagList (Map.elems articles)
       uniqueTags = Map.keys (Map.fromList [(t, ()) | t <- allTags])
-  pure $ intoResponse (Json (TagsResponse uniqueTags))
+  pure (Json (TagsResponse uniqueTags))
 
 
 -- ===================================================================

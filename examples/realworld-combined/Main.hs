@@ -11,15 +11,9 @@ module Main (main) where
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS8
+import Data.Text (Text)
 
-import Tower
-import Tower.Service (Service (..))
-import Tower.Http
-import Tower.Server (runServerBS)
-import Http.Core
-
-import Servant.Reimagined.Core
-import Servant.Reimagined.Server
+import Servant.Reimagined.Prelude
 
 import API
 import Types
@@ -42,45 +36,48 @@ buildService store =
   -- Merge all sub-API routers. Each subRouter call is O(1).
   $ subRouter @TagsAPI
       ( wrapHandler @(Get TagsPath (Json TagsResponse))
-          (tagsHandler store)
+          (toHandler (tagsHandler store))
       )
   $ subRouter @CommentsAPI
       ( wrapHandler @(Get CommentsPath (Json [Comment]))
-          (getCommentsHandler store)
+          (toHandler (getCommentsHandler store))
       , wrapHandler @(Requires Auth (Post CommentsPath (Json CreateCommentRequest) (Json Comment)))
-          (createCommentHandler store)
+          (toHandler (createCommentHandler store))
       )
   $ subRouter @ArticlesAPI
-      ( wrapHandler @(Get ArticlesPath (Json ArticlesResponse))
-          (listArticlesHandler store)
+      ( wrapHandler @(WithParams '[QP "tag" Text, QP "author" Text, QP "limit" Int, QP "offset" Int]
+                        (Get ArticlesPath (Json ArticlesResponse)))
+          (toHandler (listArticlesHandler store))
       , wrapHandler @(Requires Auth (Get ArticleFeedPath (Json ArticlesResponse)))
-          (feedHandler store)
+          (toHandler (feedHandler store))
       , wrapHandler @(Get ArticlePath (Json Article))
-          (getArticleHandler store)
+          (toHandler (getArticleHandler store))
       , wrapHandler @(Requires Auth (Post ArticlesPath (Json CreateArticleRequest) (Json Article)))
-          (createArticleHandler store)
-      , wrapHandler @(Requires Auth (Delete ArticlePath (Json Article)))
-          (deleteArticleHandler store)
+          (toHandler (createArticleHandler store))
+      , wrapHandler @(Requires Auth (DeleteNoContent ArticlePath))
+          (toHandler (deleteArticleHandler store))
       )
   $ subRouter @ProfilesAPI
       ( wrapHandler @(Get ProfilePath (Json Profile))
-          (getProfileHandler store)
+          (toHandler (getProfileHandler store))
       , wrapHandler @(Requires Auth (Post FollowPath (Json ()) (Json Profile)))
-          (followHandler store)
+          (toHandler (followHandler store))
       , wrapHandler @(Requires Auth (Delete FollowPath (Json Profile)))
-          (unfollowHandler store)
+          (toHandler (unfollowHandler store))
       )
   $ subRouter @UserAPI
       ( wrapHandler @(Requires Auth (Get UserPath (Json User)))
-          (getCurrentUserHandler store)
+          (toHandler (getCurrentUserHandler store))
       , wrapHandler @(Requires Auth (Put UserPath (Json UpdateUserRequest) (Json User)))
-          (updateUserHandler store)
+          (toHandler (updateUserHandler store))
       )
   $ subRouter @AuthAPI
-      ( wrapHandler @(Post LoginPath (Json LoginRequest) (Json User))
-          (loginHandler store)
-      , wrapHandler @(Post RegisterPath (Json RegisterRequest) (Json User))
-          (registerHandler store)
+      ( wrapHandler @(Describe "Log in an existing user"
+                        (Post LoginPath (Json LoginRequest) (Json User)))
+          (toHandler (loginHandler store))
+      , wrapHandler @(Describe "Register a new user"
+                        (PostCreated RegisterPath (Json RegisterRequest) (Json User)))
+          (toHandler (registerHandler store))
       )
   $ emptyRouter
   where

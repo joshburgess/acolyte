@@ -14,6 +14,7 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Builder as Builder
+import qualified Data.ByteString.Builder.Extra as BuilderEx
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.CaseInsensitive as CI
 import Network.HTTP.Types (Status, statusCode, statusMessage, ResponseHeaders, Header)
@@ -38,9 +39,13 @@ sendResponse send status headers body = case body of
 
 
 -- | Render a complete response with Content-Length (strict bodies).
+--
+-- Uses a tuned buffer strategy: 4KB initial allocation covers most
+-- HTTP responses in a single chunk, avoiding the double-copy of
+-- @LBS.toStrict . Builder.toLazyByteString@.
 renderFull :: Status -> ResponseHeaders -> ByteString -> ByteString
 renderFull status headers body =
-  LBS.toStrict . Builder.toLazyByteString $
+  toStrictBuilder $
     renderStatusLine status
     <> renderHeaders (addContentLength (BS.length body) headers)
     <> Builder.byteString "\r\n"
@@ -83,7 +88,7 @@ sendResponseStreaming send status headers pull = do
 -- | Render status line + headers (no body, no trailing CRLF for streaming).
 renderResponseHead :: Status -> ResponseHeaders -> ByteString
 renderResponseHead status headers =
-  LBS.toStrict . Builder.toLazyByteString $
+  toStrictBuilder $
     renderStatusLine status
     <> renderHeaders headers
     <> Builder.byteString "\r\n"
@@ -115,3 +120,18 @@ addContentLength :: Int -> ResponseHeaders -> ResponseHeaders
 addContentLength len headers
   | any (\(k, _) -> k == "content-length") headers = headers
   | otherwise = ("Content-Length", BS8.pack (show len)) : headers
+
+
+-- | Convert a Builder to strict ByteString with a tuned buffer strategy.
+--
+-- Uses a 4KB initial buffer (covers most HTTP headers + small JSON bodies
+-- in a single allocation) with small-chunks growth strategy. This avoids
+-- the overhead of @LBS.toStrict . Builder.toLazyByteString@ which allocates
+-- a lazy bytestring with default 32KB chunks then copies to strict.
+toStrictBuilder :: Builder.Builder -> ByteString
+toStrictBuilder =
+  LBS.toStrict
+  . BuilderEx.toLazyByteStringWith
+      (BuilderEx.safeStrategy 4096 4096)
+      LBS.empty
+{-# INLINE toStrictBuilder #-}

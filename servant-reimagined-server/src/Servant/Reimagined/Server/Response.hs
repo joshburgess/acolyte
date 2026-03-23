@@ -99,6 +99,7 @@ data JsonError = JsonError
   , jeMessage :: !Text
   } deriving (Show)
 
+-- | Construct a 'JsonError' from a status code and message.
 jsonError :: Status -> Text -> JsonError
 jsonError = JsonError
 

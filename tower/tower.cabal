@@ -11,7 +11,11 @@ description:
   for composable middleware without depending on any web framework.
 
 license:         BSD-3-Clause
+license-file:    ../LICENSE
 author:          Josh Burgess
+maintainer:      Josh Burgess
+homepage:        https://github.com/joshburgess/servant-reimagined
+bug-reports:     https://github.com/joshburgess/servant-reimagined/issues
 build-type:      Simple
 
 library
@@ -25,13 +29,40 @@ library
 
   hs-source-dirs: src
   default-language: GHC2024
+  default-extensions:
+    StrictData
+
+  ghc-options: -Wall -funbox-strict-fields
 
 test-suite spec
   type: exitcode-stdio-1.0
   main-is: Main.hs
   hs-source-dirs: test
   default-language: GHC2024
+  default-extensions:
+    StrictData
+
+  ghc-options: -Wall -rtsopts "-with-rtsopts=-K1K"
 
   build-depends:
     base >= 4.20 && < 5,
     tower
+
+test-suite properties
+  type: exitcode-stdio-1.0
+  main-is: Properties.hs
+  hs-source-dirs: test
+  default-language: GHC2024
+  default-extensions:
+    StrictData
+
+  ghc-options: -Wall
+
+  build-depends:
+    base >= 4.20 && < 5,
+    tower,
+    hedgehog >= 1.4 && < 1.8
+
+source-repository head
+  type:     git
+  location: https://github.com/joshburgess/servant-reimagined.git

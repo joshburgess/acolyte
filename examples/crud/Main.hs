@@ -1,0 +1,198 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+-- | CRUD API with structured error handling, named routes, and type annotations.
+--
+-- Run:  cabal run crud
+-- Test: curl http://localhost:3000/items
+--       curl -X POST http://localhost:3000/items -d '{"name":"Widget","price":9.99}'
+--       curl http://localhost:3000/items/1
+--       curl -X PUT http://localhost:3000/items/1 -d '{"name":"Gadget","price":19.99}'
+--       curl -X DELETE http://localhost:3000/items/1
+module Main (main) where
+
+import Data.Aeson (FromJSON, ToJSON, (.=), object, (.:))
+import qualified Data.Aeson as Aeson
+import Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as LBS
+import Data.IORef
+import Data.Text (Text)
+import qualified Data.Text as T
+import Network.HTTP.Types (Status, statusCode, status400, status404, status422)
+
+import Servant.Reimagined.Prelude
+
+
+-- ===================================================================
+-- Domain types
+-- ===================================================================
+
+data Item = Item { itemId :: Int, itemName :: Text, itemPrice :: Double }
+  deriving (Show)
+
+instance ToJSON Item where
+  toJSON i = object ["id" .= itemId i, "name" .= itemName i, "price" .= itemPrice i]
+
+data CreateItem = CreateItem { ciName :: Text, ciPrice :: Double }
+  deriving (Show)
+
+instance FromJSON CreateItem where
+  parseJSON = Aeson.withObject "CreateItem" $ \o ->
+    CreateItem <$> o .: "name" <*> o .: "price"
+
+
+-- ===================================================================
+-- Structured error type with IntoResponse instance
+-- ===================================================================
+
+data AppError
+  = NotFound Text
+  | BadRequest Text
+  | Unprocessable Text
+  deriving (Show)
+
+appErrorStatus :: AppError -> Status
+appErrorStatus (NotFound _)      = status404
+appErrorStatus (BadRequest _)    = status400
+appErrorStatus (Unprocessable _) = status422
+
+appErrorMessage :: AppError -> Text
+appErrorMessage (NotFound m)      = m
+appErrorMessage (BadRequest m)    = m
+appErrorMessage (Unprocessable m) = m
+
+instance IntoResponse AppError where
+  intoResponse err =
+    let s = appErrorStatus err
+        body = LBS.toStrict $ Aeson.encode $ object
+          [ "error" .= object
+            [ "status"  .= statusCode s
+            , "message" .= appErrorMessage err
+            ]
+          ]
+    in Response s [("Content-Type", "application/json")] body
+
+
+-- ===================================================================
+-- API type (with Describe and WithParams annotations)
+-- ===================================================================
+
+type ItemsPath  = At "items"
+type ItemPath   = Param "items" Int
+
+type CrudAPI =
+  '[ Describe "List all items" (WithParams '[QP "limit" Int] (Get ItemsPath (Json [Item])))
+   , Describe "Create a new item" (Post ItemsPath (Json CreateItem) (Json Item))
+   , Describe "Get item by ID" (Get ItemPath (Json Item))
+   , Describe "Update an item" (Put ItemPath (Json CreateItem) (Json Item))
+   , Describe "Delete an item" (Delete ItemPath (Json Item))
+   ]
+
+
+-- ===================================================================
+-- Handlers
+-- ===================================================================
+
+type Store = IORef (Int, [Item])  -- (nextId, items)
+
+listItemsH :: Store -> IO (Json [Item])
+listItemsH ref = do
+  (_, items) <- readIORef ref
+  pure (Json items)
+
+createItemH :: Store -> JsonBody CreateItem -> IO (Json Item)
+createItemH ref (JsonBody (CreateItem name price)) = do
+  (nextId, items) <- readIORef ref
+  let item = Item nextId name price
+  writeIORef ref (nextId + 1, items ++ [item])
+  pure (Json item)
+
+getItemH :: Store -> PathCapture Int -> IO (Either AppError (Json Item))
+getItemH ref (PathCapture iid) = do
+  (_, items) <- readIORef ref
+  case filter (\i -> itemId i == iid) items of
+    (x:_) -> pure (Right (Json x))
+    []    -> pure (Left (NotFound (T.pack ("Item " ++ show iid ++ " not found"))))
+
+updateItemH :: Store -> PathCapture Int -> JsonBody CreateItem -> IO (Either AppError (Json Item))
+updateItemH ref (PathCapture iid) (JsonBody (CreateItem name price)) = do
+  (nid, items) <- readIORef ref
+  case span (\i -> itemId i /= iid) items of
+    (_, [])     -> pure (Left (NotFound (T.pack ("Item " ++ show iid ++ " not found"))))
+    (before, _old:after) -> do
+      let updated = Item iid name price
+      writeIORef ref (nid, before ++ [updated] ++ after)
+      pure (Right (Json updated))
+
+deleteItemH :: Store -> PathCapture Int -> IO (Either AppError (Json Item))
+deleteItemH ref (PathCapture iid) = do
+  (nid, items) <- readIORef ref
+  case span (\i -> itemId i /= iid) items of
+    (_, [])      -> pure (Left (NotFound (T.pack ("Item " ++ show iid ++ " not found"))))
+    (before, old:after) -> do
+      writeIORef ref (nid, before ++ after)
+      pure (Right (Json old))
+
+
+-- ===================================================================
+-- Named routes record
+-- ===================================================================
+
+-- | Handler record for CrudAPI — fields correspond positionally to endpoints.
+data CrudHandlers = CrudHandlers
+  { hListItems  :: IO (Json [Item])
+  , hCreateItem :: JsonBody CreateItem -> IO (Json Item)
+  , hGetItem    :: PathCapture Int -> IO (Either AppError (Json Item))
+  , hUpdateItem :: PathCapture Int -> JsonBody CreateItem -> IO (Either AppError (Json Item))
+  , hDeleteItem :: PathCapture Int -> IO (Either AppError (Json Item))
+  }
+
+type HandlerTuple =
+  ( IO (Json [Item])
+  , JsonBody CreateItem -> IO (Json Item)
+  , PathCapture Int -> IO (Either AppError (Json Item))
+  , PathCapture Int -> JsonBody CreateItem -> IO (Either AppError (Json Item))
+  , PathCapture Int -> IO (Either AppError (Json Item))
+  )
+
+instance NamedApi CrudAPI CrudHandlers HandlerTuple where
+  toHandlerTuple h =
+    ( hListItems h
+    , hCreateItem h
+    , hGetItem h
+    , hUpdateItem h
+    , hDeleteItem h
+    )
+
+
+-- ===================================================================
+-- Server + main
+-- ===================================================================
+
+-- Alternative: positional wiring
+-- server store = mkApi @CrudAPI
+--   ( listItemsH store
+--   , createItemH store
+--   , getItemH store
+--   , updateItemH store
+--   , deleteItemH store
+--   )
+
+server :: Store -> Service IO (Request ByteString) (Response ByteString)
+server store = mkNamedApi @CrudAPI CrudHandlers
+  { hListItems  = listItemsH store
+  , hCreateItem = createItemH store
+  , hGetItem    = getItemH store
+  , hUpdateItem = updateItemH store
+  , hDeleteItem = deleteItemH store
+  }
+
+main :: IO ()
+main = do
+  store <- newIORef (1, [])
+  putStrLn "CRUD example on http://localhost:3000"
+  putStrLn "  GET    /items       - list all"
+  putStrLn "  POST   /items       - create"
+  putStrLn "  GET    /items/:id   - get by id"
+  putStrLn "  PUT    /items/:id   - update"
+  putStrLn "  DELETE /items/:id   - delete"
+  runServerBS 3000 (server store)

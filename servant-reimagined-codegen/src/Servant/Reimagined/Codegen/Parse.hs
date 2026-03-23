@@ -17,6 +17,7 @@ import qualified Data.Text as T
 import Servant.Reimagined.Codegen.IR
 
 
+-- | Errors that can occur when parsing an OpenAPI or Swagger spec.
 data ParseError
   = UnknownVersion !Text
   | MissingField !Text

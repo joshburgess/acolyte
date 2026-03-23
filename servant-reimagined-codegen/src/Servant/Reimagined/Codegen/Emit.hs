@@ -25,6 +25,7 @@ data EmitConfig = EmitConfig
   , emitHandlerStubs :: !Bool   -- ^ Generate handler stubs?
   } deriving (Show)
 
+-- | Default emit configuration: module name @"Generated.API"@ with handler stubs enabled.
 defaultEmitConfig :: EmitConfig
 defaultEmitConfig = EmitConfig
   { emitModuleName   = "Generated.API"

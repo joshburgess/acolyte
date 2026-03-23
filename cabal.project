@@ -10,10 +10,58 @@ packages:
   servant-reimagined-test
   servant-reimagined
   tower-server
+  tower-grpc
+  tower-websocket
+  servant-reimagined-grpc
   servant-reimagined-codegen
   examples/hello-world
+  examples/minimal
   examples/realworld
   examples/realworld-combined
+  examples/crud
+  examples/auth
+  examples/custom-extractors
+  examples/grpc-demo
+  examples/chat
+  examples/versioned-api
+  examples/negotiate
+  bench/compile-time
+  bench/runtime
+
+-- Enable all test suites by default (including hedgehog property tests)
+tests: True
 
 -- Use GHC 9.10.3
 -- with-compiler: ghc-9.10.3
+
+-- Production optimization: -O2 for all library code
+package servant-reimagined-core
+  ghc-options: -O2
+package tower
+  ghc-options: -O2
+package http-core
+  ghc-options: -O2
+package tower-http
+  ghc-options: -O2
+package tower-wai
+  ghc-options: -O2
+package tower-server
+  ghc-options: -O2
+package tower-grpc
+  ghc-options: -O2
+package tower-websocket
+  ghc-options: -O2
+package servant-reimagined-server
+  ghc-options: -O2
+package servant-reimagined-client
+  ghc-options: -O2
+package servant-reimagined-openapi
+  ghc-options: -O2
+package servant-reimagined-grpc
+  ghc-options: -O2
+package servant-reimagined-codegen
+  ghc-options: -O2
+package servant-reimagined-test
+  ghc-options: -O2
+package servant-reimagined
+  ghc-options: -O2

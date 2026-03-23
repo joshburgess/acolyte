@@ -33,7 +33,10 @@ import Servant.Reimagined.Server.Response
 
 import Servant.Reimagined.Core.Endpoint (Endpoint)
 import Servant.Reimagined.Core.Effect (Requires)
-import Servant.Reimagined.Core.Wrapper (Protected, Validated)
+import Servant.Reimagined.Core.Wrapper
+  ( Protected, Validated, Describe, WithParams, WithHeaders
+  , ServerStream, ClientStream, BidiStream, RespondsWith
+  )
 import Servant.Reimagined.Core.Method (KnownMethod, methodVal)
 import qualified Servant.Reimagined.Core.Method as Core
 import Servant.Reimagined.Core.Path (PathSegment(..))
@@ -62,6 +65,7 @@ data BoundHandler = BoundHandler
 -- Endpoint metadata extraction
 -- ===================================================================
 
+-- | Extract HTTP method, URL pattern, and path matcher from an endpoint type.
 class HasEndpointInfo endpoint where
   endpointMethod  :: Method
   endpointPattern :: Text
@@ -95,6 +99,55 @@ instance HasEndpointInfo inner
     endpointPattern = endpointPattern @inner
     endpointMatcher = endpointMatcher @inner
 
+-- Describe delegates to inner endpoint (Layer 2 wrapper)
+instance HasEndpointInfo inner
+  => HasEndpointInfo (Describe desc inner) where
+    endpointMethod  = endpointMethod @inner
+    endpointPattern = endpointPattern @inner
+    endpointMatcher = endpointMatcher @inner
+
+-- WithParams delegates to inner endpoint (transparent annotation)
+instance HasEndpointInfo inner
+  => HasEndpointInfo (WithParams ps inner) where
+    endpointMethod  = endpointMethod @inner
+    endpointPattern = endpointPattern @inner
+    endpointMatcher = endpointMatcher @inner
+
+-- WithHeaders delegates to inner endpoint (transparent annotation)
+instance HasEndpointInfo inner
+  => HasEndpointInfo (WithHeaders hs inner) where
+    endpointMethod  = endpointMethod @inner
+    endpointPattern = endpointPattern @inner
+    endpointMatcher = endpointMatcher @inner
+
+-- ServerStream delegates to inner endpoint (streaming marker)
+instance HasEndpointInfo inner
+  => HasEndpointInfo (ServerStream inner) where
+    endpointMethod  = endpointMethod @inner
+    endpointPattern = endpointPattern @inner
+    endpointMatcher = endpointMatcher @inner
+
+-- ClientStream delegates to inner endpoint (streaming marker)
+instance HasEndpointInfo inner
+  => HasEndpointInfo (ClientStream inner) where
+    endpointMethod  = endpointMethod @inner
+    endpointPattern = endpointPattern @inner
+    endpointMatcher = endpointMatcher @inner
+
+-- BidiStream delegates to inner endpoint (streaming marker)
+instance HasEndpointInfo inner
+  => HasEndpointInfo (BidiStream inner) where
+    endpointMethod  = endpointMethod @inner
+    endpointPattern = endpointPattern @inner
+    endpointMatcher = endpointMatcher @inner
+
+-- RespondsWith delegates to inner endpoint (status code annotation)
+instance HasEndpointInfo inner
+  => HasEndpointInfo (RespondsWith s inner) where
+    endpointMethod  = endpointMethod @inner
+    endpointPattern = endpointPattern @inner
+    endpointMatcher = endpointMatcher @inner
+
 
 methodToBS :: Core.Method -> Method
 methodToBS Core.GET     = "GET"
@@ -110,6 +163,7 @@ methodToBS Core.OPTIONS = "OPTIONS"
 -- Path reflection: type-level -> runtime
 -- ===================================================================
 
+-- | Reflect a type-level path into a runtime URL pattern and path matcher.
 class ReflectPath (path :: [PathSegment]) where
   reflectPattern :: Text
   reflectMatch   :: [Text] -> Maybe MatchResult
@@ -138,9 +192,11 @@ instance ReflectPath rest => ReflectPath ('Capture t ': rest) where
 -- Handler constructors
 -- ===================================================================
 
+-- | Build a handler that takes no extracted arguments.
 mkHandler0 :: IntoResponse resp => IO resp -> HandlerFn
 mkHandler0 action _parts _body = intoResponse <$> action
 
+-- | Build a handler that extracts one argument from request parts (not body).
 mkHandler1Parts
   :: (FromRequestParts a, IntoResponse resp)
   => (a -> IO resp) -> HandlerFn
@@ -150,6 +206,7 @@ mkHandler1Parts f parts _body = do
     Left err -> pure (intoResponse err)
     Right a  -> intoResponse <$> f a
 
+-- | Build a handler that extracts one argument from the request body.
 mkHandler1Body
   :: (FromRequest b, IntoResponse resp)
   => (b -> IO resp) -> HandlerFn
@@ -159,6 +216,7 @@ mkHandler1Body f parts body = do
     Left err -> pure (intoResponse err)
     Right b  -> intoResponse <$> f b
 
+-- | Build a handler that extracts one argument from request parts and one from the body.
 mkHandler2PartsBody
   :: (FromRequestParts a, FromRequest b, IntoResponse resp)
   => (a -> b -> IO resp) -> HandlerFn

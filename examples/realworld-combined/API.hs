@@ -4,6 +4,9 @@
 -- Each sub-API is a separate type-level list, small enough for flat
 -- tuple instances (O(1) compile time). The combined FullAPI type
 -- drives OpenAPI spec and client generation.
+--
+-- Path types use a shared prefix ('ApiV') and the 'At', 'At2',
+-- 'Param' helpers with '++' for concise, composable definitions.
 module API where
 
 import Data.Text (Text)
@@ -13,30 +16,33 @@ import Types
 
 
 -- ===================================================================
--- Path types
+-- Path types — shared prefix + At/Param helpers
 -- ===================================================================
 
+-- | All paths share the @/api@ prefix.
+type ApiV = At "api"
+
 -- Auth
-type LoginPath    = '[ 'Lit "api", 'Lit "users", 'Lit "login" ]
-type RegisterPath = '[ 'Lit "api", 'Lit "users" ]
+type LoginPath    = ApiV ++ At2 "users" "login"
+type RegisterPath = ApiV ++ At "users"
 
 -- User
-type UserPath     = '[ 'Lit "api", 'Lit "user" ]
+type UserPath     = ApiV ++ At "user"
 
 -- Profiles
-type ProfilePath  = '[ 'Lit "api", 'Lit "profiles", 'Capture Text ]
-type FollowPath   = '[ 'Lit "api", 'Lit "profiles", 'Capture Text, 'Lit "follow" ]
+type ProfilePath  = ApiV ++ Param "profiles" Text
+type FollowPath   = ApiV ++ Param "profiles" Text ++ At "follow"
 
 -- Articles
-type ArticlesPath    = '[ 'Lit "api", 'Lit "articles" ]
-type ArticleFeedPath = '[ 'Lit "api", 'Lit "articles", 'Lit "feed" ]
-type ArticlePath     = '[ 'Lit "api", 'Lit "articles", 'Capture Text ]
+type ArticlesPath    = ApiV ++ At "articles"
+type ArticleFeedPath = ApiV ++ At2 "articles" "feed"
+type ArticlePath     = ApiV ++ Param "articles" Text
 
 -- Comments
-type CommentsPath = '[ 'Lit "api", 'Lit "articles", 'Capture Text, 'Lit "comments" ]
+type CommentsPath = ApiV ++ Param "articles" Text ++ At "comments"
 
 -- Tags
-type TagsPath = '[ 'Lit "api", 'Lit "tags" ]
+type TagsPath = ApiV ++ At "tags"
 
 
 -- ===================================================================
@@ -45,8 +51,10 @@ type TagsPath = '[ 'Lit "api", 'Lit "tags" ]
 
 -- | Authentication endpoints (public, no auth required).
 type AuthAPI =
-  '[ Post LoginPath    (Json LoginRequest)    (Json User)
-   , Post RegisterPath (Json RegisterRequest) (Json User)
+  '[ Describe "Log in an existing user"
+       (Post LoginPath (Json LoginRequest) (Json User))
+   , Describe "Register a new user"
+       (PostCreated RegisterPath (Json RegisterRequest) (Json User))
    ]
 
 -- | Current user endpoints (auth required).
@@ -64,11 +72,12 @@ type ProfilesAPI =
 
 -- | Article endpoints (mixed auth).
 type ArticlesAPI =
-  '[ Get ArticlesPath (Json ArticlesResponse)
+  '[ WithParams '[QP "tag" Text, QP "author" Text, QP "limit" Int, QP "offset" Int]
+       (Get ArticlesPath (Json ArticlesResponse))
    , Requires Auth (Get ArticleFeedPath (Json ArticlesResponse))
    , Get ArticlePath (Json Article)
    , Requires Auth (Post ArticlesPath (Json CreateArticleRequest) (Json Article))
-   , Requires Auth (Delete ArticlePath (Json Article))
+   , Requires Auth (DeleteNoContent ArticlePath)
    ]
 
 -- | Comment endpoints (mixed auth).

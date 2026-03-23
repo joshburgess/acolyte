@@ -15,9 +15,10 @@ module Servant.Reimagined.Server.Router
   ) where
 
 import Data.ByteString (ByteString)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Read as T
 import Data.Typeable (Typeable)
 import Network.HTTP.Types (status404, status405)
 
@@ -28,23 +29,41 @@ import Http.Core
   , Extensions, insertExtension
   )
 import Servant.Reimagined.Server.Handler
-import Servant.Reimagined.Server.Extract (AppState (..), PathCapture (..))
+import Servant.Reimagined.Server.Extract
+  ( AppState (..), PathCapture (..), BodyBytes (..)
+  , CaptureList (..), ParseCapture (..)
+  , MatchedPath (..), OriginalUri (..)
+  )
 import Servant.Reimagined.Server.Response (IntoResponse (..))
 
 
--- | A collection of routes.
-newtype Router = Router [BoundHandler]
+-- | A collection of routes, indexed by first path segment for fast dispatch.
+--
+-- Routes are split into two groups:
+-- * 'riBySegment' — keyed by first literal path segment (O(log n) lookup)
+-- * 'riWildcard' — routes whose first segment is a capture (fallback scan)
+data Router = Router
+  { riBySegment :: !(Map Text [BoundHandler])
+  , riWildcard  :: ![BoundHandler]
+  }
 
+-- | An empty router with no routes registered.
 emptyRouter :: Router
-emptyRouter = Router []
+emptyRouter = Router Map.empty []
 
+-- | Add a bound handler as a new route to the router.
 addRoute :: BoundHandler -> Router -> Router
-addRoute bh (Router entries) = Router (entries ++ [bh])
+addRoute bh (Router bySegs wild) =
+  case firstLiteral (bhPattern bh) of
+    Just seg -> Router (Map.insertWith (++) seg [bh] bySegs) wild
+    Nothing  -> Router bySegs (wild ++ [bh])
 
-
--- | Wrapper for captured text segments stored in Extensions.
-newtype CaptureList = CaptureList [Text]
-  deriving (Typeable)
+-- | Extract the first literal segment from a pattern like "/users/{capture}".
+firstLiteral :: Text -> Maybe Text
+firstLiteral pat =
+  case filter (/= "") $ T.splitOn "/" pat of
+    (seg : _) | not (T.isPrefixOf "{" seg) -> Just seg
+    _ -> Nothing
 
 
 -- | Inject captured text segments into extensions.
@@ -53,12 +72,20 @@ injectCaptures caps exts = insertExtension (CaptureList caps) exts
 
 
 -- | Dispatch a request through the router.
+--
+-- First looks up the first path segment in the index (O(log n)).
+-- Falls back to wildcard routes if no indexed match.
 dispatch :: Router -> Request ByteString -> IO (Response ByteString)
-dispatch (Router entries) req = do
+dispatch router req = do
   let segments = requestPath req
       method   = requestMethod req
       (parts, body) = splitRequest req
-  go entries segments method parts body False
+      -- Look up candidates by first segment
+      candidates = case segments of
+        (seg : _) -> Map.findWithDefault [] seg (riBySegment router)
+                     ++ riWildcard router
+        []        -> riWildcard router
+  go candidates segments method parts body False
   where
     go [] _segs _method _parts _body methodMatched
       | methodMatched = pure (Response status405 [] "Method Not Allowed")
@@ -70,27 +97,14 @@ dispatch (Router entries) req = do
           if bhMethod bh == method
           then do
             injectCaptures caps (rpExtensions parts)
+            insertExtension (BodyBytes body) (rpExtensions parts)
+            insertExtension (MatchedPath (bhPattern bh)) (rpExtensions parts)
+            insertExtension (OriginalUri (rpPathRaw parts)) (rpExtensions parts)
             bhHandler bh parts body
           else
             go rest segs method parts body True
         Nothing ->
           go rest segs method parts body methodMatched
-
-
--- | Parse a text capture into a typed value.
-class ParseCapture a where
-  parseCapture :: Text -> Maybe a
-
-instance ParseCapture Int where
-  parseCapture t = case T.decimal t of
-    Right (n, rest) | T.null rest -> Just n
-    _ -> Nothing
-
-instance ParseCapture Text where
-  parseCapture = Just
-
-instance ParseCapture String where
-  parseCapture = Just . T.unpack
 
 
 -- | Build a tower Service from a router.

@@ -48,13 +48,13 @@ newtype Service m req resp = Service
 -- @
 mapResponse :: Functor m => (resp -> resp') -> Service m req resp -> Service m req resp'
 mapResponse f (Service g) = Service (fmap f . g)
-{-# INLINE mapResponse #-}
+{-# INLINABLE mapResponse #-}
 
 
 -- | Transform the response monadically.
 mapResponseM :: Monad m => (resp -> m resp') -> Service m req resp -> Service m req resp'
 mapResponseM f (Service g) = Service (\req -> g req >>= f)
-{-# INLINE mapResponseM #-}
+{-# INLINABLE mapResponseM #-}
 
 
 -- | Transform the request before it reaches the service.
@@ -65,13 +65,13 @@ mapResponseM f (Service g) = Service (\req -> g req >>= f)
 -- @
 mapRequest :: (req' -> req) -> Service m req resp -> Service m req' resp
 mapRequest f (Service g) = Service (g . f)
-{-# INLINE mapRequest #-}
+{-# INLINABLE mapRequest #-}
 
 
 -- | Alias for 'mapRequest' (emphasizes the contravariant direction).
 contramapRequest :: (req' -> req) -> Service m req resp -> Service m req' resp
 contramapRequest = mapRequest
-{-# INLINE contramapRequest #-}
+{-# INLINABLE contramapRequest #-}
 
 
 -- | Map over both request (contravariantly) and response (covariantly).
@@ -81,7 +81,7 @@ contramapRequest = mapRequest
 -- @
 dimap :: Functor m => (req' -> req) -> (resp -> resp') -> Service m req resp -> Service m req' resp'
 dimap f g (Service h) = Service (fmap g . h . f)
-{-# INLINE dimap #-}
+{-# INLINABLE dimap #-}
 
 
 -- | Change the monad a service runs in.
@@ -92,4 +92,4 @@ dimap f g (Service h) = Service (fmap g . h . f)
 -- @
 hoistService :: (forall a. m a -> n a) -> Service m req resp -> Service n req resp
 hoistService nat (Service f) = Service (nat . f)
-{-# INLINE hoistService #-}
+{-# INLINABLE hoistService #-}

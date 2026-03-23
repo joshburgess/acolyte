@@ -42,6 +42,7 @@ data ParseLimits = ParseLimits
   , recvBufSize   :: !Int    -- ^ Socket receive buffer size. Default: 4096.
   } deriving (Show)
 
+-- | Default parse limits: 8 KiB headers, 2 MiB body, 4096-byte recv buffer.
 defaultParseLimits :: ParseLimits
 defaultParseLimits = ParseLimits
   { maxHeaderSize = 8 * 1024

@@ -8,7 +8,11 @@ description:
   and content negotiation. No IO, no runtime beyond base.
 
 license:         BSD-3-Clause
+license-file:    ../LICENSE
 author:          Josh Burgess
+maintainer:      Josh Burgess
+homepage:        https://github.com/joshburgess/servant-reimagined
+bug-reports:     https://github.com/joshburgess/servant-reimagined/issues
 build-type:      Simple
 
 library
@@ -25,7 +29,8 @@ library
     Servant.Reimagined.Core.Negotiate
 
   build-depends:
-    base >= 4.20 && < 5
+    base >= 4.20 && < 5,
+    text >= 2.0 && < 2.2
 
   hs-source-dirs: src
   default-language: GHC2024
@@ -42,6 +47,9 @@ library
     NoStarIsType
     RoleAnnotations
     AllowAmbiguousTypes
+    StrictData
+
+  ghc-options: -Wall -funbox-strict-fields
 
 test-suite spec
   type: exitcode-stdio-1.0
@@ -60,7 +68,15 @@ test-suite spec
     StandaloneKindSignatures
     NoStarIsType
     AllowAmbiguousTypes
+    StrictData
+
+  ghc-options: -Wall -rtsopts "-with-rtsopts=-K1K"
 
   build-depends:
     base >= 4.20 && < 5,
-    servant-reimagined-core
+    servant-reimagined-core,
+    text >= 2.0 && < 2.2
+
+source-repository head
+  type:     git
+  location: https://github.com/joshburgess/servant-reimagined.git

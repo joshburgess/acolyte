@@ -27,6 +27,10 @@ import qualified Servant.Reimagined.Core.Method as Core
 import Servant.Reimagined.Core.Path (PathSegment (..))
 import Servant.Reimagined.Core.Endpoint (Endpoint, NoBody)
 import Servant.Reimagined.Core.Effect (Requires)
+import Servant.Reimagined.Core.Wrapper
+  ( Describe, WithParams, WithHeaders
+  , ServerStream, ClientStream, BidiStream, RespondsWith
+  )
 import Servant.Reimagined.OpenApi.Schema (Schema (..), ToSchema (..), schemaToJson)
 
 
@@ -96,6 +100,7 @@ data Operation = Operation
   , opRequestBody    :: !(Maybe Schema)
   } deriving (Show)
 
+-- | Return the operation's HTTP method in lowercase (e.g. @"get"@, @"post"@).
 opMethodLower :: Operation -> Text
 opMethodLower = T.toLower . opMethod
 
@@ -121,6 +126,7 @@ paramToJson p = object
 -- Per-endpoint operation generation
 -- ===================================================================
 
+-- | Convert an endpoint type into an OpenAPI 'Operation'.
 class EndpointToOperation endpoint where
   toOperation :: Operation
 
@@ -188,6 +194,41 @@ instance EndpointToOperation inner
   => EndpointToOperation (Requires e inner) where
     toOperation = toOperation @inner
 
+-- Describe delegates (transparent annotation)
+instance EndpointToOperation inner
+  => EndpointToOperation (Describe desc inner) where
+    toOperation = toOperation @inner
+
+-- WithParams delegates (transparent annotation)
+instance EndpointToOperation inner
+  => EndpointToOperation (WithParams ps inner) where
+    toOperation = toOperation @inner
+
+-- WithHeaders delegates (transparent annotation)
+instance EndpointToOperation inner
+  => EndpointToOperation (WithHeaders hs inner) where
+    toOperation = toOperation @inner
+
+-- ServerStream delegates (streaming marker)
+instance EndpointToOperation inner
+  => EndpointToOperation (ServerStream inner) where
+    toOperation = toOperation @inner
+
+-- ClientStream delegates (streaming marker)
+instance EndpointToOperation inner
+  => EndpointToOperation (ClientStream inner) where
+    toOperation = toOperation @inner
+
+-- BidiStream delegates (streaming marker)
+instance EndpointToOperation inner
+  => EndpointToOperation (BidiStream inner) where
+    toOperation = toOperation @inner
+
+-- RespondsWith delegates (status code annotation)
+instance EndpointToOperation inner
+  => EndpointToOperation (RespondsWith s inner) where
+    toOperation = toOperation @inner
+
 
 -- ===================================================================
 -- Path reflection for OpenAPI format
@@ -221,6 +262,7 @@ instance (ReflectPathOA rest)
 -- Walk an API type list
 -- ===================================================================
 
+-- | Walk a promoted list of endpoint types, collecting their 'Operation's.
 class ApiToOperations (api :: [Type]) where
   toOperations :: [Operation]
 
@@ -236,6 +278,7 @@ instance (EndpointToOperation e, ApiToOperations rest)
 -- Top-level spec generation
 -- ===================================================================
 
+-- | Generate a complete OpenAPI 3.1 spec from an API type, title, and version.
 generateSpec
   :: forall api. ApiToOperations api
   => Text -> Text -> OpenApiSpec

@@ -1,21 +1,21 @@
 -- | API-level combinators: the completeness check and handler binding.
 --
--- The key design decision: APIs are type-level lists of endpoints, and
--- the 'Serves' constraint uses a type class with flat tuple instances
--- (generated for arities 1–16) rather than recursive resolution.
---
--- This avoids Servant's exponential compile-time blowup from recursive
--- ':<|>' constraint solving. Each tuple arity is a single, direct instance
--- — the compiler does O(1) work per API instantiation.
+-- The key design decision: APIs are type-level lists of endpoints.
+-- The 'Serves' constraint is a type synonym that uses 'CheckArity'
+-- to compare the API length against the handler tuple arity via
+-- closed type families. No class, no instances, no recursive
+-- constraint resolution — O(1) for the compiler.
 module Servant.Reimagined.Core.API
   ( -- * API specification
     type API
     -- * Completeness check
-  , Serves (..)
+  , Serves
     -- * Length checking
   , Length
   , TupleArity
   , type (==)
+    -- * Arity checking
+  , CheckArity
     -- * Type-level list append
   , type (++)
     -- * Custom type errors
@@ -47,7 +47,8 @@ type family Length (xs :: [k]) :: Nat where
   Length (_ ': xs) = 1 + Length xs
 
 
--- | Compute the arity of a handler tuple (for error messages).
+-- | Compute the arity of a handler tuple.
+-- Covers arities 0–25 (matching 'BuildServer' coverage).
 type TupleArity :: Type -> Nat
 type family TupleArity h :: Nat where
   TupleArity ()                 = 0
@@ -57,9 +58,25 @@ type family TupleArity h :: Nat where
   TupleArity (a, b, c, d, e)    = 5
   TupleArity (a, b, c, d, e, f) = 6
   TupleArity (a, b, c, d, e, f, g) = 7
-  TupleArity (a, b, c, d, e, f, g, h)    = 8
+  TupleArity (a, b, c, d, e, f, g, h) = 8
   TupleArity (a, b, c, d, e, f, g, h, i) = 9
-  TupleArity _                           = 1  -- bare value = single handler
+  TupleArity (a, b, c, d, e, f, g, h, i, j) = 10
+  TupleArity (a, b, c, d, e, f, g, h, i, j, k) = 11
+  TupleArity (a, b, c, d, e, f, g, h, i, j, k, l) = 12
+  TupleArity (a, b, c, d, e, f, g, h, i, j, k, l, m) = 13
+  TupleArity (a, b, c, d, e, f, g, h, i, j, k, l, m, n) = 14
+  TupleArity (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) = 15
+  TupleArity (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) = 16
+  TupleArity (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q) = 17
+  TupleArity (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r) = 18
+  TupleArity (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s) = 19
+  TupleArity (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t) = 20
+  TupleArity (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u) = 21
+  TupleArity (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v) = 22
+  TupleArity (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w) = 23
+  TupleArity (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x) = 24
+  TupleArity (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y) = 25
+  TupleArity _                  = 1  -- bare value = single handler
 
 
 -- | Type-level list append.
@@ -84,186 +101,30 @@ type family HandlerMismatchMsg (nEndpoints :: Nat) (nHandlers :: Nat) :: ErrorMe
     ':$$: 'Text "Every endpoint must have exactly one handler."
 
 
+-- | Verify that the API endpoint count matches the handler count.
+-- Produces a clear 'TypeError' on mismatch instead of a confusing
+-- GHC constraint error.
+type CheckArity :: Nat -> Nat -> Constraint
+type family CheckArity (apiLen :: Nat) (handlerCount :: Nat) :: Constraint where
+  CheckArity n n = ()
+  CheckArity n m = TypeError (HandlerMismatchMsg n m)
+
+
 -- | The API completeness check.
 --
--- @Serves api handlers@ holds when @handlers@ is a tuple whose length
--- matches the length of @api@. Each position in the handler tuple
--- corresponds to the endpoint at the same position in the API list.
---
--- The handler types themselves are opaque at this level — the server
--- package adds additional constraints (correct extractors, compatible
--- return types) when it interprets the API. The core only checks count.
---
--- The design uses a class with flat instances per arity rather than
--- recursive resolution. This is O(1) per instantiation for the compiler.
+-- @Serves api handlers@ holds when the handler tuple arity matches
+-- the number of endpoints in the API list. If they don't match,
+-- produces a clear compile error:
 --
 -- @
--- -- This compiles (3 endpoints, 3 handlers):
--- example :: Serves '[E1, E2, E3] (H1, H2, H3) => ()
---
--- -- This fails (3 endpoints, 2 handlers):
--- bad :: Serves '[E1, E2, E3] (H1, H2) => ()
+-- API has 4 endpoint(s) but 3 handler(s) were provided.
+-- Every endpoint must have exactly one handler.
 -- @
-type Serves :: [Type] -> Type -> Constraint
-class Serves (api :: [Type]) handlers where
-  -- | Witness that the handler tuple is complete.
-  --
-  -- The server package overrides this with actual handler registration.
-  -- At the core level, this is just a unit witness that forces GHC to
-  -- solve the constraint (and fail if the handler count is wrong).
-  handlerCount :: Int
-
--- Arity 1
-instance
-  ( Length api ~ 1
-  , api ~ '[e1]
-  ) => Serves api h1 where
-  handlerCount = 1
-
--- Arity 2
-instance
-  {-# OVERLAPPING #-}
-  ( Length api ~ 2
-  , api ~ '[e1, e2]
-  ) => Serves api (h1, h2) where
-  handlerCount = 2
-
--- Arity 3
-instance
-  {-# OVERLAPPING #-}
-  ( Length api ~ 3
-  , api ~ '[e1, e2, e3]
-  ) => Serves api (h1, h2, h3) where
-  handlerCount = 3
-
--- Arity 4
-instance
-  {-# OVERLAPPING #-}
-  ( Length api ~ 4
-  , api ~ '[e1, e2, e3, e4]
-  ) => Serves api (h1, h2, h3, h4) where
-  handlerCount = 4
-
--- Arity 5
-instance
-  {-# OVERLAPPING #-}
-  ( Length api ~ 5
-  , api ~ '[e1, e2, e3, e4, e5]
-  ) => Serves api (h1, h2, h3, h4, h5) where
-  handlerCount = 5
-
--- Arity 6
-instance
-  {-# OVERLAPPING #-}
-  ( Length api ~ 6
-  , api ~ '[e1, e2, e3, e4, e5, e6]
-  ) => Serves api (h1, h2, h3, h4, h5, h6) where
-  handlerCount = 6
-
--- Arity 7
-instance
-  {-# OVERLAPPING #-}
-  ( Length api ~ 7
-  , api ~ '[e1, e2, e3, e4, e5, e6, e7]
-  ) => Serves api (h1, h2, h3, h4, h5, h6, h7) where
-  handlerCount = 7
-
--- Arity 8
-instance
-  {-# OVERLAPPING #-}
-  ( Length api ~ 8
-  , api ~ '[e1, e2, e3, e4, e5, e6, e7, e8]
-  ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8) where
-  handlerCount = 8
-
--- Arity 9
-instance
-  {-# OVERLAPPING #-}
-  ( Length api ~ 9
-  , api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9]
-  ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9) where
-  handlerCount = 9
-
--- Arity 10
-instance
-  {-# OVERLAPPING #-}
-  ( Length api ~ 10
-  , api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10]
-  ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10) where
-  handlerCount = 10
-
--- Arity 11
-instance
-  {-# OVERLAPPING #-}
-  ( Length api ~ 11
-  , api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11]
-  ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11) where
-  handlerCount = 11
-
--- Arity 12
-instance
-  {-# OVERLAPPING #-}
-  ( Length api ~ 12
-  , api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12]
-  ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12) where
-  handlerCount = 12
-
--- Arity 13
-instance
-  {-# OVERLAPPING #-}
-  ( Length api ~ 13
-  , api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13]
-  ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13) where
-  handlerCount = 13
-
--- Arity 14
-instance
-  {-# OVERLAPPING #-}
-  ( Length api ~ 14
-  , api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14]
-  ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14) where
-  handlerCount = 14
-
--- Arity 15
-instance
-  {-# OVERLAPPING #-}
-  ( Length api ~ 15
-  , api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15]
-  ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15) where
-  handlerCount = 15
-
--- Arity 16
-instance
-  {-# OVERLAPPING #-}
-  ( Length api ~ 16
-  , api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16]
-  ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16) where
-  handlerCount = 16
-
--- Arity 17
-instance {-# OVERLAPPING #-} ( Length api ~ 17, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17) where handlerCount = 17
-
--- Arity 18
-instance {-# OVERLAPPING #-} ( Length api ~ 18, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18) where handlerCount = 18
-
--- Arity 19
-instance {-# OVERLAPPING #-} ( Length api ~ 19, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19) where handlerCount = 19
-
--- Arity 20
-instance {-# OVERLAPPING #-} ( Length api ~ 20, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20) where handlerCount = 20
-
--- Arity 21
-instance {-# OVERLAPPING #-} ( Length api ~ 21, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21) where handlerCount = 21
-
--- Arity 22
-instance {-# OVERLAPPING #-} ( Length api ~ 22, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22) where handlerCount = 22
-
--- Arity 23
-instance {-# OVERLAPPING #-} ( Length api ~ 23, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22, h23) where handlerCount = 23
-
--- Arity 24
-instance {-# OVERLAPPING #-} ( Length api ~ 24, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23, e24] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22, h23, h24) where handlerCount = 24
-
--- Arity 25
-instance {-# OVERLAPPING #-} ( Length api ~ 25, api ~ '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23, e24, e25] ) => Serves api (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22, h23, h24, h25) where handlerCount = 25
+--
+-- This is a constraint synonym — no class, no instances, no
+-- overlapping pragmas. 'CheckArity' does the work via a closed
+-- type family that reduces to @()@ on match or 'TypeError' on
+-- mismatch.
+type Serves (api :: [Type]) (handlers :: Type) =
+  CheckArity (Length api) (TupleArity handlers)
 

@@ -13,6 +13,7 @@ import qualified Data.Text.IO as TIO
 
 import Servant.Reimagined.Codegen
 import Servant.Reimagined.Codegen.Scaffold
+import Servant.Reimagined.Codegen.Proto (parseProtoFile, protoToIR)
 
 
 main :: IO ()
@@ -33,16 +34,31 @@ usage = do
   putStrLn "  generate <spec> [-o output.hs] [-m Module.Name]"
   putStrLn "    Generate a Haskell module from an OpenAPI/Swagger spec."
   putStrLn ""
+  putStrLn "  generate --proto <file.proto> [-o output.hs] [-m Module.Name]"
+  putStrLn "    Generate a Haskell module from a proto3 service definition."
+  putStrLn ""
   putStrLn "  scaffold <spec> --name <project-name> [--dir <output-dir>]"
   putStrLn "    Generate a complete cabal project from a spec."
   putStrLn ""
-  putStrLn "Supports JSON and YAML. Swagger 2.0 and OpenAPI 3.x auto-detected."
+  putStrLn "Supports JSON, YAML, and proto3. Swagger 2.0 and OpenAPI 3.x auto-detected."
   exitFailure
 
 
 runGenerate :: [String] -> IO ()
 runGenerate args = case args of
   [] -> usage
+  ("--proto":protoFile:rest) -> do
+    result <- parseProtoFile protoFile
+    case result of
+      Left err -> putStrLn ("Error: " ++ show err) >> exitFailure
+      Right proto -> do
+        let api = protoToIR proto
+            moduleName = findFlagT "-m" rest
+            cfg = defaultEmitConfig { emitModuleName = moduleName }
+            code = emitModule cfg api
+        case findFlag "-o" rest of
+          Nothing   -> TIO.putStr code
+          Just path -> TIO.writeFile path code >> putStrLn ("Generated: " ++ path)
   (inputFile:rest) -> do
     result <- readSpecFile inputFile
     case result of

@@ -28,7 +28,7 @@ import Servant.Reimagined.Core.Path (PathSegment (..))
 import Servant.Reimagined.Core.Endpoint (Endpoint, NoBody)
 import Servant.Reimagined.Core.Effect (Requires)
 import Servant.Reimagined.Core.Wrapper
-  ( Describe, WithParams, WithHeaders
+  ( Describe, Named, WithParams, WithHeaders
   , ServerStream, ClientStream, BidiStream, RespondsWith
   )
 import Servant.Reimagined.OpenApi.Schema (Schema (..), ToSchema (..), schemaToJson)
@@ -61,7 +61,10 @@ groupByPath ops = object
 
 opToJson :: Operation -> Value
 opToJson op = object $ concat
-  [ [ "responses" .= object
+  [ case opOperationId op of
+      Nothing  -> []
+      Just oid -> ["operationId" .= oid]
+  , [ "responses" .= object
         [ Key.fromText (T.pack (show (opStatusCode op))) .= responseObj ]
     ]
   , if null (opParameters op) then []
@@ -94,6 +97,7 @@ opToJson op = object $ concat
 data Operation = Operation
   { opMethod         :: !Text
   , opPath           :: !Text
+  , opOperationId    :: !(Maybe Text)
   , opParameters     :: ![Parameter]
   , opStatusCode     :: !Int
   , opResponseSchema :: !(Maybe Schema)
@@ -136,6 +140,7 @@ instance (KnownMethod m, ReflectPathOA path, m ~ 'Core.GET)
     toOperation = Operation
       { opMethod         = T.pack (show (methodVal @m))
       , opPath           = reflectOAPath @path
+      , opOperationId    = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
       , opResponseSchema = Nothing  -- would need ToSchema resp constraint
@@ -147,6 +152,7 @@ instance (ReflectPathOA path)
     toOperation = Operation
       { opMethod         = "DELETE"
       , opPath           = reflectOAPath @path
+      , opOperationId    = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
       , opResponseSchema = Nothing
@@ -159,6 +165,7 @@ instance (ReflectPathOA path)
     toOperation = Operation
       { opMethod         = "POST"
       , opPath           = reflectOAPath @path
+      , opOperationId    = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 201
       , opResponseSchema = Nothing
@@ -171,6 +178,7 @@ instance (ReflectPathOA path)
     toOperation = Operation
       { opMethod         = "PUT"
       , opPath           = reflectOAPath @path
+      , opOperationId    = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
       , opResponseSchema = Nothing
@@ -183,6 +191,7 @@ instance (ReflectPathOA path)
     toOperation = Operation
       { opMethod         = "PATCH"
       , opPath           = reflectOAPath @path
+      , opOperationId    = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
       , opResponseSchema = Nothing
@@ -228,6 +237,13 @@ instance EndpointToOperation inner
 instance EndpointToOperation inner
   => EndpointToOperation (RespondsWith s inner) where
     toOperation = toOperation @inner
+
+-- Named sets operationId from the type-level name
+instance (KnownSymbol name, EndpointToOperation inner)
+  => EndpointToOperation (Named name inner) where
+    toOperation =
+      let op = toOperation @inner
+      in op { opOperationId = Just (T.pack (symbolVal (Proxy @name))) }
 
 
 -- ===================================================================

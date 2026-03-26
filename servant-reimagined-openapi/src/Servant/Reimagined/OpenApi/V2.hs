@@ -70,7 +70,10 @@ swaggerPaths ops = object
 -- * No content negotiation per-operation
 swaggerOperation :: Operation -> Value
 swaggerOperation op = object $ concat
-  [ [ "responses" .= object
+  [ case opOperationId op of
+      Nothing  -> []
+      Just oid -> ["operationId" .= oid]
+  , [ "responses" .= object
         [ Key.fromText (T.pack (show (opStatusCode op))) .= responseObj ]
     ]
   , let allParams = map swaggerParam (opParameters op)

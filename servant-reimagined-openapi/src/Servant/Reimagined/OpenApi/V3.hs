@@ -62,7 +62,10 @@ oa3Paths ops = object
 -- * Richer content negotiation support
 oa3Operation :: Operation -> Value
 oa3Operation op = object $ concat
-  [ [ "responses" .= object
+  [ case opOperationId op of
+      Nothing  -> []
+      Just oid -> ["operationId" .= oid]
+  , [ "responses" .= object
         [ Key.fromText (T.pack (show (opStatusCode op))) .= responseObj ]
     ]
   , if null (opParameters op) then []

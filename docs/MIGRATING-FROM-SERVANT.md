@@ -121,13 +121,32 @@ server = mkServer @API
   )
 ```
 
-For large APIs, `mkNamedApi` lets you use a record instead of a
-positional tuple -- fields are matched by a `NamedApi` instance:
+For large APIs, wrap endpoints with `Named` and use `mkRecordApi` to
+match handlers by field name instead of position — no manual instance
+needed:
 
 ```haskell
-data Handlers = Handlers { getUsers :: IO (Json [User]), ... }
-server = mkNamedApi @API Handlers { ... }
+type API =
+  '[ Named "getUsers"   (Get UsersPath (Json [User]))
+   , Named "getUser"    (Get UserByIdPath (Json User))
+   , Named "createUser" (Post UsersPath (Json CreateUser) (Json User))
+   ]
+
+-- Field order doesn't matter — matched by name via GHC.Records.HasField
+data Handlers = Handlers
+  { createUser :: JsonBody CreateUser -> IO (Json User)
+  , getUsers   :: IO (Json [User])
+  , getUser    :: PathCapture Int -> IO (Json User)
+  }
+
+server = mkRecordApi @API Handlers { ... }
 ```
+
+`Named` is transparent to routing — you can still use tuples with Named
+endpoints if you prefer. It also sets `operationId` in OpenAPI specs.
+
+The older `mkNamedApi` + manual `NamedApi` instance approach is still
+available for APIs without `Named` wrappers.
 
 ## Query parameters
 
@@ -487,4 +506,4 @@ Run `bash bench/compile-time/run-bench.sh` to verify on your machine.
 | `PostCreated '[JSON] a` | `PostCreated path req resp` (201 status) |
 | `DeleteNoContent` | `DeleteNoContent path` (204 status) |
 | `StreamBody ...` | `ServerStream`, `ClientStream`, `BidiStream` |
-| `server = h1 :<\|> h2` | `mkNamedApi @API record` (named routes) |
+| `server = h1 :<\|> h2` | `mkRecordApi @API record` (named routes) |

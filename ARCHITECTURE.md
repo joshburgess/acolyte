@@ -159,6 +159,12 @@ framework's handler dispatch, not at the generic service level.
   behavior to the inner endpoint unchanged. Its only purpose is to be
   checked by the type-level effect verification at `.serve()` time.
 
+- `Named name` — associates a type-level `Symbol` name with an endpoint.
+  Transparent to routing (delegates like `Describe`). Enables record-based
+  handler binding via `mkRecordApi`, where `GHC.Records.HasField` matches
+  record field names to endpoint names automatically. Also sets `operationId`
+  in OpenAPI generation.
+
 ### How the layers compose
 
 ```
@@ -582,6 +588,9 @@ data Protected (auth :: Type) (endpoint :: Type)
 -- Validation
 data Validated (validator :: Type) (endpoint :: Type)
 
+-- Named endpoints (record-based handler binding + OpenAPI operationId)
+data Named (name :: Symbol) (endpoint :: Type)
+
 -- Content negotiation
 data Negotiate (formats :: [Type]) (a :: Type)
 
@@ -750,6 +759,16 @@ class Handler args result where
 class Serves (api :: [Type]) handlers where
   boundHandlers :: handlers -> [BoundHandler]
 
+-- | Record-based handler binding (Named endpoints)
+-- Walks the API list, extracts handlers from the record by field name.
+-- Uses GHC.Records.HasField — no generics, no TH.
+class BuildRecordApi (api :: [Type]) record where
+  buildRecordApi :: record -> Router -> Router
+
+mkRecordApi
+  :: (AllNamed api, NoDuplicateNames (EndpointNames api), BuildRecordApi api record)
+  => record -> Service IO (Request ByteString) (Response ByteString)
+
 -- | Effect builder
 data EffectfulServer (api :: [Type]) (provided :: [Effect])
 
@@ -780,6 +799,7 @@ Servant.Reimagined.Server
 ├── Servant.Reimagined.Server.Response     -- IntoResponse class, Json, StatusCode
 ├── Servant.Reimagined.Server.Router       -- Routing dispatch
 ├── Servant.Reimagined.Server.Serves       -- Serves class (compile-time completeness)
+├── Servant.Reimagined.Server.Named        -- Named endpoints: mkRecordApi, BuildRecordApi
 ├── Servant.Reimagined.Server.Effects      -- EffectfulServer, provide, ready
 ├── Servant.Reimagined.Server.Auth         -- AuthHandler, Protected endpoint handling
 ├── Servant.Reimagined.Server.Negotiate    -- Content negotiation dispatch

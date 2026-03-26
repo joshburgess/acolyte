@@ -19,6 +19,11 @@ module Servant.Reimagined.Core.Wrapper
   , ApiVersion (..)
     -- * Description
   , Describe
+    -- * Named endpoints
+  , Named
+  , AllNamed
+  , EndpointNames
+  , NoDuplicateNames
     -- * Query parameter annotations
   , WithParams
   , QP
@@ -37,7 +42,7 @@ module Servant.Reimagined.Core.Wrapper
 
 import Data.Kind (Type, Constraint)
 import Data.Text (Text)
-import GHC.TypeLits (Symbol, KnownSymbol, Nat)
+import GHC.TypeLits (Symbol, KnownSymbol, Nat, TypeError, ErrorMessage (..))
 
 import Servant.Reimagined.Core.Endpoint (Endpoint, NoBody, Post, Delete)
 
@@ -124,6 +129,60 @@ class ApiVersion (v :: Type) where
 -- @
 type Describe :: Symbol -> Type -> Type
 data Describe (desc :: Symbol) (endpoint :: Type)
+
+
+-- | Associate a type-level name with an endpoint.
+--
+-- Transparent to routing — delegates all endpoint metadata to the inner type.
+-- Enables record-based handler binding (via 'GHC.Records.HasField') and
+-- sets @operationId@ in OpenAPI generation.
+--
+-- @
+-- type API =
+--   '[ Named "health"  (Get (At "health") Text)
+--    , Named "getUser" (Get (Param "users" Int) (Json User))
+--    ]
+-- @
+type Named :: Symbol -> Type -> Type
+data Named (name :: Symbol) (endpoint :: Type)
+
+
+-- | Check that all endpoints in an API are wrapped with 'Named'.
+-- Produces a clear 'TypeError' if any endpoint is not named.
+type AllNamed :: [Type] -> Constraint
+type family AllNamed (api :: [Type]) :: Constraint where
+  AllNamed '[] = ()
+  AllNamed (Named name ep ': rest) = AllNamed rest
+  AllNamed (other ': _) = TypeError
+    ( 'Text "Expected a Named endpoint, but got:"
+      ':$$: 'Text "  " ':<>: 'ShowType other
+      ':$$: 'Text "All endpoints must be wrapped with Named for record-based APIs."
+      ':$$: 'Text "Use: Named \"myName\" (" ':<>: 'ShowType other ':<>: 'Text ")"
+    )
+
+
+-- | Extract all endpoint names from a Named API list.
+type EndpointNames :: [Type] -> [Symbol]
+type family EndpointNames (api :: [Type]) :: [Symbol] where
+  EndpointNames '[] = '[]
+  EndpointNames (Named name ep ': rest) = name ': EndpointNames rest
+
+
+-- | Check that a type-level list of names contains no duplicates.
+-- Produces a clear 'TypeError' on the first duplicate found.
+type NoDuplicateNames :: [Symbol] -> Constraint
+type family NoDuplicateNames (names :: [Symbol]) :: Constraint where
+  NoDuplicateNames '[] = ()
+  NoDuplicateNames (n ': rest) = (NotElem n rest, NoDuplicateNames rest)
+
+type NotElem :: Symbol -> [Symbol] -> Constraint
+type family NotElem (x :: Symbol) (xs :: [Symbol]) :: Constraint where
+  NotElem x '[] = ()
+  NotElem x (x ': _) = TypeError
+    ( 'Text "Duplicate endpoint name: \"" ':<>: 'Text x ':<>: 'Text "\""
+      ':$$: 'Text "Each Named endpoint must have a unique name."
+    )
+  NotElem x (_ ': rest) = NotElem x rest
 
 
 -- | Annotate an endpoint with its query parameters for documentation.

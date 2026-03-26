@@ -53,7 +53,11 @@
 - 11 complete example applications: minimal, hello-world, crud, auth, custom-extractors, grpc-demo, chat, negotiate, versioned-api, realworld, realworld-combined
 
 ### API Ergonomics
-- Named routes (`mkNamedApi`) for record-style handler wiring
+- Named endpoints (`Named "name" endpoint`): wrap endpoints with type-level names for automatic record-based handler binding via `mkRecordApi` — field order doesn't matter, matched by `GHC.Records.HasField`
+- Named endpoint names become `operationId` in OpenAPI generation
+- `Named` is transparent to routing and tuples (like `Describe`)
+- Compile-time validation: `AllNamed`, `NoDuplicateNames` with custom type errors
+- Legacy named routes (`mkNamedApi`) for manual record-to-tuple conversion
 - Type-level annotations: `WithParams`, `WithHeaders`, `RespondsWith`, streaming markers (`ServerStream`, `ClientStream`, `BidiStream`)
 - Path helpers: `At`, `Param`, `mkApi`, `effectfulApi`
 

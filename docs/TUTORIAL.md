@@ -354,20 +354,44 @@ type StreamAPI =
    ]
 ```
 
-For record-style handler wiring (instead of positional tuples), define
-a `NamedApi` instance and use `mkNamedApi`:
+### Named endpoints and record-based handlers
+
+For larger APIs, positional tuple matching becomes fragile — swap two
+handlers and you get confusing type errors instead of a clear mismatch.
+Wrap endpoints with `Named` and use `mkRecordApi` to match handlers by
+field name instead of position:
 
 ```haskell
-data MyHandlers = MyHandlers
-  { listBookmarks  :: IO (Json [Text])
+type API =
+  '[ Named "listBookmarks" (Get BookmarksPath (Json [Text]))
+   , Named "getBookmark"   (Get BookmarkPath  (Json Text))
+   , Named "createBookmark" (Post BookmarksPath (Json Text) (Json Text))
+   ]
+
+-- Field order doesn't matter — names are matched automatically
+data Handlers = Handlers
+  { createBookmark :: JsonBody Text -> IO (Json Text)
+  , listBookmarks  :: IO (Json [Text])
   , getBookmark    :: PathCapture Int -> IO (Json Text)
   }
 
-instance NamedApi API MyHandlers (...) where
-  toHandlerTuple h = (listBookmarks h, getBookmark h)
-
-server = mkNamedApi @API MyHandlers { ... }
+server = mkRecordApi @API Handlers { ... }
 ```
+
+`Named` is transparent — it works exactly like `Describe` for routing,
+so you can still use positional tuples if you prefer:
+
+```haskell
+-- Tuples still work with Named endpoints (names are ignored):
+server = mkApi @API (listHandler, getHandler, createHandler)
+```
+
+`Named` also feeds into OpenAPI generation as `operationId`, giving
+your generated specs stable, human-readable operation identifiers.
+
+For a manual approach without `Named` wrappers, the older `NamedApi`
+class + `mkNamedApi` pattern is still available — see
+[`examples/crud`](../examples/crud/) for an example.
 
 ## What's happening under the hood
 

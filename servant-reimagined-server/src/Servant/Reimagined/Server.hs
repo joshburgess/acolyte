@@ -123,6 +123,10 @@ module Servant.Reimagined.Server
   , NamedApi (..)
   , mkNamedApi
   , effectfulNamedApi
+    -- * Automatic record-based handler binding (requires Named wrappers)
+  , BuildRecordApi (..)
+  , mkRecordApi
+  , effectfulRecordApi
 
     -- * Content negotiation
   , FormatEncoder (..)

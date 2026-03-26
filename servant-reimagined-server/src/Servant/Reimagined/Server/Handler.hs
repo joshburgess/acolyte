@@ -34,7 +34,7 @@ import Servant.Reimagined.Server.Response
 import Servant.Reimagined.Core.Endpoint (Endpoint)
 import Servant.Reimagined.Core.Effect (Requires)
 import Servant.Reimagined.Core.Wrapper
-  ( Protected, Validated, Describe, WithParams, WithHeaders
+  ( Protected, Validated, Describe, Named, WithParams, WithHeaders
   , ServerStream, ClientStream, BidiStream, RespondsWith
   )
 import Servant.Reimagined.Core.Method (KnownMethod, methodVal)
@@ -144,6 +144,13 @@ instance HasEndpointInfo inner
 -- RespondsWith delegates to inner endpoint (status code annotation)
 instance HasEndpointInfo inner
   => HasEndpointInfo (RespondsWith s inner) where
+    endpointMethod  = endpointMethod @inner
+    endpointPattern = endpointPattern @inner
+    endpointMatcher = endpointMatcher @inner
+
+-- Named delegates to inner endpoint (name annotation)
+instance HasEndpointInfo inner
+  => HasEndpointInfo (Named name inner) where
     endpointMethod  = endpointMethod @inner
     endpointPattern = endpointPattern @inner
     endpointMatcher = endpointMatcher @inner

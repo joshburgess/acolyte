@@ -97,6 +97,20 @@ _getUserArgs = id
 _postUserArgs :: ReqArgs PostUser -> ((), Text)
 _postUserArgs = id
 
+-- Named delegates transparently: same args/result as unwrapped
+type NamedGetHealth = Named "health" GetHealth
+type NamedGetUser = Named "getUser" GetUser
+type NamedPostUser = Named "createUser" PostUser
+
+_namedGetHealthArgs :: ReqArgs NamedGetHealth -> ()
+_namedGetHealthArgs = id
+
+_namedGetUserArgs :: ReqArgs NamedGetUser -> Int
+_namedGetUserArgs = id
+
+_namedPostUserArgs :: ReqArgs NamedPostUser -> ((), Text)
+_namedPostUserArgs = id
+
 
 -- ===================================================================
 -- Main
@@ -174,5 +188,10 @@ main = do
   putStrLn "  OK: ReqArgs (Get HealthPath Text) ~ ()"
   putStrLn "  OK: ReqArgs (Get UserByIdPath Text) ~ Int"
   putStrLn "  OK: ReqArgs (Post UsersPath Text Text) ~ ((), Text)"
+  putStrLn ""
+  putStrLn "Named endpoint delegation (compile-time):"
+  putStrLn "  OK: ReqArgs (Named \"health\" (Get HealthPath Text)) ~ ()"
+  putStrLn "  OK: ReqArgs (Named \"getUser\" (Get UserByIdPath Text)) ~ Int"
+  putStrLn "  OK: ReqArgs (Named \"createUser\" (Post UsersPath Text Text)) ~ ((), Text)"
   putStrLn ""
   putStrLn "All servant-reimagined-client tests passed."

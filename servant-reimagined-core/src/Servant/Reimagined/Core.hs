@@ -51,6 +51,10 @@ module Servant.Reimagined.Core
   , Versioned
   , ApiVersion (..)
   , Describe
+  , Named
+  , AllNamed
+  , EndpointNames
+  , NoDuplicateNames
   , WithParams
   , QP
   , WithHeaders

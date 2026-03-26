@@ -30,6 +30,7 @@ import qualified Servant.Reimagined.Core.Method as Core
 import Servant.Reimagined.Core.Path (PathSegment (..), Captures, CapturesTuple)
 import Servant.Reimagined.Core.Endpoint (Endpoint, NoBody)
 import Servant.Reimagined.Core.Effect (Requires)
+import Servant.Reimagined.Core.Wrapper (Named)
 import Servant.Reimagined.Client.Core
 
 
@@ -91,6 +92,12 @@ instance (BuildPath path, Aeson.ToJSON req, Aeson.FromJSON resp)
 instance EndpointRequest inner => EndpointRequest (Requires e inner) where
   type ReqArgs (Requires e inner) = ReqArgs inner
   type ReqResult (Requires e inner) = ReqResult inner
+  buildReq _ = buildReq (Proxy @inner)
+
+-- Named delegates to inner (name is irrelevant for client calls)
+instance EndpointRequest inner => EndpointRequest (Named name inner) where
+  type ReqArgs (Named name inner) = ReqArgs inner
+  type ReqResult (Named name inner) = ReqResult inner
   buildReq _ = buildReq (Proxy @inner)
 
 

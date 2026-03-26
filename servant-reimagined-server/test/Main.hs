@@ -7,6 +7,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeApplications #-}
 module Main (main) where
 
 import Data.ByteString (ByteString)
@@ -1406,6 +1407,97 @@ testNegotiateExtended = do
 
 
 -- ===================================================================
+-- Test: mkRecordApi (automatic record-based handler binding)
+-- ===================================================================
+
+-- | Named API: endpoints wrapped with Named for record-based binding.
+-- Deliberately in a different order from the record fields to prove
+-- that name matching, not position, determines the binding.
+type RecordAPI =
+  '[ Named "health"  (Get HealthPath Text)
+   , Named "getUser" (Get UserByIdPath (Json Text))
+   ]
+
+-- | Handler record with fields in REVERSE order of the API.
+data RecordHandlers = RecordHandlers
+  { getUser :: PathCapture Int -> IO (Json Text)
+  , health  :: IO Text
+  }
+
+testRecordApi :: IO ()
+testRecordApi = do
+  let svc = mkRecordApi @RecordAPI RecordHandlers
+        { health  = pure "ok-record"
+        , getUser = \(PathCapture n) -> pure (Json (T.pack ("rec-user-" ++ show n)))
+        }
+
+  -- GET /health
+  req1 <- mkReq "GET" ["health"] "/health" ""
+  resp1 <- runService svc req1
+  assert "recordApi: GET /health -> 200" (statusCode (responseStatus resp1) == 200)
+  assert "recordApi: GET /health -> 'ok-record'" (responseBody resp1 == "ok-record")
+
+  -- GET /users/7
+  req2 <- mkReq "GET" ["users", "7"] "/users/7" ""
+  resp2 <- runService svc req2
+  let decoded2 = Aeson.decode (LBS.fromStrict (responseBody resp2)) :: Maybe Text
+  assert "recordApi: GET /users/7 -> 200" (statusCode (responseStatus resp2) == 200)
+  assert "recordApi: GET /users/7 -> 'rec-user-7'" (decoded2 == Just "rec-user-7")
+
+  -- 404
+  req3 <- mkReq "GET" ["nope"] "/nope" ""
+  resp3 <- runService svc req3
+  assert "recordApi: GET /nope -> 404" (statusCode (responseStatus resp3) == 404)
+
+  -- 405
+  req4 <- mkReq "POST" ["health"] "/health" ""
+  resp4 <- runService svc req4
+  assert "recordApi: POST /health -> 405" (statusCode (responseStatus resp4) == 405)
+
+
+-- | Named API + Describe wrapper stacking.
+type DescribedRecordAPI =
+  '[ Named "health" (Describe "Health check" (Get HealthPath Text))
+   ]
+
+data DescribedHandlers = DescribedHandlers
+  { dHealth :: IO Text
+  }
+
+testRecordApiWithDescribe :: IO ()
+testRecordApiWithDescribe = do
+  -- Named composes with other wrappers (Describe in this case)
+  -- We can't use 'health' as field name because it conflicts with RecordHandlers
+  -- so we use a different API with different field names
+  let svc = mkRecordApi @'[ Named "dHealth" (Describe "Health check" (Get HealthPath Text)) ]
+        DescribedHandlers { dHealth = pure "described-ok" }
+
+  req1 <- mkReq "GET" ["health"] "/health" ""
+  resp1 <- runService svc req1
+  assert "recordApi+Describe: GET /health -> 200" (statusCode (responseStatus resp1) == 200)
+  assert "recordApi+Describe: GET /health -> 'described-ok'" (responseBody resp1 == "described-ok")
+
+
+-- | Named API used with tuples (Named is transparent).
+testNamedWithTuples :: IO ()
+testNamedWithTuples = do
+  let svc = mkApi @RecordAPI
+        ( pure "tuple-health" :: IO Text
+        , \(PathCapture n) -> pure (Json (T.pack ("tuple-user-" ++ show (n :: Int)))) :: IO (Json Text)
+        )
+
+  req1 <- mkReq "GET" ["health"] "/health" ""
+  resp1 <- runService svc req1
+  assert "namedTuple: GET /health -> 200" (statusCode (responseStatus resp1) == 200)
+  assert "namedTuple: GET /health -> 'tuple-health'" (responseBody resp1 == "tuple-health")
+
+  req2 <- mkReq "GET" ["users", "3"] "/users/3" ""
+  resp2 <- runService svc req2
+  let decoded2 = Aeson.decode (LBS.fromStrict (responseBody resp2)) :: Maybe Text
+  assert "namedTuple: GET /users/3 -> 'tuple-user-3'" (decoded2 == Just "tuple-user-3")
+
+
+-- ===================================================================
 -- Main
 -- ===================================================================
 
@@ -1529,5 +1621,14 @@ main = do
   putStrLn ""
   putStrLn "Content negotiation — negotiate (extended):"
   testNegotiateExtended
+  putStrLn ""
+  putStrLn "mkRecordApi (automatic record-based binding):"
+  testRecordApi
+  putStrLn ""
+  putStrLn "mkRecordApi + Describe wrapper:"
+  testRecordApiWithDescribe
+  putStrLn ""
+  putStrLn "Named endpoints with tuples (transparency):"
+  testNamedWithTuples
   putStrLn ""
   putStrLn "All servant-reimagined-server tests passed."

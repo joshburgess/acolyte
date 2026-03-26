@@ -97,6 +97,23 @@ server :: Service IO (Request ByteString) (Response ByteString)
 server = mkApi @API (healthHandler, listUsersHandler)
 ```
 
+For larger APIs, wrap endpoints with `Named` and use `mkRecordApi` to
+match handlers by field name instead of position:
+
+```haskell
+type NamedAPI =
+  '[ Named "health"    (Get HealthPath   Text)
+   , Named "listUsers" (Get UsersPath    (Json [Text]))
+   ]
+
+data Handlers = Handlers
+  { listUsers :: IO (Json [Text])  -- order doesn't matter
+  , health    :: IO Text
+  }
+
+server = mkRecordApi @NamedAPI Handlers { ... }
+```
+
 ### 4. Add middleware and run
 
 Middleware composes with `|>`. Pick a backend — `tower-server` (zero
@@ -291,6 +308,11 @@ The `examples/` directory contains 11 complete applications:
   changing routing or handler signatures. See the
   [tutorial](docs/TUTORIAL.md#step-8-annotating-endpoints-for-documentation)
   for details.
+- **Named endpoints.** Wrap endpoints with `Named "fieldName"` to enable
+  record-based handler binding via `mkRecordApi` — field order doesn't
+  matter, the compiler matches by name. `Named` also sets `operationId`
+  in OpenAPI specs. Fully opt-in: unnamed endpoints and positional tuples
+  continue to work unchanged.
 
 ## Next steps
 

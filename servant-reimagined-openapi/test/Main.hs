@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications #-}
 module Main (main) where
 
 import Data.Text (Text)
@@ -140,6 +142,50 @@ testOpenApi3 = do
     _ -> error "FAIL: openapi3 spec is not a JSON object"
 
 
+-- ===================================================================
+-- Named endpoint operationId tests
+-- ===================================================================
+
+testNamedOperationId :: IO ()
+testNamedOperationId = do
+  -- Named endpoint produces operationId
+  let op = toOperation @(Named "getUser" (Get UserByIdPath Text))
+  assert "Named: operationId set" (opOperationId op == Just "getUser")
+  assert "Named: method delegated" (opMethod op == "GET")
+  assert "Named: path delegated" (opPath op == "/users/{id}")
+
+  -- Unnamed endpoint has no operationId
+  let op2 = toOperation @(Get HealthPath Text)
+  assert "Unnamed: no operationId" (opOperationId op2 == Nothing)
+
+  -- Named + Describe stacking
+  let op3 = toOperation @(Named "health" (Describe "Health check" (Get HealthPath Text)))
+  assert "Named+Describe: operationId set" (opOperationId op3 == Just "health")
+  assert "Named+Describe: method GET" (opMethod op3 == "GET")
+
+  -- Named + Requires stacking
+  let op4 = toOperation @(Named "secureGet" (Requires Auth (Get HealthPath Text)))
+  assert "Named+Requires: operationId set" (opOperationId op4 == Just "secureGet")
+
+testNamedApiSpec :: IO ()
+testNamedApiSpec = do
+  -- Full API with Named endpoints generates operationIds
+  let ops = toOperations @'[ Named "listUsers" (Get UsersPath Text)
+                            , Named "getUser" (Get UserByIdPath Text)
+                            , Named "createUser" (Post UsersPath Text Text)
+                            ]
+  assert "named API: 3 operations" (length ops == 3)
+  assert "named API: op1 id" (opOperationId (ops !! 0) == Just "listUsers")
+  assert "named API: op2 id" (opOperationId (ops !! 1) == Just "getUser")
+  assert "named API: op3 id" (opOperationId (ops !! 2) == Just "createUser")
+
+  -- JSON output includes operationId
+  let spec = generateSpec @'[ Named "health" (Get HealthPath Text) ] "Test" "1.0"
+      json = Aeson.toJSON spec
+      bs = LBS.toStrict (Aeson.encode json)
+  assert "named spec JSON contains operationId" (T.isInfixOf "operationId" (T.pack (show bs)))
+
+
 main :: IO ()
 main = do
   putStrLn "servant-reimagined-openapi tests:"
@@ -167,5 +213,11 @@ main = do
   putStrLn ""
   putStrLn "OpenAPI 3.1 (explicit):"
   testOpenApi3
+  putStrLn ""
+  putStrLn "Named endpoint operationId:"
+  testNamedOperationId
+  putStrLn ""
+  putStrLn "Named API spec generation:"
+  testNamedApiSpec
   putStrLn ""
   putStrLn "All servant-reimagined-openapi tests passed."

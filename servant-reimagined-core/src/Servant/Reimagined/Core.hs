@@ -18,6 +18,7 @@ module Servant.Reimagined.Core
   , Param
   , At2
   , Param2
+  , ParamNamed
 
     -- * Endpoints
   , Endpoint
@@ -52,6 +53,7 @@ module Servant.Reimagined.Core
   , Versioned
   , ApiVersion (..)
   , Describe
+  , Description
   , Named
   , AllNamed
   , EndpointNames

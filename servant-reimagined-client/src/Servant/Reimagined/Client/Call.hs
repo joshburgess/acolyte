@@ -31,7 +31,7 @@ import Servant.Reimagined.Core.Path (PathSegment (..), Captures, CapturesTuple)
 import Servant.Reimagined.Core.Endpoint (Endpoint, NoBody)
 import Servant.Reimagined.Core.Effect (Requires)
 import Servant.Reimagined.Core.Wrapper
-  ( Named, Versioned, ApiVersion (..), Describe
+  ( Named, Versioned, ApiVersion (..), Describe, Description
   , WithParams, WithHeaders, RespondsWith
   )
 import Servant.Reimagined.Client.Core
@@ -118,6 +118,12 @@ instance EndpointRequest inner => EndpointRequest (Describe desc inner) where
   type ReqResult (Describe desc inner) = ReqResult inner
   buildReq _ = buildReq (Proxy @inner)
 
+-- Description delegates to inner (description is irrelevant for client calls)
+instance EndpointRequest inner => EndpointRequest (Description desc inner) where
+  type ReqArgs (Description desc inner) = ReqArgs inner
+  type ReqResult (Description desc inner) = ReqResult inner
+  buildReq _ = buildReq (Proxy @inner)
+
 -- WithParams delegates to inner (query params are not path-level)
 instance EndpointRequest inner => EndpointRequest (WithParams ps inner) where
   type ReqArgs (WithParams ps inner) = ReqArgs inner
@@ -166,6 +172,16 @@ instance {-# OVERLAPPING #-} (ShowCapture t, KnownSymbol s, PathArgs ('Capture t
 -- Single capture at end of path
 instance {-# OVERLAPPING #-} (ShowCapture t)
   => BuildPath '[ 'Capture t ] where
+    buildPath cap = [showCapture cap]
+
+-- CaptureNamed followed by a literal (identical to Capture — name is cosmetic)
+instance {-# OVERLAPPING #-} (ShowCapture t, KnownSymbol s, PathArgs ('CaptureNamed name t ': '[ 'Lit s ]) ~ t)
+  => BuildPath ('CaptureNamed name t ': '[ 'Lit s ]) where
+    buildPath cap = [showCapture cap, T.pack (symbolVal (Proxy @s))]
+
+-- CaptureNamed at end of path
+instance {-# OVERLAPPING #-} (ShowCapture t)
+  => BuildPath '[ 'CaptureNamed name t ] where
     buildPath cap = [showCapture cap]
 
 

@@ -68,6 +68,9 @@ oa3Operation op = object $ concat
   , case opSummary op of
       Nothing -> []
       Just s  -> ["summary" .= s]
+  , case opDescription op of
+      Nothing -> []
+      Just d  -> ["description" .= d]
   , [ "responses" .= object
         [ Key.fromText (T.pack (show (opStatusCode op))) .= responseObj ]
     ]

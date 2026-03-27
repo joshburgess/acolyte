@@ -1,3 +1,10 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- | OpenAPI 3.1 spec generation from API types.
 module Servant.Reimagined.OpenApi.Spec
   ( -- * Spec generation
@@ -9,6 +16,8 @@ module Servant.Reimagined.OpenApi.Spec
   , Parameter (..)
     -- * API walking
   , ApiToOperations (..)
+    -- * Capture name reflection
+  , KnownCaptureName (..)
     -- * Helpers
   , opMethodLower
   ) where
@@ -27,8 +36,9 @@ import qualified Servant.Reimagined.Core.Method as Core
 import Servant.Reimagined.Core.Path (PathSegment (..))
 import Servant.Reimagined.Core.Endpoint (Endpoint, NoBody)
 import Servant.Reimagined.Core.Effect (Requires)
+import Data.Typeable (Typeable, typeRep)
 import Servant.Reimagined.Core.Wrapper
-  ( Describe, Named, Versioned, ApiVersion (..)
+  ( Describe, Description, Named, Versioned, ApiVersion (..)
   , WithParams, QP, WithHeaders, HH
   , ServerStream, ClientStream, BidiStream, RespondsWith
   )
@@ -68,6 +78,9 @@ opToJson op = object $ concat
   , case opSummary op of
       Nothing -> []
       Just s  -> ["summary" .= s]
+  , case opDescription op of
+      Nothing -> []
+      Just d  -> ["description" .= d]
   , [ "responses" .= object
         [ Key.fromText (T.pack (show (opStatusCode op))) .= responseObj ]
     ]
@@ -103,6 +116,7 @@ data Operation = Operation
   , opPath           :: !Text
   , opOperationId    :: !(Maybe Text)
   , opSummary        :: !(Maybe Text)
+  , opDescription    :: !(Maybe Text)
   , opParameters     :: ![Parameter]
   , opStatusCode     :: !Int
   , opResponseSchema :: !(Maybe Schema)
@@ -147,6 +161,7 @@ instance (KnownMethod m, ReflectPathOA path, m ~ 'Core.GET, ToSchema resp)
       , opPath           = reflectOAPath @path
       , opOperationId    = Nothing
       , opSummary        = Nothing
+      , opDescription    = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
       , opResponseSchema = Just (toSchema @resp)
@@ -161,6 +176,7 @@ instance (ReflectPathOA path, ToSchema resp)
       , opPath           = reflectOAPath @path
       , opOperationId    = Nothing
       , opSummary        = Nothing
+      , opDescription    = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
       , opResponseSchema = Just (toSchema @resp)
@@ -175,6 +191,7 @@ instance (ReflectPathOA path, ToSchema req, ToSchema resp)
       , opPath           = reflectOAPath @path
       , opOperationId    = Nothing
       , opSummary        = Nothing
+      , opDescription    = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 201
       , opResponseSchema = Just (toSchema @resp)
@@ -189,6 +206,7 @@ instance (ReflectPathOA path, ToSchema req, ToSchema resp)
       , opPath           = reflectOAPath @path
       , opOperationId    = Nothing
       , opSummary        = Nothing
+      , opDescription    = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
       , opResponseSchema = Just (toSchema @resp)
@@ -203,6 +221,7 @@ instance (ReflectPathOA path, ToSchema req, ToSchema resp)
       , opPath           = reflectOAPath @path
       , opOperationId    = Nothing
       , opSummary        = Nothing
+      , opDescription    = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
       , opResponseSchema = Just (toSchema @resp)
@@ -220,6 +239,13 @@ instance (KnownSymbol desc, EndpointToOperation inner)
     toOperation =
       let op = toOperation @inner
       in op { opSummary = Just (T.pack (symbolVal (Proxy @desc))) }
+
+-- Description sets the operation description (longer text, distinct from summary)
+instance (KnownSymbol desc, EndpointToOperation inner)
+  => EndpointToOperation (Description desc inner) where
+    toOperation =
+      let op = toOperation @inner
+      in op { opDescription = Just (T.pack (symbolVal (Proxy @desc))) }
 
 -- WithParams reflects query parameters into the operation
 instance (ReflectParams ps, EndpointToOperation inner)
@@ -289,7 +315,7 @@ instance (KnownSymbol name, ReflectParams rest)
       { paramName     = T.pack (symbolVal (Proxy @name))
       , paramIn       = "query"
       , paramRequired = False
-      , paramSchema   = Schema "string" [] Nothing Nothing
+      , paramSchema   = Schema "string" [] Nothing Nothing Nothing Nothing
       } : reflectParams @rest
 
 
@@ -310,8 +336,21 @@ instance (KnownSymbol name, ReflectHeaders rest)
       { paramName     = T.pack (symbolVal (Proxy @name))
       , paramIn       = "header"
       , paramRequired = True
-      , paramSchema   = Schema "string" [] Nothing Nothing
+      , paramSchema   = Schema "string" [] Nothing Nothing Nothing Nothing
       } : reflectHeaders @rest
+
+
+-- ===================================================================
+-- Capture name reflection
+-- ===================================================================
+
+-- | Derive a parameter name for a capture type.
+-- Override this for custom names; the default lowercases the type name.
+class KnownCaptureName (t :: Type) where
+  captureName :: Text
+
+instance {-# OVERLAPPABLE #-} Typeable t => KnownCaptureName t where
+  captureName = T.toLower (T.pack (show (typeRep (Proxy @t))))
 
 
 -- ===================================================================
@@ -331,14 +370,24 @@ instance (KnownSymbol s, ReflectPathOA rest)
     reflectOAPath = "/" <> T.pack (symbolVal (Proxy @s)) <> reflectOAPath @rest
     reflectOAParams = reflectOAParams @rest
 
-instance (ReflectPathOA rest)
+instance (KnownCaptureName t, ReflectPathOA rest)
   => ReflectPathOA ('Capture t ': rest) where
-    reflectOAPath = "/{id}" <> reflectOAPath @rest
+    reflectOAPath = "/{" <> captureName @t <> "}" <> reflectOAPath @rest
     reflectOAParams = Parameter
-      { paramName     = "id"
+      { paramName     = captureName @t
       , paramIn       = "path"
       , paramRequired = True
-      , paramSchema   = Schema "string" [] Nothing Nothing
+      , paramSchema   = Schema "string" [] Nothing Nothing Nothing Nothing
+      } : reflectOAParams @rest
+
+instance (KnownSymbol name, ReflectPathOA rest)
+  => ReflectPathOA ('CaptureNamed name t ': rest) where
+    reflectOAPath = "/{" <> T.pack (symbolVal (Proxy @name)) <> "}" <> reflectOAPath @rest
+    reflectOAParams = Parameter
+      { paramName     = T.pack (symbolVal (Proxy @name))
+      , paramIn       = "path"
+      , paramRequired = True
+      , paramSchema   = Schema "string" [] Nothing Nothing Nothing Nothing
       } : reflectOAParams @rest
 
 

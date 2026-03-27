@@ -24,6 +24,7 @@ module Servant.Reimagined.Core.Path
   , Param
   , At2
   , Param2
+  , ParamNamed
     -- * Re-exports for convenience
   , Symbol
   , Nat
@@ -43,6 +44,7 @@ import GHC.TypeLits (Symbol, Nat, type (+))
 data PathSegment
   = Lit Symbol        -- ^ Literal path segment
   | Capture Type      -- ^ Captured path parameter
+  | CaptureNamed Symbol Type  -- ^ Captured path parameter with a name
   | CaptureRest       -- ^ Wildcard tail capture
 
 
@@ -59,19 +61,21 @@ data PathSegment
 -- @
 type Captures :: [PathSegment] -> [Type]
 type family Captures (path :: [PathSegment]) :: [Type] where
-  Captures '[]                    = '[]
-  Captures (Lit _       ': rest)  = Captures rest
-  Captures (Capture t   ': rest)  = t ': Captures rest
-  Captures (CaptureRest ': _)     = '[[Text]]
+  Captures '[]                          = '[]
+  Captures (Lit _             ': rest)  = Captures rest
+  Captures (Capture t         ': rest)  = t ': Captures rest
+  Captures (CaptureNamed _ t  ': rest)  = t ': Captures rest
+  Captures (CaptureRest       ': _)     = '[[Text]]
 
 
 -- | Count the number of captures in a path (for arity checking).
 type CountCaptures :: [PathSegment] -> Nat
 type family CountCaptures (path :: [PathSegment]) :: Nat where
-  CountCaptures '[]                    = 0
-  CountCaptures (Lit _       ': rest)  = CountCaptures rest
-  CountCaptures (Capture _   ': rest)  = 1 + CountCaptures rest
-  CountCaptures (CaptureRest ': _)     = 1
+  CountCaptures '[]                          = 0
+  CountCaptures (Lit _             ': rest)  = CountCaptures rest
+  CountCaptures (Capture _         ': rest)  = 1 + CountCaptures rest
+  CountCaptures (CaptureNamed _ _  ': rest)  = 1 + CountCaptures rest
+  CountCaptures (CaptureRest       ': _)     = 1
 
 
 -- | Convert a type-level list of capture types to a tuple.
@@ -128,3 +132,11 @@ type At2 (s1 :: Symbol) (s2 :: Symbol) = '[ 'Lit s1, 'Lit s2 ]
 -- type API = '[ Get (Param2 "api" "users" Int) (Json User) ]
 -- @
 type Param2 (s1 :: Symbol) (s2 :: Symbol) (t :: Type) = '[ 'Lit s1, 'Lit s2, 'Capture t ]
+
+-- | A literal segment followed by a named typed capture.
+--
+-- @
+-- type API = '[ Get (ParamNamed "userId" "users" Int) (Json User) ]
+-- -- equivalent to: Get '[ 'Lit "users", 'CaptureNamed "userId" Int ] (Json User)
+-- @
+type ParamNamed (name :: Symbol) (s :: Symbol) (t :: Type) = '[ 'Lit s, 'CaptureNamed name t ]

@@ -59,11 +59,11 @@ testOperations = do
 
   let op3 = ops !! 2
   assert "op3 method GET" (opMethod op3 == "GET")
-  assert "op3 path /users/{id}" (opPath op3 == "/users/{id}")
+  assert "op3 path /users/{int}" (opPath op3 == "/users/{int}")
   assert "op3 has path param" (length (opParameters op3) == 1)
 
   let param = head (opParameters op3)
-  assert "param name 'id'" (paramName param == "id")
+  assert "param name 'int'" (paramName param == "int")
   assert "param in 'path'" (paramIn param == "path")
   assert "param required" (paramRequired param)
 
@@ -83,7 +83,7 @@ testEndpointToOperation :: IO ()
 testEndpointToOperation = do
   let op = toOperation @(Get UserByIdPath Text)
   assert "endpoint op: GET" (opMethod op == "GET")
-  assert "endpoint op: /users/{id}" (opPath op == "/users/{id}")
+  assert "endpoint op: /users/{int}" (opPath op == "/users/{int}")
   assert "endpoint op: 1 param" (length (opParameters op) == 1)
   assert "endpoint op: status 200" (opStatusCode op == 200)
 
@@ -95,7 +95,7 @@ testRequiresDelegate :: IO ()
 testRequiresDelegate = do
   let op = toOperation @(Requires Auth (Get UserByIdPath Text))
   assert "Requires delegates: GET" (opMethod op == "GET")
-  assert "Requires delegates: /users/{id}" (opPath op == "/users/{id}")
+  assert "Requires delegates: /users/{int}" (opPath op == "/users/{int}")
 
 testSchema :: IO ()
 testSchema = do
@@ -154,7 +154,7 @@ testNamedOperationId = do
   let op = toOperation @(Named "getUser" (Get UserByIdPath Text))
   assert "Named: operationId set" (opOperationId op == Just "getUser")
   assert "Named: method delegated" (opMethod op == "GET")
-  assert "Named: path delegated" (opPath op == "/users/{id}")
+  assert "Named: path delegated" (opPath op == "/users/{int}")
 
   -- Unnamed endpoint has no operationId
   let op2 = toOperation @(Get HealthPath Text)

@@ -38,15 +38,19 @@ module Servant.Reimagined.Server.MkApi
   , BuildApi (..)
     -- * Helper
   , toBoundHandler
+    -- * Protected auth enforcement
+  , FirstArg
   ) where
 
-import Data.Kind (Type)
+import Data.Kind (Type, Constraint)
 import Data.ByteString (ByteString)
+import GHC.TypeLits (TypeError, ErrorMessage (..))
 
 import Tower.Service (Service (..))
 import Http.Core (Request, Response)
 
 import Servant.Reimagined.Core.API (Serves)
+import Servant.Reimagined.Core.Wrapper (Protected)
 import Servant.Reimagined.Server.Handler
   ( BoundHandler (..), HasEndpointInfo (..) )
 import Servant.Reimagined.Server.ToHandler (ToHandler (..))
@@ -270,3 +274,41 @@ instance {-# OVERLAPPABLE #-}
   buildApi handlers router =
     buildApi @es (tupleTail handlers)
       (addRoute (toBoundHandler @e (tupleHead handlers)) router)
+
+
+-- ===================================================================
+-- Protected auth enforcement
+-- ===================================================================
+
+-- | Extract the first argument type from a function.
+-- Produces a clear 'TypeError' if the handler is not a function
+-- (i.e., it doesn't accept the auth type as its first argument).
+type FirstArg :: Type -> Type
+type family FirstArg (f :: Type) :: Type where
+  FirstArg (a -> b) = a
+  FirstArg other = TypeError
+    ( 'Text "Protected endpoint handler must be a function (auth -> ...),"
+      ':$$: 'Text "but got: " ':<>: 'ShowType other
+      ':$$: 'Text "The handler's first argument must be the auth type."
+    )
+
+-- Single Protected endpoint: enforce auth as first handler argument
+instance {-# OVERLAPPING #-}
+  ( HasEndpointInfo (Protected auth inner)
+  , ToHandler h
+  , FirstArg h ~ auth
+  ) => BuildApi '[Protected auth inner] h where
+  buildApi h router =
+    addRoute (toBoundHandler @(Protected auth inner) h) router
+
+-- Protected in a multi-endpoint API: enforce auth on the head handler
+instance {-# OVERLAPPING #-}
+  ( HasEndpointInfo (Protected auth inner)
+  , ToHandler (TupleHead handlers)
+  , FirstArg (TupleHead handlers) ~ auth
+  , SplitTuple handlers
+  , BuildApi es (TupleTail handlers)
+  ) => BuildApi (Protected auth inner ': es) handlers where
+  buildApi handlers router =
+    buildApi @es (tupleTail handlers)
+      (addRoute (toBoundHandler @(Protected auth inner) (tupleHead handlers)) router)

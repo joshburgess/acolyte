@@ -12,6 +12,7 @@ module Servant.Reimagined.Server.Extract
     -- * Built-in extractors
   , PathCapture (..)
   , JsonBody (..)
+  , ValidatedBody (..)
   , AppState (..)
   , RawBody (..)
   , ReqHeader (..)
@@ -68,6 +69,7 @@ import Network.HTTP.Types (Status, status400, status422, status500, urlDecode)
 import qualified Data.Aeson as Aeson
 
 import Http.Core (RequestParts (..), Extensions, lookupExtension, insertExtension)
+import Servant.Reimagined.Core.Wrapper (Validate (..))
 
 
 -- | A structured server error with status and message.
@@ -210,6 +212,49 @@ instance Aeson.FromJSON a => FromRequestParts (JsonBody a) where
         case Aeson.eitherDecodeStrict' body of
           Right val -> Right (JsonBody val)
           Left err  -> Left (mkError status422 (T.pack ("JSON parse error: " ++ err)))
+      Nothing -> Left (mkError status500 "Request body not available (router bug)")
+
+
+-- ===================================================================
+-- ValidatedBody: JSON body with validation
+-- ===================================================================
+
+-- | A JSON-deserialized request body that has been validated.
+--
+-- Uses the 'Validate' type class from core to run validation after
+-- deserialization. Returns 422 if validation fails.
+--
+-- @
+-- data CreateUserValidator
+-- instance Validate CreateUserValidator CreateUser where
+--   validate u
+--     | T.null (userName u) = Left "name is required"
+--     | otherwise           = Right u
+--
+-- handler :: ValidatedBody CreateUserValidator CreateUser -> IO (Json User)
+-- handler (ValidatedBody user) = ...
+-- @
+newtype ValidatedBody v a = ValidatedBody { unValidatedBody :: a }
+  deriving (Show, Eq)
+
+instance (Aeson.FromJSON a, Validate v a) => FromRequest (ValidatedBody v a) where
+  fromRequest _parts body =
+    case Aeson.eitherDecodeStrict' body of
+      Left err -> pure (Left (mkError status422 (T.pack ("JSON parse error: " ++ err))))
+      Right a  -> case validate @v a of
+        Left msg -> pure (Left (mkError status422 (T.pack msg)))
+        Right a' -> pure (Right (ValidatedBody a'))
+
+instance (Aeson.FromJSON a, Validate v a) => FromRequestParts (ValidatedBody v a) where
+  fromRequestParts parts = do
+    mBody <- lookupExtension @BodyBytes (rpExtensions parts)
+    pure $ case mBody of
+      Just (BodyBytes body) ->
+        case Aeson.eitherDecodeStrict' body of
+          Left err -> Left (mkError status422 (T.pack ("JSON parse error: " ++ err)))
+          Right a  -> case validate @v a of
+            Left msg -> Left (mkError status422 (T.pack msg))
+            Right a' -> Right (ValidatedBody a')
       Nothing -> Left (mkError status500 "Request body not available (router bug)")
 
 

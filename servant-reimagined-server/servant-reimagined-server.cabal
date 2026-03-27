@@ -34,6 +34,7 @@ library
     Servant.Reimagined.Server.MkApi
     Servant.Reimagined.Server.Negotiate
     Servant.Reimagined.Server.Named
+    Servant.Reimagined.Server.Streaming
 
   build-depends:
       base                    >= 4.20 && < 5

@@ -21,6 +21,7 @@ module Servant.Reimagined.Server
   , FromRequest (..)
   , PathCapture (..)
   , JsonBody (..)
+  , ValidatedBody (..)
   , AppState (..)
   , RawBody (..)
   , ReqHeader (..)
@@ -138,6 +139,16 @@ module Servant.Reimagined.Server
     -- * Runtime validation
   , validationLayer
   , BuildRouteTable (..)
+
+    -- * Streaming support
+  , SSEvent (..)
+  , sseEvent
+  , sseData
+  , ServerStreamHandler
+  , ClientStreamHandler
+  , BidiStreamHandler
+  , sseResponse
+  , sseChunk
   ) where
 
 import Servant.Reimagined.Server.Extract
@@ -153,3 +164,4 @@ import Servant.Reimagined.Server.ToHandler
 import Servant.Reimagined.Server.MkApi
 import Servant.Reimagined.Server.Named
 import Servant.Reimagined.Server.Negotiate
+import Servant.Reimagined.Server.Streaming

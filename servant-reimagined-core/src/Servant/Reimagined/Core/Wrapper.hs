@@ -19,6 +19,7 @@ module Servant.Reimagined.Core.Wrapper
   , ApiVersion (..)
     -- * Description
   , Describe
+  , Description
     -- * Named endpoints
   , Named
   , AllNamed
@@ -130,6 +131,20 @@ class ApiVersion (v :: Type) where
 -- @
 type Describe :: Symbol -> Type -> Type
 data Describe (desc :: Symbol) (endpoint :: Type)
+
+
+-- | Annotate an endpoint with a longer human-readable description.
+-- Used by OpenAPI generation for the @description@ field (distinct from summary).
+-- Transparent to routing — delegates all endpoint metadata to the inner type.
+--
+-- @
+-- type API =
+--   '[ Description "Returns detailed user information including profile data"
+--        (Get (Param "users" Int) (Json User))
+--    ]
+-- @
+type Description :: Symbol -> Type -> Type
+data Description (desc :: Symbol) (endpoint :: Type)
 
 
 -- | Associate a type-level name with an endpoint.

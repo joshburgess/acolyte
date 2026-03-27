@@ -31,6 +31,9 @@ module Servant.Reimagined.Client
   , cookieInterceptor
     -- * Named endpoint calls
   , callNamed
+    -- * Record-based client generation
+  , mkClientRecord
+  , GBuildClientRecord (..)
     -- * Path building
   , BuildPath (..)
   , ShowCapture (..)

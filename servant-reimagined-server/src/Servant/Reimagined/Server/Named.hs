@@ -56,8 +56,8 @@ import Tower.Service (Service)
 import Http.Core (Request, Response)
 
 import Servant.Reimagined.Core.API (Serves)
-import Servant.Reimagined.Core.Wrapper (Named, AllNamed, EndpointNames, NoDuplicateNames)
-import Servant.Reimagined.Server.MkApi (BuildApi, mkApi, toBoundHandler)
+import Servant.Reimagined.Core.Wrapper (Named, Protected, AllNamed, EndpointNames, NoDuplicateNames)
+import Servant.Reimagined.Server.MkApi (BuildApi, mkApi, toBoundHandler, FirstArg)
 import Servant.Reimagined.Server.Handler (HasEndpointInfo)
 import Servant.Reimagined.Server.ToHandler (ToHandler)
 import Servant.Reimagined.Server.Effects (EffectfulServer (..), effectfulApi, fromRouter)
@@ -127,7 +127,7 @@ class BuildRecordApi (api :: [Type]) record where
 instance BuildRecordApi '[] record where
   buildRecordApi _ router = router
 
-instance
+instance {-# OVERLAPPABLE #-}
   ( HasField name record handler
   , HasEndpointInfo (Named name endpoint)
   , ToHandler handler
@@ -136,6 +136,18 @@ instance
   buildRecordApi rec router =
     buildRecordApi @rest rec
       (addRoute (toBoundHandler @(Named name endpoint) (getField @name rec)) router)
+
+-- Protected endpoint in a Named API: enforce auth as first handler argument
+instance {-# OVERLAPPING #-}
+  ( HasField name record handler
+  , HasEndpointInfo (Named name (Protected auth inner))
+  , ToHandler handler
+  , FirstArg handler ~ auth
+  , BuildRecordApi rest record
+  ) => BuildRecordApi (Named name (Protected auth inner) ': rest) record where
+  buildRecordApi rec router =
+    buildRecordApi @rest rec
+      (addRoute (toBoundHandler @(Named name (Protected auth inner)) (getField @name rec)) router)
 
 
 -- | Build a tower 'Service' from a Named API and a handler record.

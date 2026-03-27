@@ -34,7 +34,7 @@ import Servant.Reimagined.Server.Response
 import Servant.Reimagined.Core.Endpoint (Endpoint)
 import Servant.Reimagined.Core.Effect (Requires)
 import Servant.Reimagined.Core.Wrapper
-  ( Protected, Validated, Versioned, ApiVersion (..), Describe, Named
+  ( Protected, Validated, Versioned, ApiVersion (..), Describe, Description, Named
   , WithParams, WithHeaders
   , ServerStream, ClientStream, BidiStream, RespondsWith
   )
@@ -103,6 +103,13 @@ instance HasEndpointInfo inner
 -- Describe delegates to inner endpoint (Layer 2 wrapper)
 instance HasEndpointInfo inner
   => HasEndpointInfo (Describe desc inner) where
+    endpointMethod  = endpointMethod @inner
+    endpointPattern = endpointPattern @inner
+    endpointMatcher = endpointMatcher @inner
+
+-- Description delegates to inner endpoint (Layer 2 wrapper)
+instance HasEndpointInfo inner
+  => HasEndpointInfo (Description desc inner) where
     endpointMethod  = endpointMethod @inner
     endpointPattern = endpointPattern @inner
     endpointMatcher = endpointMatcher @inner
@@ -204,6 +211,14 @@ instance ReflectPath rest => ReflectPath ('Capture t ': rest) where
     case reflectMatch @rest segs of
       Just (MatchResult caps) -> Just (MatchResult (seg : caps))
       Nothing                 -> Nothing
+  reflectMatch [] = Nothing
+
+instance (KnownSymbol name, ReflectPath rest) => ReflectPath ('CaptureNamed name t ': rest) where
+  reflectPattern = "/{" <> T.pack (symbolVal (Proxy @name)) <> "}" <> reflectPattern @rest
+  reflectMatch (seg : segs) =
+    case reflectMatch @rest segs of
+      Just (MatchResult caps) -> Just (MatchResult (seg : caps))
+      Nothing -> Nothing
   reflectMatch [] = Nothing
 
 

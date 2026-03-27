@@ -1,0 +1,22 @@
+cabal-version:   3.0
+name:            streaming
+version:         0.1.0.0
+synopsis:        Server-Sent Events streaming example
+build-type:      Simple
+
+executable streaming
+  main-is: Main.hs
+  hs-source-dirs: .
+  default-language: GHC2024
+  default-extensions:
+    DataKinds
+    OverloadedStrings
+
+  build-depends:
+      base                       >= 4.20 && < 5
+    , servant-reimagined-server
+    , servant-reimagined-core
+    , http-core
+    , aeson                      >= 2.1  && < 2.3
+    , bytestring                 >= 0.11 && < 0.13
+    , text                       >= 2.0  && < 2.2

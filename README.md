@@ -272,17 +272,18 @@ The server produces a `Service` — it doesn't know or care what runs it.
 
 ## Examples
 
-The `examples/` directory contains 11 complete applications:
+The `examples/` directory contains 12 complete applications:
 
 - [`examples/minimal`](examples/minimal/) — simplest possible server (1 endpoint)
 - [`examples/hello-world`](examples/hello-world/) — 3 endpoints, effect tracking, middleware stack
-- [`examples/crud`](examples/crud/) — full CRUD with named routes and structured errors
+- [`examples/crud`](examples/crud/) — full CRUD with named routes, structured errors, and ValidatedBody
 - [`examples/auth`](examples/auth/) — custom authentication extractors
 - [`examples/custom-extractors`](examples/custom-extractors/) — writing your own request extractors
 - [`examples/grpc-demo`](examples/grpc-demo/) — gRPC server with .proto generation
 - [`examples/chat`](examples/chat/) — session-typed WebSocket chat
 - [`examples/negotiate`](examples/negotiate/) — content negotiation (JSON, XML, plain text)
 - [`examples/versioned-api`](examples/versioned-api/) — API versioning with typed version headers
+- [`examples/streaming`](examples/streaming/) — Server-Sent Events with async streaming
 - [`examples/realworld`](examples/realworld/) — RealWorld spec API types split into 6 sub-APIs
 - [`examples/realworld-combined`](examples/realworld-combined/) — full RealWorld backend: 15 endpoints across 6 sub-APIs with handlers, in-memory store, and combined effect tracking
 
@@ -314,7 +315,17 @@ The `examples/` directory contains 11 complete applications:
   record-based handler binding via `mkRecordApi` — field order doesn't
   matter, the compiler matches by name. `Named` also sets `operationId`
   in OpenAPI specs. Fully opt-in: unnamed endpoints and positional tuples
-  continue to work unchanged.
+  continue to work unchanged. On the client side, `mkClientRecord`
+  constructs a typed client record from `Named` APIs via `Generic`.
+- **Request validation.** `ValidatedBody v a` deserializes JSON and runs
+  a `Validate v a` check before the handler sees the data. Validation
+  failures return 422 with a structured error. Define a validator type,
+  write a `Validate` instance, and use `ValidatedBody` in the handler
+  signature — no manual error-checking boilerplate.
+- **Async SSE streaming.** `sseResponse` runs the handler in a forked
+  thread and delivers Server-Sent Events incrementally via chunked
+  transfer encoding. For simple cases, `sseResponseSync` collects all
+  events first.
 
 ## Next steps
 

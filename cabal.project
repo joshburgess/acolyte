@@ -25,6 +25,7 @@ packages:
   examples/chat
   examples/versioned-api
   examples/negotiate
+  examples/streaming
   bench/compile-time
   bench/runtime
   tower-protobuf

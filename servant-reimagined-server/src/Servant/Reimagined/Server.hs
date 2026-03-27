@@ -148,6 +148,7 @@ module Servant.Reimagined.Server
   , ClientStreamHandler
   , BidiStreamHandler
   , sseResponse
+  , sseResponseSync
   , sseChunk
   ) where
 

@@ -315,7 +315,7 @@ instance (KnownSymbol name, ReflectParams rest)
       { paramName     = T.pack (symbolVal (Proxy @name))
       , paramIn       = "query"
       , paramRequired = False
-      , paramSchema   = Schema "string" [] Nothing Nothing Nothing Nothing
+      , paramSchema   = Schema "string" [] Nothing Nothing Nothing Nothing False
       } : reflectParams @rest
 
 
@@ -336,7 +336,7 @@ instance (KnownSymbol name, ReflectHeaders rest)
       { paramName     = T.pack (symbolVal (Proxy @name))
       , paramIn       = "header"
       , paramRequired = True
-      , paramSchema   = Schema "string" [] Nothing Nothing Nothing Nothing
+      , paramSchema   = Schema "string" [] Nothing Nothing Nothing Nothing False
       } : reflectHeaders @rest
 
 
@@ -370,24 +370,24 @@ instance (KnownSymbol s, ReflectPathOA rest)
     reflectOAPath = "/" <> T.pack (symbolVal (Proxy @s)) <> reflectOAPath @rest
     reflectOAParams = reflectOAParams @rest
 
-instance (KnownCaptureName t, ReflectPathOA rest)
+instance (KnownCaptureName t, ToSchema t, ReflectPathOA rest)
   => ReflectPathOA ('Capture t ': rest) where
     reflectOAPath = "/{" <> captureName @t <> "}" <> reflectOAPath @rest
     reflectOAParams = Parameter
       { paramName     = captureName @t
       , paramIn       = "path"
       , paramRequired = True
-      , paramSchema   = Schema "string" [] Nothing Nothing Nothing Nothing
+      , paramSchema   = toSchema @t
       } : reflectOAParams @rest
 
-instance (KnownSymbol name, ReflectPathOA rest)
+instance (KnownSymbol name, ToSchema t, ReflectPathOA rest)
   => ReflectPathOA ('CaptureNamed name t ': rest) where
     reflectOAPath = "/{" <> T.pack (symbolVal (Proxy @name)) <> "}" <> reflectOAPath @rest
     reflectOAParams = Parameter
       { paramName     = T.pack (symbolVal (Proxy @name))
       , paramIn       = "path"
       , paramRequired = True
-      , paramSchema   = Schema "string" [] Nothing Nothing Nothing Nothing
+      , paramSchema   = toSchema @t
       } : reflectOAParams @rest
 
 

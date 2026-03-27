@@ -54,24 +54,28 @@ data Schema = Schema
   , schemaRef        :: !(Maybe Text)
   , schemaOneOf      :: !(Maybe [Schema])
   , schemaEnum       :: !(Maybe [Text])
+  , schemaNullable   :: !Bool
   } deriving (Show, Eq)
 
 
 -- | Convert a schema to an aeson Value.
 schemaToJson :: Schema -> Value
 schemaToJson s
-  | Just ref <- schemaRef s = object ["$ref" .= ref]
-  | Just variants <- schemaOneOf s = object ["oneOf" .= map schemaToJson variants]
-  | Just values <- schemaEnum s = object ["type" .= schemaType s, "enum" .= values]
+  | Just ref <- schemaRef s = object $ ["$ref" .= ref] ++ nullableField
+  | Just variants <- schemaOneOf s = object $ ["oneOf" .= map schemaToJson variants] ++ nullableField
+  | Just values <- schemaEnum s = object $ ["type" .= schemaType s, "enum" .= values] ++ nullableField
   | schemaType s == "array" = object $
       ["type" .= schemaType s]
       ++ maybe [] (\items -> ["items" .= schemaToJson items]) (schemaItems s)
-  | schemaType s == "object" && not (null (schemaProperties s)) = object
+      ++ nullableField
+  | schemaType s == "object" && not (null (schemaProperties s)) = object $
       [ "type" .= schemaType s
       , "properties" .= object
           [ Key.fromText k .= schemaToJson v | (k, v) <- schemaProperties s ]
-      ]
-  | otherwise = object ["type" .= schemaType s]
+      ] ++ nullableField
+  | otherwise = object $ ["type" .= schemaType s] ++ nullableField
+  where
+    nullableField = if schemaNullable s then ["nullable" .= True] else []
 
 
 -- | Derive a JSON Schema for a type.
@@ -105,7 +109,7 @@ genericToSchema = gToSchemaFull @(Rep a)
 class GToSchema (f :: Type -> Type) where
   gToSchema :: [(Text, Schema)]
   gToSchemaFull :: Schema
-  gToSchemaFull = Schema "object" (gToSchema @f) Nothing Nothing Nothing Nothing
+  gToSchemaFull = Schema "object" (gToSchema @f) Nothing Nothing Nothing Nothing False
 
 -- Metadata wrapper (datatype info) — delegate to inner
 instance GToSchema f => GToSchema (D1 meta f) where
@@ -133,7 +137,7 @@ instance GToSchema U1 where
 -- Sum types — produce oneOf schema with tagged variants
 instance (GToSchemaCon (f :+: g)) => GToSchema (f :+: g) where
   gToSchema = []
-  gToSchemaFull = Schema "object" [] Nothing Nothing (Just (gToSchemaCon @(f :+: g))) Nothing
+  gToSchemaFull = Schema "object" [] Nothing Nothing (Just (gToSchemaCon @(f :+: g))) Nothing False
 
 
 -- ===================================================================
@@ -152,8 +156,8 @@ instance (KnownSymbol name, GToSchema f)
   gToSchemaCon =
     let props = gToSchema @f
         tagProp = ("tag", Schema "string" [] Nothing Nothing Nothing
-                    (Just [T.pack (symbolVal (Proxy @name))]))
-    in [Schema "object" (tagProp : props) Nothing Nothing Nothing Nothing]
+                    (Just [T.pack (symbolVal (Proxy @name))]) False)
+    in [Schema "object" (tagProp : props) Nothing Nothing Nothing Nothing False]
 
 
 -- ===================================================================
@@ -161,37 +165,37 @@ instance (KnownSymbol name, GToSchema f)
 -- ===================================================================
 
 instance ToSchema Int where
-  toSchema = Schema "integer" [] Nothing Nothing Nothing Nothing
+  toSchema = Schema "integer" [] Nothing Nothing Nothing Nothing False
 
 instance ToSchema Integer where
-  toSchema = Schema "integer" [] Nothing Nothing Nothing Nothing
+  toSchema = Schema "integer" [] Nothing Nothing Nothing Nothing False
 
 instance ToSchema Double where
-  toSchema = Schema "number" [] Nothing Nothing Nothing Nothing
+  toSchema = Schema "number" [] Nothing Nothing Nothing Nothing False
 
 instance ToSchema Float where
-  toSchema = Schema "number" [] Nothing Nothing Nothing Nothing
+  toSchema = Schema "number" [] Nothing Nothing Nothing Nothing False
 
 instance ToSchema Bool where
-  toSchema = Schema "boolean" [] Nothing Nothing Nothing Nothing
+  toSchema = Schema "boolean" [] Nothing Nothing Nothing Nothing False
 
 instance ToSchema Text where
-  toSchema = Schema "string" [] Nothing Nothing Nothing Nothing
+  toSchema = Schema "string" [] Nothing Nothing Nothing Nothing False
 
 instance ToSchema String where
-  toSchema = Schema "string" [] Nothing Nothing Nothing Nothing
+  toSchema = Schema "string" [] Nothing Nothing Nothing Nothing False
 
 instance ToSchema () where
-  toSchema = Schema "object" [] Nothing Nothing Nothing Nothing
+  toSchema = Schema "object" [] Nothing Nothing Nothing Nothing False
 
 instance ToSchema a => ToSchema [a] where
-  toSchema = Schema "array" [] (Just (toSchema @a)) Nothing Nothing Nothing
+  toSchema = Schema "array" [] (Just (toSchema @a)) Nothing Nothing Nothing False
 
 instance ToSchema a => ToSchema (Maybe a) where
-  toSchema = toSchema @a  -- nullable in OpenAPI terms
+  toSchema = (toSchema @a) { schemaNullable = True }
 
 instance (ToSchema a, ToSchema b) => ToSchema (Either a b) where
-  toSchema = Schema "object" [] Nothing Nothing (Just [toSchema @a, toSchema @b]) Nothing
+  toSchema = Schema "object" [] Nothing Nothing (Just [toSchema @a, toSchema @b]) Nothing False
 
 instance ToSchema a => ToSchema (Json a) where
   toSchema = toSchema @a

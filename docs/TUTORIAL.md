@@ -436,6 +436,57 @@ For a manual approach without `Named` wrappers, the older `NamedApi`
 class + `mkNamedApi` pattern is still available — see
 [`examples/crud`](../examples/crud/) for an example.
 
+On the client side, `mkClientRecord` constructs a typed client record
+from `Named` APIs via `Generic`. Define a record type whose fields
+match the endpoint names, and `mkClientRecord` fills in the typed
+client functions automatically:
+
+```haskell
+import Servant.Reimagined.Client (mkClientRecord, ClientConfig)
+
+data MyClient = MyClient
+  { listBookmarks  :: IO (Json [Text])
+  , getBookmark    :: Int -> IO (Json Text)
+  , createBookmark :: Json Text -> IO (Json Text)
+  }
+
+client :: ClientConfig -> MyClient
+client = mkClientRecord @API
+```
+
+## Request validation with ValidatedBody
+
+For endpoints that accept user input, you often need validation beyond
+what JSON parsing provides. `ValidatedBody v a` deserializes the JSON
+body and then runs a `Validate v a` check before the handler sees the
+data. Validation failures return 422 with a structured error message.
+
+```haskell
+-- 1. Define a validator tag type
+data CreateUserValidator
+
+-- 2. Implement Validate
+instance Validate CreateUserValidator CreateUser where
+  validate u
+    | T.null (userName u) = Left "name is required"
+    | userAge u < 0       = Left "age must be non-negative"
+    | otherwise           = Right u
+
+-- 3. Use ValidatedBody in the handler signature
+createUser :: ValidatedBody CreateUserValidator CreateUser -> IO (Json User)
+createUser (ValidatedBody user) = do
+  -- 'user' is guaranteed to have passed validation
+  saved <- saveUser user
+  pure (Json saved)
+```
+
+The handler never sees invalid data — the framework rejects it before
+dispatch. This keeps validation logic separate from business logic and
+ensures it is applied consistently.
+
+See [`examples/crud`](../examples/crud/) for a complete example using
+`ValidatedBody` with named routes.
+
 ## What's happening under the hood
 
 Here's the full picture of how a request flows:

@@ -38,8 +38,9 @@ module Servant.Reimagined.Server.Streaming
   , ServerStreamHandler
   , ClientStreamHandler
   , BidiStreamHandler
-    -- * SSE response builder
+    -- * SSE response builders
   , sseResponse
+  , sseResponseSync
   , sseChunk
   ) where
 
@@ -50,6 +51,8 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Data.IORef
+import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent.MVar
 import Network.HTTP.Types (status200)
 
 import qualified Data.Aeson as Aeson
@@ -106,21 +109,51 @@ sseChunk ev = BS.concat $ concat
 
 -- | Build a streaming 'Response Body' from a 'ServerStreamHandler'.
 --
+-- The handler runs concurrently in a forked thread, and events are
+-- delivered to the response stream as they are produced. This enables
+-- true server-push: the client receives events incrementally rather
+-- than all at once after the handler completes.
+--
 -- Sets @Content-Type: text/event-stream@ and produces a 'BodyStream'
 -- that emits SSE-formatted chunks. The tower-server layer renders
 -- this with @Transfer-Encoding: chunked@.
 sseResponse :: Aeson.ToJSON a => ServerStreamHandler a -> IO (Response Body)
 sseResponse handler = do
-  -- Queue of chunks: handler writes, response stream reads
-  ref <- newIORef ([] :: [ByteString])
-  doneRef <- newIORef False
+  -- MVar-based queue: handler writes chunks, response stream reads them.
+  -- Nothing signals end-of-stream.
+  queue <- newEmptyMVar :: IO (MVar (Maybe ByteString))
 
-  -- Run the handler in a separate flow: collect all chunks first,
-  -- then serve them from the IORef. This is a simple synchronous
-  -- approach. For true streaming, you'd use a TBQueue or similar.
+  -- Fork the handler so events stream as they are produced
+  _ <- forkIO $ do
+    handler (\ev -> putMVar queue (Just (sseChunk ev)))
+    putMVar queue Nothing  -- signal completion
+
+  let pull = do
+        mChunk <- takeMVar queue
+        case mChunk of
+          Nothing -> pure Nothing
+          Just c  -> pure (Just (Chunk c))
+
+  let headers =
+        [ ("Content-Type", "text/event-stream")
+        , ("Cache-Control", "no-cache")
+        , ("Connection", "keep-alive")
+        ]
+
+  pure (Response status200 headers (BodyStream pull))
+
+
+-- | Build a streaming 'Response Body' synchronously.
+--
+-- Runs the handler to completion, collects all events, then serves
+-- them from an in-memory list. Useful for simple cases where all
+-- events are known upfront and no concurrent streaming is needed.
+sseResponseSync :: Aeson.ToJSON a => ServerStreamHandler a -> IO (Response Body)
+sseResponseSync handler = do
+  ref <- newIORef ([] :: [ByteString])
+
   let emit ev = modifyIORef' ref (++ [sseChunk ev])
   handler emit
-  writeIORef doneRef True
 
   chunks <- readIORef ref
   chunksRef <- newIORef chunks

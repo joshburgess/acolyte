@@ -6,6 +6,12 @@
 - **Versioned endpoint routing:** `Versioned V1 (Get ...)` routes to `/v1/...`. Server, client, and OpenAPI all support the `Versioned` wrapper.
 - **`callNamed`:** Look up client endpoints by name with `callNamed @"getUser" @API client 42`, powered by a `LookupNamed` type family.
 - **Generic-based `ToSchema` derivation:** Records with `deriving Generic` get automatic `ToSchema` instances via `genericToSchema`, which walks `GHC.Generics` `Rep` to extract field names and types.
+- **`ValidatedBody` extractor:** Deserializes JSON and validates via a `Validate v a` instance before the handler runs. Failures return 422 with a structured error.
+- **Protected auth enforcement via `FirstArg`:** The `Protected` wrapper ensures the handler's first argument is the auth credential type.
+- **`mkClientRecord`:** Constructs a typed client record from `Named` APIs via `Generic`, matching fields by name.
+- **SSE streaming types and async `sseResponse`:** `sseResponse` runs the handler in a forked thread and delivers events incrementally. `sseResponseSync` provides the simpler collect-then-serve approach.
+- **`CaptureNamed`:** Explicit path parameter names (`ParamNamed "userId" "users" Int`) for cleaner OpenAPI output.
+- **`Description` wrapper:** Long-form endpoint documentation (distinct from the short `Describe` summary).
 
 ### OpenAPI
 - `Describe "text"` now sets `opSummary` in the generated spec.
@@ -14,6 +20,10 @@
 - `WithHeaders '[HH "Authorization" Text]` produces header parameter schemas.
 - Request and response body schemas are now populated via `ToSchema` constraints (previously skeleton-only).
 - `ToSchema (Json a)` instance delegates to the inner type's schema.
+- Sum type / enum OpenAPI schemas via `GToSchemaCon` (produces `oneOf` with tagged variants).
+- `Either` `ToSchema` instance produces `oneOf`.
+- `Maybe` `ToSchema` instance now emits `"nullable": true` (via new `schemaNullable` field).
+- Capture path parameter schemas now use `ToSchema t` instead of hardcoded `"string"`.
 
 ### Refactoring
 - **`Json` newtype moved to core:** `newtype Json a = Json { unJson :: a }` now lives in `Servant.Reimagined.Core.Endpoint`, accessible to both server and openapi packages.

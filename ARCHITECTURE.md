@@ -806,9 +806,10 @@ Servant.Reimagined.Server
 ├── Servant.Reimagined.Server.Serves       -- Serves class (compile-time completeness)
 ├── Servant.Reimagined.Server.Named        -- Named endpoints: mkRecordApi, BuildRecordApi
 ├── Servant.Reimagined.Server.Effects      -- EffectfulServer, provide, ready
-├── Servant.Reimagined.Server.Auth         -- AuthHandler, Protected endpoint handling
+├── Servant.Reimagined.Server.Auth         -- AuthHandler, Protected endpoint handling (FirstArg enforcement)
 ├── Servant.Reimagined.Server.Negotiate    -- Content negotiation dispatch
-├── Servant.Reimagined.Server.Validate     -- Validation middleware
+├── Servant.Reimagined.Server.Validate     -- Validation middleware, ValidatedBody extractor
+├── Servant.Reimagined.Server.Streaming    -- SSE types, sseResponse (async), sseResponseSync
 ├── Servant.Reimagined.Server.WebSocket    -- WebSocket upgrade + session types
 └── Servant.Reimagined.Server.Error        -- ServerError, JsonError, error responses
 ```

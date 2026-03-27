@@ -40,6 +40,20 @@ instance FromJSON CreateItem where
 
 
 -- ===================================================================
+-- Validation
+-- ===================================================================
+
+-- | Validator for CreateItem: name must not be empty, price must be positive.
+data CreateItemValidator
+
+instance Validate CreateItemValidator CreateItem where
+  validate ci
+    | T.null (ciName ci)  = Left "name is required"
+    | ciPrice ci <= 0     = Left "price must be positive"
+    | otherwise           = Right ci
+
+
+-- ===================================================================
 -- Structured error type with IntoResponse instance
 -- ===================================================================
 
@@ -98,8 +112,8 @@ listItemsH ref = do
   (_, items) <- readIORef ref
   pure (Json items)
 
-createItemH :: Store -> JsonBody CreateItem -> IO (Json Item)
-createItemH ref (JsonBody (CreateItem name price)) = do
+createItemH :: Store -> ValidatedBody CreateItemValidator CreateItem -> IO (Json Item)
+createItemH ref (ValidatedBody (CreateItem name price)) = do
   (nextId, items) <- readIORef ref
   let item = Item nextId name price
   writeIORef ref (nextId + 1, items ++ [item])
@@ -139,11 +153,33 @@ deleteItemH ref (PathCapture iid) = do
 -- | Handler record for CrudAPI — field names match Named endpoint labels.
 data CrudHandlers = CrudHandlers
   { listItems  :: IO (Json [Item])
-  , createItem :: JsonBody CreateItem -> IO (Json Item)
+  , createItem :: ValidatedBody CreateItemValidator CreateItem -> IO (Json Item)
   , getItem    :: PathCapture Int -> IO (Either AppError (Json Item))
   , updateItem :: PathCapture Int -> JsonBody CreateItem -> IO (Either AppError (Json Item))
   , deleteItem :: PathCapture Int -> IO (Either AppError (Json Item))
   }
+
+
+-- ===================================================================
+-- Client record (for reference)
+-- ===================================================================
+
+-- mkClientRecord derives a typed client record from the Named API:
+--
+-- @
+-- import Servant.Reimagined.Client (mkClientRecord, ClientConfig)
+--
+-- data CrudClient = CrudClient
+--   { listItems  :: IO (Json [Item])
+--   , createItem :: Json CreateItem -> IO (Json Item)
+--   , getItem    :: Int -> IO (Json Item)
+--   , updateItem :: Int -> Json CreateItem -> IO (Json Item)
+--   , deleteItem :: Int -> IO (Json Item)
+--   }
+--
+-- mkCrudClient :: ClientConfig -> CrudClient
+-- mkCrudClient = mkClientRecord @CrudAPI
+-- @
 
 
 -- ===================================================================

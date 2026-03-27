@@ -552,11 +552,11 @@ for a full 15-endpoint example using this pattern.
 
 ## Further examples
 
-The `examples/` directory contains 11 complete applications:
+The `examples/` directory contains 12 complete applications:
 
 - `minimal/` -- simplest possible server (1 endpoint)
 - `hello-world/` -- 3 endpoints, effect tracking, middleware stack
-- `crud/` -- full CRUD with named routes and structured errors
+- `crud/` -- full CRUD with named routes, validated bodies, and structured errors
 - `auth/` -- custom authentication extractors
 - `custom-extractors/` -- writing your own request extractors
 - `grpc-demo/` -- gRPC server with .proto generation
@@ -565,3 +565,4 @@ The `examples/` directory contains 11 complete applications:
 - `versioned-api/` -- API versioning with typed version headers
 - `realworld/` -- RealWorld spec API types split into 6 sub-APIs
 - `realworld-combined/` -- full RealWorld backend with 15 endpoints, in-memory store, combined effect tracking
+- `streaming/` -- Server-Sent Events with async streaming

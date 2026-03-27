@@ -24,6 +24,7 @@ module Servant.Reimagined.Core.Wrapper
   , AllNamed
   , EndpointNames
   , NoDuplicateNames
+  , LookupNamed
     -- * Query parameter annotations
   , WithParams
   , QP
@@ -166,6 +167,17 @@ type EndpointNames :: [Type] -> [Symbol]
 type family EndpointNames (api :: [Type]) :: [Symbol] where
   EndpointNames '[] = '[]
   EndpointNames (Named name ep ': rest) = name ': EndpointNames rest
+
+
+-- | Look up an endpoint by its name in a Named API list.
+-- Produces a clear 'TypeError' if the name is not found.
+type LookupNamed :: Symbol -> [Type] -> Type
+type family LookupNamed (name :: Symbol) (api :: [Type]) :: Type where
+  LookupNamed name '[] = TypeError
+    ( 'Text "Endpoint name \"" ':<>: 'Text name ':<>: 'Text "\" not found in API."
+    )
+  LookupNamed name (Named name endpoint ': _) = Named name endpoint
+  LookupNamed name (_ ': rest) = LookupNamed name rest
 
 
 -- | Check that a type-level list of names contains no duplicates.

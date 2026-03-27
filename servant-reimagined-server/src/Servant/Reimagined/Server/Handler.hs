@@ -34,7 +34,8 @@ import Servant.Reimagined.Server.Response
 import Servant.Reimagined.Core.Endpoint (Endpoint)
 import Servant.Reimagined.Core.Effect (Requires)
 import Servant.Reimagined.Core.Wrapper
-  ( Protected, Validated, Describe, Named, WithParams, WithHeaders
+  ( Protected, Validated, Versioned, ApiVersion (..), Describe, Named
+  , WithParams, WithHeaders
   , ServerStream, ClientStream, BidiStream, RespondsWith
   )
 import Servant.Reimagined.Core.Method (KnownMethod, methodVal)
@@ -154,6 +155,16 @@ instance HasEndpointInfo inner
     endpointMethod  = endpointMethod @inner
     endpointPattern = endpointPattern @inner
     endpointMatcher = endpointMatcher @inner
+
+-- Versioned prepends the version prefix to the path
+instance (ApiVersion v, HasEndpointInfo inner)
+  => HasEndpointInfo (Versioned v inner) where
+    endpointMethod = endpointMethod @inner
+    endpointPattern = "/" <> versionPrefix @v <> endpointPattern @inner
+    endpointMatcher (seg : rest)
+      | seg == versionPrefix @v = endpointMatcher @inner rest
+      | otherwise = Nothing
+    endpointMatcher [] = Nothing
 
 
 methodToBS :: Core.Method -> Method

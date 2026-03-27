@@ -55,6 +55,7 @@ module Servant.Reimagined.Core
   , AllNamed
   , EndpointNames
   , NoDuplicateNames
+  , LookupNamed
   , WithParams
   , QP
   , WithHeaders

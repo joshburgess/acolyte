@@ -73,6 +73,9 @@ swaggerOperation op = object $ concat
   [ case opOperationId op of
       Nothing  -> []
       Just oid -> ["operationId" .= oid]
+  , case opSummary op of
+      Nothing -> []
+      Just s  -> ["summary" .= s]
   , [ "responses" .= object
         [ Key.fromText (T.pack (show (opStatusCode op))) .= responseObj ]
     ]

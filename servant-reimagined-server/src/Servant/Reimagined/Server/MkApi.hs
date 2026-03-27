@@ -1,11 +1,13 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- | Ergonomic server construction: pass handler functions directly.
 --
 -- @mkApi@ lets you build a server from an API type and a tuple of
@@ -87,195 +89,184 @@ mkApi
 mkApi handlers = Router.serve (buildApi @api handlers emptyRouter)
 
 
+-- | Decompose a tuple into its first element and the rest.
+--
+-- Supports arities 2–25. For a 2-tuple, the tail is the bare second
+-- element (not a 1-tuple). This enables 'BuildApi' to recursively
+-- peel one handler at a time from a handler tuple.
+class SplitTuple t where
+  type TupleHead t :: Type
+  type TupleTail t :: Type
+  tupleHead :: t -> TupleHead t
+  tupleTail :: t -> TupleTail t
+
+instance SplitTuple (a, b) where
+  type TupleHead (a, b) = a
+  type TupleTail (a, b) = b
+  tupleHead (a, _) = a
+  tupleTail (_, b) = b
+
+instance SplitTuple (a, b, c) where
+  type TupleHead (a, b, c) = a
+  type TupleTail (a, b, c) = (b, c)
+  tupleHead (a, _, _) = a
+  tupleTail (_, b, c) = (b, c)
+
+instance SplitTuple (a, b, c, d) where
+  type TupleHead (a, b, c, d) = a
+  type TupleTail (a, b, c, d) = (b, c, d)
+  tupleHead (a, _, _, _) = a
+  tupleTail (_, b, c, d) = (b, c, d)
+
+instance SplitTuple (a, b, c, d, e) where
+  type TupleHead (a, b, c, d, e) = a
+  type TupleTail (a, b, c, d, e) = (b, c, d, e)
+  tupleHead (a, _, _, _, _) = a
+  tupleTail (_, b, c, d, e) = (b, c, d, e)
+
+instance SplitTuple (a, b, c, d, e, f) where
+  type TupleHead (a, b, c, d, e, f) = a
+  type TupleTail (a, b, c, d, e, f) = (b, c, d, e, f)
+  tupleHead (a, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f) = (b, c, d, e, f)
+
+instance SplitTuple (a, b, c, d, e, f, g) where
+  type TupleHead (a, b, c, d, e, f, g) = a
+  type TupleTail (a, b, c, d, e, f, g) = (b, c, d, e, f, g)
+  tupleHead (a, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g) = (b, c, d, e, f, g)
+
+instance SplitTuple (a, b, c, d, e, f, g, h) where
+  type TupleHead (a, b, c, d, e, f, g, h) = a
+  type TupleTail (a, b, c, d, e, f, g, h) = (b, c, d, e, f, g, h)
+  tupleHead (a, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h) = (b, c, d, e, f, g, h)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i) where
+  type TupleHead (a, b, c, d, e, f, g, h, i) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i) = (b, c, d, e, f, g, h, i)
+  tupleHead (a, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i) = (b, c, d, e, f, g, h, i)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j) = (b, c, d, e, f, g, h, i, j)
+  tupleHead (a, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j) = (b, c, d, e, f, g, h, i, j)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j, k) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j, k) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j, k) = (b, c, d, e, f, g, h, i, j, k)
+  tupleHead (a, _, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j, k) = (b, c, d, e, f, g, h, i, j, k)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j, k, l) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j, k, l) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j, k, l) = (b, c, d, e, f, g, h, i, j, k, l)
+  tupleHead (a, _, _, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j, k, l) = (b, c, d, e, f, g, h, i, j, k, l)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j, k, l, m) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j, k, l, m) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j, k, l, m) = (b, c, d, e, f, g, h, i, j, k, l, m)
+  tupleHead (a, _, _, _, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j, k, l, m) = (b, c, d, e, f, g, h, i, j, k, l, m)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j, k, l, m, n) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j, k, l, m, n) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j, k, l, m, n) = (b, c, d, e, f, g, h, i, j, k, l, m, n)
+  tupleHead (a, _, _, _, _, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j, k, l, m, n) = (b, c, d, e, f, g, h, i, j, k, l, m, n)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o)
+  tupleHead (a, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j, k, l, m, n, o) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)
+  tupleHead (a, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q)
+  tupleHead (a, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r)
+  tupleHead (a, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s)
+  tupleHead (a, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t)
+  tupleHead (a, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u)
+  tupleHead (a, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v)
+  tupleHead (a, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w)
+  tupleHead (a, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x)
+  tupleHead (a, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x)
+
+instance SplitTuple (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y) where
+  type TupleHead (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y) = a
+  type TupleTail (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y)
+  tupleHead (a, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = a
+  tupleTail (_, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y) = (b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y)
+
+
 -- | Class that walks the API list and handler tuple, populating a Router.
 --
 -- Each endpoint gets its routing metadata from 'HasEndpointInfo',
--- and each handler is converted via 'ToHandler'.
+-- and each handler is converted via 'ToHandler'. Uses 'SplitTuple'
+-- to recursively peel handlers from the tuple.
 class BuildApi (api :: [Type]) handlers where
   buildApi :: handlers -> Router -> Router
 
-
--- Arity 1
-instance (HasEndpointInfo e1, ToHandler h1)
-  => BuildApi '[e1] h1 where
+-- Single endpoint: bare handler (not a tuple)
+instance (HasEndpointInfo e, ToHandler h)
+  => BuildApi '[e] h where
   buildApi h router =
-    addRoute (toBoundHandler @e1 h) router
+    addRoute (toBoundHandler @e h) router
 
--- Arity 2
-instance (HasEndpointInfo e1, HasEndpointInfo e2, ToHandler h1, ToHandler h2)
-  => BuildApi '[e1, e2] (h1, h2) where
-  buildApi (h1, h2) router =
-    addRoute (toBoundHandler @e2 h2)
-    . addRoute (toBoundHandler @e1 h1)
-    $ router
-
--- Arity 3
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, ToHandler h1, ToHandler h2, ToHandler h3)
-  => BuildApi '[e1, e2, e3] (h1, h2, h3) where
-  buildApi (h1, h2, h3) router =
-    addRoute (toBoundHandler @e3 h3)
-    . addRoute (toBoundHandler @e2 h2)
-    . addRoute (toBoundHandler @e1 h1)
-    $ router
-
--- Arity 4
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4)
-  => BuildApi '[e1, e2, e3, e4] (h1, h2, h3, h4) where
-  buildApi (h1, h2, h3, h4) router =
-    addRoute (toBoundHandler @e4 h4)
-    . addRoute (toBoundHandler @e3 h3)
-    . addRoute (toBoundHandler @e2 h2)
-    . addRoute (toBoundHandler @e1 h1)
-    $ router
-
--- Arity 5
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5)
-  => BuildApi '[e1, e2, e3, e4, e5] (h1, h2, h3, h4, h5) where
-  buildApi (h1, h2, h3, h4, h5) router =
-    addRoute (toBoundHandler @e5 h5)
-    . addRoute (toBoundHandler @e4 h4)
-    . addRoute (toBoundHandler @e3 h3)
-    . addRoute (toBoundHandler @e2 h2)
-    . addRoute (toBoundHandler @e1 h1)
-    $ router
-
--- Arity 6
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6)
-  => BuildApi '[e1, e2, e3, e4, e5, e6] (h1, h2, h3, h4, h5, h6) where
-  buildApi (h1, h2, h3, h4, h5, h6) router =
-    addRoute (toBoundHandler @e6 h6)
-    . addRoute (toBoundHandler @e5 h5)
-    . addRoute (toBoundHandler @e4 h4)
-    . addRoute (toBoundHandler @e3 h3)
-    . addRoute (toBoundHandler @e2 h2)
-    . addRoute (toBoundHandler @e1 h1)
-    $ router
-
--- Arity 7
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7] (h1, h2, h3, h4, h5, h6, h7) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7) router =
-    addRoute (toBoundHandler @e7 h7)
-    . addRoute (toBoundHandler @e6 h6)
-    . addRoute (toBoundHandler @e5 h5)
-    . addRoute (toBoundHandler @e4 h4)
-    . addRoute (toBoundHandler @e3 h3)
-    . addRoute (toBoundHandler @e2 h2)
-    . addRoute (toBoundHandler @e1 h1)
-    $ router
-
--- Arity 8
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8] (h1, h2, h3, h4, h5, h6, h7, h8) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8) router =
-    addRoute (toBoundHandler @e8 h8)
-    . addRoute (toBoundHandler @e7 h7)
-    . addRoute (toBoundHandler @e6 h6)
-    . addRoute (toBoundHandler @e5 h5)
-    . addRoute (toBoundHandler @e4 h4)
-    . addRoute (toBoundHandler @e3 h3)
-    . addRoute (toBoundHandler @e2 h2)
-    . addRoute (toBoundHandler @e1 h1)
-    $ router
-
--- Arity 9
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9] (h1, h2, h3, h4, h5, h6, h7, h8, h9) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9) router =
-    addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 10
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10) router =
-    addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 11
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10, ToHandler h11)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11) router =
-    addRoute (toBoundHandler @e11 h11) . addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 12
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10, ToHandler h11, ToHandler h12)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12) router =
-    addRoute (toBoundHandler @e12 h12) . addRoute (toBoundHandler @e11 h11) . addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 13
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10, ToHandler h11, ToHandler h12, ToHandler h13)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13) router =
-    addRoute (toBoundHandler @e13 h13) . addRoute (toBoundHandler @e12 h12) . addRoute (toBoundHandler @e11 h11) . addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 14
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, HasEndpointInfo e14, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10, ToHandler h11, ToHandler h12, ToHandler h13, ToHandler h14)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14) router =
-    addRoute (toBoundHandler @e14 h14) . addRoute (toBoundHandler @e13 h13) . addRoute (toBoundHandler @e12 h12) . addRoute (toBoundHandler @e11 h11) . addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 15
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, HasEndpointInfo e14, HasEndpointInfo e15, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10, ToHandler h11, ToHandler h12, ToHandler h13, ToHandler h14, ToHandler h15)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15) router =
-    addRoute (toBoundHandler @e15 h15) . addRoute (toBoundHandler @e14 h14) . addRoute (toBoundHandler @e13 h13) . addRoute (toBoundHandler @e12 h12) . addRoute (toBoundHandler @e11 h11) . addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 16
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, HasEndpointInfo e14, HasEndpointInfo e15, HasEndpointInfo e16, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10, ToHandler h11, ToHandler h12, ToHandler h13, ToHandler h14, ToHandler h15, ToHandler h16)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16) router =
-    addRoute (toBoundHandler @e16 h16) . addRoute (toBoundHandler @e15 h15) . addRoute (toBoundHandler @e14 h14) . addRoute (toBoundHandler @e13 h13) . addRoute (toBoundHandler @e12 h12) . addRoute (toBoundHandler @e11 h11) . addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 17
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, HasEndpointInfo e14, HasEndpointInfo e15, HasEndpointInfo e16, HasEndpointInfo e17, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10, ToHandler h11, ToHandler h12, ToHandler h13, ToHandler h14, ToHandler h15, ToHandler h16, ToHandler h17)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17) router =
-    addRoute (toBoundHandler @e17 h17) . addRoute (toBoundHandler @e16 h16) . addRoute (toBoundHandler @e15 h15) . addRoute (toBoundHandler @e14 h14) . addRoute (toBoundHandler @e13 h13) . addRoute (toBoundHandler @e12 h12) . addRoute (toBoundHandler @e11 h11) . addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 18
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, HasEndpointInfo e14, HasEndpointInfo e15, HasEndpointInfo e16, HasEndpointInfo e17, HasEndpointInfo e18, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10, ToHandler h11, ToHandler h12, ToHandler h13, ToHandler h14, ToHandler h15, ToHandler h16, ToHandler h17, ToHandler h18)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18) router =
-    addRoute (toBoundHandler @e18 h18) . addRoute (toBoundHandler @e17 h17) . addRoute (toBoundHandler @e16 h16) . addRoute (toBoundHandler @e15 h15) . addRoute (toBoundHandler @e14 h14) . addRoute (toBoundHandler @e13 h13) . addRoute (toBoundHandler @e12 h12) . addRoute (toBoundHandler @e11 h11) . addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 19
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, HasEndpointInfo e14, HasEndpointInfo e15, HasEndpointInfo e16, HasEndpointInfo e17, HasEndpointInfo e18, HasEndpointInfo e19, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10, ToHandler h11, ToHandler h12, ToHandler h13, ToHandler h14, ToHandler h15, ToHandler h16, ToHandler h17, ToHandler h18, ToHandler h19)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19) router =
-    addRoute (toBoundHandler @e19 h19) . addRoute (toBoundHandler @e18 h18) . addRoute (toBoundHandler @e17 h17) . addRoute (toBoundHandler @e16 h16) . addRoute (toBoundHandler @e15 h15) . addRoute (toBoundHandler @e14 h14) . addRoute (toBoundHandler @e13 h13) . addRoute (toBoundHandler @e12 h12) . addRoute (toBoundHandler @e11 h11) . addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 20
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, HasEndpointInfo e14, HasEndpointInfo e15, HasEndpointInfo e16, HasEndpointInfo e17, HasEndpointInfo e18, HasEndpointInfo e19, HasEndpointInfo e20, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10, ToHandler h11, ToHandler h12, ToHandler h13, ToHandler h14, ToHandler h15, ToHandler h16, ToHandler h17, ToHandler h18, ToHandler h19, ToHandler h20)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20) router =
-    addRoute (toBoundHandler @e20 h20) . addRoute (toBoundHandler @e19 h19) . addRoute (toBoundHandler @e18 h18) . addRoute (toBoundHandler @e17 h17) . addRoute (toBoundHandler @e16 h16) . addRoute (toBoundHandler @e15 h15) . addRoute (toBoundHandler @e14 h14) . addRoute (toBoundHandler @e13 h13) . addRoute (toBoundHandler @e12 h12) . addRoute (toBoundHandler @e11 h11) . addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 21
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, HasEndpointInfo e14, HasEndpointInfo e15, HasEndpointInfo e16, HasEndpointInfo e17, HasEndpointInfo e18, HasEndpointInfo e19, HasEndpointInfo e20, HasEndpointInfo e21, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10, ToHandler h11, ToHandler h12, ToHandler h13, ToHandler h14, ToHandler h15, ToHandler h16, ToHandler h17, ToHandler h18, ToHandler h19, ToHandler h20, ToHandler h21)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21) router =
-    addRoute (toBoundHandler @e21 h21) . addRoute (toBoundHandler @e20 h20) . addRoute (toBoundHandler @e19 h19) . addRoute (toBoundHandler @e18 h18) . addRoute (toBoundHandler @e17 h17) . addRoute (toBoundHandler @e16 h16) . addRoute (toBoundHandler @e15 h15) . addRoute (toBoundHandler @e14 h14) . addRoute (toBoundHandler @e13 h13) . addRoute (toBoundHandler @e12 h12) . addRoute (toBoundHandler @e11 h11) . addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 22
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, HasEndpointInfo e14, HasEndpointInfo e15, HasEndpointInfo e16, HasEndpointInfo e17, HasEndpointInfo e18, HasEndpointInfo e19, HasEndpointInfo e20, HasEndpointInfo e21, HasEndpointInfo e22, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10, ToHandler h11, ToHandler h12, ToHandler h13, ToHandler h14, ToHandler h15, ToHandler h16, ToHandler h17, ToHandler h18, ToHandler h19, ToHandler h20, ToHandler h21, ToHandler h22)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22) router =
-    addRoute (toBoundHandler @e22 h22) . addRoute (toBoundHandler @e21 h21) . addRoute (toBoundHandler @e20 h20) . addRoute (toBoundHandler @e19 h19) . addRoute (toBoundHandler @e18 h18) . addRoute (toBoundHandler @e17 h17) . addRoute (toBoundHandler @e16 h16) . addRoute (toBoundHandler @e15 h15) . addRoute (toBoundHandler @e14 h14) . addRoute (toBoundHandler @e13 h13) . addRoute (toBoundHandler @e12 h12) . addRoute (toBoundHandler @e11 h11) . addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 23
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, HasEndpointInfo e14, HasEndpointInfo e15, HasEndpointInfo e16, HasEndpointInfo e17, HasEndpointInfo e18, HasEndpointInfo e19, HasEndpointInfo e20, HasEndpointInfo e21, HasEndpointInfo e22, HasEndpointInfo e23, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10, ToHandler h11, ToHandler h12, ToHandler h13, ToHandler h14, ToHandler h15, ToHandler h16, ToHandler h17, ToHandler h18, ToHandler h19, ToHandler h20, ToHandler h21, ToHandler h22, ToHandler h23)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22, h23) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22, h23) router =
-    addRoute (toBoundHandler @e23 h23) . addRoute (toBoundHandler @e22 h22) . addRoute (toBoundHandler @e21 h21) . addRoute (toBoundHandler @e20 h20) . addRoute (toBoundHandler @e19 h19) . addRoute (toBoundHandler @e18 h18) . addRoute (toBoundHandler @e17 h17) . addRoute (toBoundHandler @e16 h16) . addRoute (toBoundHandler @e15 h15) . addRoute (toBoundHandler @e14 h14) . addRoute (toBoundHandler @e13 h13) . addRoute (toBoundHandler @e12 h12) . addRoute (toBoundHandler @e11 h11) . addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 24
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, HasEndpointInfo e14, HasEndpointInfo e15, HasEndpointInfo e16, HasEndpointInfo e17, HasEndpointInfo e18, HasEndpointInfo e19, HasEndpointInfo e20, HasEndpointInfo e21, HasEndpointInfo e22, HasEndpointInfo e23, HasEndpointInfo e24, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10, ToHandler h11, ToHandler h12, ToHandler h13, ToHandler h14, ToHandler h15, ToHandler h16, ToHandler h17, ToHandler h18, ToHandler h19, ToHandler h20, ToHandler h21, ToHandler h22, ToHandler h23, ToHandler h24)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23, e24] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22, h23, h24) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22, h23, h24) router =
-    addRoute (toBoundHandler @e24 h24) . addRoute (toBoundHandler @e23 h23) . addRoute (toBoundHandler @e22 h22) . addRoute (toBoundHandler @e21 h21) . addRoute (toBoundHandler @e20 h20) . addRoute (toBoundHandler @e19 h19) . addRoute (toBoundHandler @e18 h18) . addRoute (toBoundHandler @e17 h17) . addRoute (toBoundHandler @e16 h16) . addRoute (toBoundHandler @e15 h15) . addRoute (toBoundHandler @e14 h14) . addRoute (toBoundHandler @e13 h13) . addRoute (toBoundHandler @e12 h12) . addRoute (toBoundHandler @e11 h11) . addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
-
--- Arity 25
-instance (HasEndpointInfo e1, HasEndpointInfo e2, HasEndpointInfo e3, HasEndpointInfo e4, HasEndpointInfo e5, HasEndpointInfo e6, HasEndpointInfo e7, HasEndpointInfo e8, HasEndpointInfo e9, HasEndpointInfo e10, HasEndpointInfo e11, HasEndpointInfo e12, HasEndpointInfo e13, HasEndpointInfo e14, HasEndpointInfo e15, HasEndpointInfo e16, HasEndpointInfo e17, HasEndpointInfo e18, HasEndpointInfo e19, HasEndpointInfo e20, HasEndpointInfo e21, HasEndpointInfo e22, HasEndpointInfo e23, HasEndpointInfo e24, HasEndpointInfo e25, ToHandler h1, ToHandler h2, ToHandler h3, ToHandler h4, ToHandler h5, ToHandler h6, ToHandler h7, ToHandler h8, ToHandler h9, ToHandler h10, ToHandler h11, ToHandler h12, ToHandler h13, ToHandler h14, ToHandler h15, ToHandler h16, ToHandler h17, ToHandler h18, ToHandler h19, ToHandler h20, ToHandler h21, ToHandler h22, ToHandler h23, ToHandler h24, ToHandler h25)
-  => BuildApi '[e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23, e24, e25] (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22, h23, h24, h25) where
-  buildApi (h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22, h23, h24, h25) router =
-    addRoute (toBoundHandler @e25 h25) . addRoute (toBoundHandler @e24 h24) . addRoute (toBoundHandler @e23 h23) . addRoute (toBoundHandler @e22 h22) . addRoute (toBoundHandler @e21 h21) . addRoute (toBoundHandler @e20 h20) . addRoute (toBoundHandler @e19 h19) . addRoute (toBoundHandler @e18 h18) . addRoute (toBoundHandler @e17 h17) . addRoute (toBoundHandler @e16 h16) . addRoute (toBoundHandler @e15 h15) . addRoute (toBoundHandler @e14 h14) . addRoute (toBoundHandler @e13 h13) . addRoute (toBoundHandler @e12 h12) . addRoute (toBoundHandler @e11 h11) . addRoute (toBoundHandler @e10 h10) . addRoute (toBoundHandler @e9 h9) . addRoute (toBoundHandler @e8 h8) . addRoute (toBoundHandler @e7 h7) . addRoute (toBoundHandler @e6 h6) . addRoute (toBoundHandler @e5 h5) . addRoute (toBoundHandler @e4 h4) . addRoute (toBoundHandler @e3 h3) . addRoute (toBoundHandler @e2 h2) . addRoute (toBoundHandler @e1 h1) $ router
+-- Two+ endpoints: peel the first handler from the tuple, recurse on the rest
+instance {-# OVERLAPPABLE #-}
+  ( HasEndpointInfo e
+  , ToHandler (TupleHead handlers)
+  , SplitTuple handlers
+  , BuildApi es (TupleTail handlers)
+  )
+  => BuildApi (e ': es) handlers where
+  buildApi handlers router =
+    buildApi @es (tupleTail handlers)
+      (addRoute (toBoundHandler @e (tupleHead handlers)) router)

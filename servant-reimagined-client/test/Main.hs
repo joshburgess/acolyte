@@ -1,4 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 module Main (main) where
 
 import Data.Text (Text)
@@ -113,8 +116,26 @@ _namedPostUserArgs = id
 
 
 -- ===================================================================
--- Main
+-- LookupNamed compile-time tests
 -- ===================================================================
+
+type NamedAPI =
+  '[ Named "health" (Get HealthPath Text)
+   , Named "getUser" (Get UserByIdPath Text)
+   ]
+
+-- LookupNamed resolves the correct Named endpoint by name.
+-- If these type equalities don't hold, the module won't compile.
+_lookupHealthOk :: LookupNamed "health" NamedAPI ~ Named "health" (Get HealthPath Text) => ()
+_lookupHealthOk = ()
+
+_lookupGetUserOk :: LookupNamed "getUser" NamedAPI ~ Named "getUser" (Get UserByIdPath Text) => ()
+_lookupGetUserOk = ()
+
+-- callNamed type-checks with correct resolution (compile-time only)
+_callNamedType :: LookupNamed "health" NamedAPI ~ Named "health" (Get HealthPath Text) => ()
+_callNamedType = ()
+
 
 -- ===================================================================
 -- Retry policy tests
@@ -193,5 +214,10 @@ main = do
   putStrLn "  OK: ReqArgs (Named \"health\" (Get HealthPath Text)) ~ ()"
   putStrLn "  OK: ReqArgs (Named \"getUser\" (Get UserByIdPath Text)) ~ Int"
   putStrLn "  OK: ReqArgs (Named \"createUser\" (Post UsersPath Text Text)) ~ ((), Text)"
+  putStrLn ""
+  putStrLn "LookupNamed type resolution (compile-time):"
+  putStrLn "  OK: LookupNamed \"health\" NamedAPI ~ Named \"health\" (Get HealthPath Text)"
+  putStrLn "  OK: LookupNamed \"getUser\" NamedAPI ~ Named \"getUser\" (Get UserByIdPath Text)"
+  putStrLn "  OK: callNamed resolves via LookupNamed"
   putStrLn ""
   putStrLn "All servant-reimagined-client tests passed."

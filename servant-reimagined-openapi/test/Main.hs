@@ -186,6 +186,85 @@ testNamedApiSpec = do
   assert "named spec JSON contains operationId" (T.isInfixOf "operationId" (T.pack (show bs)))
 
 
+-- ===================================================================
+-- Describe test
+-- ===================================================================
+
+testDescribe :: IO ()
+testDescribe = do
+  let op = toOperation @(Describe "Health check" (Get HealthPath Text))
+  assert "Describe: summary set" (opSummary op == Just "Health check")
+  assert "Describe: method delegated" (opMethod op == "GET")
+  assert "Describe: path delegated" (opPath op == "/health")
+
+
+-- ===================================================================
+-- RespondsWith test
+-- ===================================================================
+
+testRespondsWith :: IO ()
+testRespondsWith = do
+  let op = toOperation @(RespondsWith 204 (Post (At "items") Text Text))
+  assert "RespondsWith: status 204" (opStatusCode op == 204)
+  assert "RespondsWith: method POST" (opMethod op == "POST")
+  assert "RespondsWith: path /items" (opPath op == "/items")
+
+
+-- ===================================================================
+-- WithParams test
+-- ===================================================================
+
+testWithParams :: IO ()
+testWithParams = do
+  let op = toOperation @(WithParams '[QP "page" Int, QP "limit" Int] (Get (At "users") Text))
+  assert "WithParams: 2 query params" (length (opParameters op) == 2)
+  assert "WithParams: first param 'page'" (paramName (opParameters op !! 0) == "page")
+  assert "WithParams: second param 'limit'" (paramName (opParameters op !! 1) == "limit")
+  assert "WithParams: params are query" (all (\p -> paramIn p == "query") (opParameters op))
+
+
+-- ===================================================================
+-- WithHeaders test
+-- ===================================================================
+
+testWithHeaders :: IO ()
+testWithHeaders = do
+  let op = toOperation @(WithHeaders '[HH "Authorization" Text] (Get (At "users") Text))
+  assert "WithHeaders: 1 header param" (length (opParameters op) == 1)
+  assert "WithHeaders: header name 'Authorization'" (paramName (head (opParameters op)) == "Authorization")
+  assert "WithHeaders: param in 'header'" (paramIn (head (opParameters op)) == "header")
+
+
+-- ===================================================================
+-- Versioned test
+-- ===================================================================
+
+data V1
+instance ApiVersion V1 where versionPrefix = "v1"
+
+testVersionedOpenApi :: IO ()
+testVersionedOpenApi = do
+  let op = toOperation @(Versioned V1 (Get HealthPath Text))
+  assert "Versioned: path starts with /v1" (T.isPrefixOf "/v1" (opPath op))
+  assert "Versioned: full path /v1/health" (opPath op == "/v1/health")
+  assert "Versioned: method delegated" (opMethod op == "GET")
+
+
+-- ===================================================================
+-- Stacking wrappers test
+-- ===================================================================
+
+testStackedWrappers :: IO ()
+testStackedWrappers = do
+  let op = toOperation @(Named "x" (Describe "y" (WithParams '[QP "p" Int] (Get (At "z") Text))))
+  assert "Stacked: operationId set" (opOperationId op == Just "x")
+  assert "Stacked: summary set" (opSummary op == Just "y")
+  assert "Stacked: has query param" (length (opParameters op) == 1)
+  assert "Stacked: param name 'p'" (paramName (head (opParameters op)) == "p")
+  assert "Stacked: method GET" (opMethod op == "GET")
+  assert "Stacked: path /z" (opPath op == "/z")
+
+
 main :: IO ()
 main = do
   putStrLn "servant-reimagined-openapi tests:"
@@ -219,5 +298,23 @@ main = do
   putStrLn ""
   putStrLn "Named API spec generation:"
   testNamedApiSpec
+  putStrLn ""
+  putStrLn "Describe wrapper:"
+  testDescribe
+  putStrLn ""
+  putStrLn "RespondsWith wrapper:"
+  testRespondsWith
+  putStrLn ""
+  putStrLn "WithParams wrapper:"
+  testWithParams
+  putStrLn ""
+  putStrLn "WithHeaders wrapper:"
+  testWithHeaders
+  putStrLn ""
+  putStrLn "Versioned wrapper (OpenAPI):"
+  testVersionedOpenApi
+  putStrLn ""
+  putStrLn "Stacked wrappers:"
+  testStackedWrappers
   putStrLn ""
   putStrLn "All servant-reimagined-openapi tests passed."

@@ -20,6 +20,7 @@ library
     Servant.Reimagined.Client.Call
     Servant.Reimagined.Client.Cookies
     Servant.Reimagined.Client.Core
+    Servant.Reimagined.Client.Named
     Servant.Reimagined.Client.Retry
 
   build-depends:

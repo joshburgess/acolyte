@@ -30,7 +30,10 @@ import qualified Servant.Reimagined.Core.Method as Core
 import Servant.Reimagined.Core.Path (PathSegment (..), Captures, CapturesTuple)
 import Servant.Reimagined.Core.Endpoint (Endpoint, NoBody)
 import Servant.Reimagined.Core.Effect (Requires)
-import Servant.Reimagined.Core.Wrapper (Named)
+import Servant.Reimagined.Core.Wrapper
+  ( Named, Versioned, ApiVersion (..), Describe
+  , WithParams, WithHeaders, RespondsWith
+  )
 import Servant.Reimagined.Client.Core
 
 
@@ -98,6 +101,39 @@ instance EndpointRequest inner => EndpointRequest (Requires e inner) where
 instance EndpointRequest inner => EndpointRequest (Named name inner) where
   type ReqArgs (Named name inner) = ReqArgs inner
   type ReqResult (Named name inner) = ReqResult inner
+  buildReq _ = buildReq (Proxy @inner)
+
+-- Versioned prepends the version prefix to URL segments
+instance (ApiVersion v, EndpointRequest inner)
+  => EndpointRequest (Versioned v inner) where
+    type ReqArgs (Versioned v inner) = ReqArgs inner
+    type ReqResult (Versioned v inner) = ReqResult inner
+    buildReq _ args =
+      let (method, segments, mBody) = buildReq (Proxy @inner) args
+      in (method, versionPrefix @v : segments, mBody)
+
+-- Describe delegates to inner (description is irrelevant for client calls)
+instance EndpointRequest inner => EndpointRequest (Describe desc inner) where
+  type ReqArgs (Describe desc inner) = ReqArgs inner
+  type ReqResult (Describe desc inner) = ReqResult inner
+  buildReq _ = buildReq (Proxy @inner)
+
+-- WithParams delegates to inner (query params are not path-level)
+instance EndpointRequest inner => EndpointRequest (WithParams ps inner) where
+  type ReqArgs (WithParams ps inner) = ReqArgs inner
+  type ReqResult (WithParams ps inner) = ReqResult inner
+  buildReq _ = buildReq (Proxy @inner)
+
+-- WithHeaders delegates to inner (headers are separate from path/body)
+instance EndpointRequest inner => EndpointRequest (WithHeaders hs inner) where
+  type ReqArgs (WithHeaders hs inner) = ReqArgs inner
+  type ReqResult (WithHeaders hs inner) = ReqResult inner
+  buildReq _ = buildReq (Proxy @inner)
+
+-- RespondsWith delegates to inner (status code is irrelevant for client calls)
+instance EndpointRequest inner => EndpointRequest (RespondsWith s inner) where
+  type ReqArgs (RespondsWith s inner) = ReqArgs inner
+  type ReqResult (RespondsWith s inner) = ReqResult inner
   buildReq _ = buildReq (Proxy @inner)
 
 

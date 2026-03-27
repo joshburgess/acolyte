@@ -19,7 +19,7 @@ import Data.Kind (Type)
 import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import qualified Data.Text as T
-import GHC.TypeLits (KnownSymbol, symbolVal)
+import GHC.TypeLits (KnownSymbol, KnownNat, symbolVal, natVal)
 import Network.HTTP.Types (Method)
 
 import Servant.Reimagined.Core.Method (KnownMethod, methodVal)
@@ -28,7 +28,8 @@ import Servant.Reimagined.Core.Path (PathSegment (..))
 import Servant.Reimagined.Core.Endpoint (Endpoint, NoBody)
 import Servant.Reimagined.Core.Effect (Requires)
 import Servant.Reimagined.Core.Wrapper
-  ( Describe, Named, WithParams, WithHeaders
+  ( Describe, Named, Versioned, ApiVersion (..)
+  , WithParams, QP, WithHeaders, HH
   , ServerStream, ClientStream, BidiStream, RespondsWith
   )
 import Servant.Reimagined.OpenApi.Schema (Schema (..), ToSchema (..), schemaToJson)
@@ -64,6 +65,9 @@ opToJson op = object $ concat
   [ case opOperationId op of
       Nothing  -> []
       Just oid -> ["operationId" .= oid]
+  , case opSummary op of
+      Nothing -> []
+      Just s  -> ["summary" .= s]
   , [ "responses" .= object
         [ Key.fromText (T.pack (show (opStatusCode op))) .= responseObj ]
     ]
@@ -98,6 +102,7 @@ data Operation = Operation
   { opMethod         :: !Text
   , opPath           :: !Text
   , opOperationId    :: !(Maybe Text)
+  , opSummary        :: !(Maybe Text)
   , opParameters     :: ![Parameter]
   , opStatusCode     :: !Int
   , opResponseSchema :: !(Maybe Schema)
@@ -141,9 +146,10 @@ instance (KnownMethod m, ReflectPathOA path, m ~ 'Core.GET)
       { opMethod         = T.pack (show (methodVal @m))
       , opPath           = reflectOAPath @path
       , opOperationId    = Nothing
+      , opSummary        = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
-      , opResponseSchema = Nothing  -- would need ToSchema resp constraint
+      , opResponseSchema = Nothing
       , opRequestBody    = Nothing
       }
 
@@ -153,6 +159,7 @@ instance (ReflectPathOA path)
       { opMethod         = "DELETE"
       , opPath           = reflectOAPath @path
       , opOperationId    = Nothing
+      , opSummary        = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
       , opResponseSchema = Nothing
@@ -166,10 +173,11 @@ instance (ReflectPathOA path)
       { opMethod         = "POST"
       , opPath           = reflectOAPath @path
       , opOperationId    = Nothing
+      , opSummary        = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 201
       , opResponseSchema = Nothing
-      , opRequestBody    = Nothing  -- would need ToSchema req constraint
+      , opRequestBody    = Nothing
       }
 
 -- PUT (with request body)
@@ -179,6 +187,7 @@ instance (ReflectPathOA path)
       { opMethod         = "PUT"
       , opPath           = reflectOAPath @path
       , opOperationId    = Nothing
+      , opSummary        = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
       , opResponseSchema = Nothing
@@ -192,6 +201,7 @@ instance (ReflectPathOA path)
       { opMethod         = "PATCH"
       , opPath           = reflectOAPath @path
       , opOperationId    = Nothing
+      , opSummary        = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
       , opResponseSchema = Nothing
@@ -203,20 +213,26 @@ instance EndpointToOperation inner
   => EndpointToOperation (Requires e inner) where
     toOperation = toOperation @inner
 
--- Describe delegates (transparent annotation)
-instance EndpointToOperation inner
+-- Describe extracts the endpoint summary from the type-level description
+instance (KnownSymbol desc, EndpointToOperation inner)
   => EndpointToOperation (Describe desc inner) where
-    toOperation = toOperation @inner
+    toOperation =
+      let op = toOperation @inner
+      in op { opSummary = Just (T.pack (symbolVal (Proxy @desc))) }
 
--- WithParams delegates (transparent annotation)
-instance EndpointToOperation inner
+-- WithParams reflects query parameters into the operation
+instance (ReflectParams ps, EndpointToOperation inner)
   => EndpointToOperation (WithParams ps inner) where
-    toOperation = toOperation @inner
+    toOperation =
+      let op = toOperation @inner
+      in op { opParameters = opParameters op ++ reflectParams @ps }
 
--- WithHeaders delegates (transparent annotation)
-instance EndpointToOperation inner
+-- WithHeaders reflects header parameters into the operation
+instance (ReflectHeaders hs, EndpointToOperation inner)
   => EndpointToOperation (WithHeaders hs inner) where
-    toOperation = toOperation @inner
+    toOperation =
+      let op = toOperation @inner
+      in op { opParameters = opParameters op ++ reflectHeaders @hs }
 
 -- ServerStream delegates (streaming marker)
 instance EndpointToOperation inner
@@ -233,10 +249,12 @@ instance EndpointToOperation inner
   => EndpointToOperation (BidiStream inner) where
     toOperation = toOperation @inner
 
--- RespondsWith delegates (status code annotation)
-instance EndpointToOperation inner
+-- RespondsWith extracts the status code from the type-level Nat
+instance (KnownNat s, EndpointToOperation inner)
   => EndpointToOperation (RespondsWith s inner) where
-    toOperation = toOperation @inner
+    toOperation =
+      let op = toOperation @inner
+      in op { opStatusCode = fromIntegral (natVal (Proxy @s)) }
 
 -- Named sets operationId from the type-level name
 instance (KnownSymbol name, EndpointToOperation inner)
@@ -244,6 +262,55 @@ instance (KnownSymbol name, EndpointToOperation inner)
     toOperation =
       let op = toOperation @inner
       in op { opOperationId = Just (T.pack (symbolVal (Proxy @name))) }
+
+-- Versioned prepends the version prefix to the path
+instance (ApiVersion v, EndpointToOperation inner)
+  => EndpointToOperation (Versioned v inner) where
+    toOperation =
+      let op = toOperation @inner
+      in op { opPath = "/" <> versionPrefix @v <> opPath op }
+
+
+-- ===================================================================
+-- Query parameter reflection
+-- ===================================================================
+
+-- | Reflect type-level query parameter declarations into runtime Parameter values.
+class ReflectParams (ps :: [Type]) where
+  reflectParams :: [Parameter]
+
+instance ReflectParams '[] where
+  reflectParams = []
+
+instance (KnownSymbol name, ReflectParams rest)
+  => ReflectParams (QP name a ': rest) where
+    reflectParams = Parameter
+      { paramName     = T.pack (symbolVal (Proxy @name))
+      , paramIn       = "query"
+      , paramRequired = False
+      , paramSchema   = Schema "string" [] Nothing Nothing
+      } : reflectParams @rest
+
+
+-- ===================================================================
+-- Header parameter reflection
+-- ===================================================================
+
+-- | Reflect type-level header declarations into runtime Parameter values.
+class ReflectHeaders (hs :: [Type]) where
+  reflectHeaders :: [Parameter]
+
+instance ReflectHeaders '[] where
+  reflectHeaders = []
+
+instance (KnownSymbol name, ReflectHeaders rest)
+  => ReflectHeaders (HH name a ': rest) where
+    reflectHeaders = Parameter
+      { paramName     = T.pack (symbolVal (Proxy @name))
+      , paramIn       = "header"
+      , paramRequired = True
+      , paramSchema   = Schema "string" [] Nothing Nothing
+      } : reflectHeaders @rest
 
 
 -- ===================================================================

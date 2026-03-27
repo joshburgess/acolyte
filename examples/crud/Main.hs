@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 -- | CRUD API with structured error handling, named routes, and type annotations.
 --
 -- Run:  cabal run crud
@@ -80,11 +79,11 @@ type ItemsPath  = At "items"
 type ItemPath   = Param "items" Int
 
 type CrudAPI =
-  '[ Describe "List all items" (WithParams '[QP "limit" Int] (Get ItemsPath (Json [Item])))
-   , Describe "Create a new item" (Post ItemsPath (Json CreateItem) (Json Item))
-   , Describe "Get item by ID" (Get ItemPath (Json Item))
-   , Describe "Update an item" (Put ItemPath (Json CreateItem) (Json Item))
-   , Describe "Delete an item" (Delete ItemPath (Json Item))
+  '[ Named "listItems"  (Describe "List all items" (WithParams '[QP "limit" Int] (Get ItemsPath (Json [Item]))))
+   , Named "createItem" (Describe "Create a new item" (Post ItemsPath (Json CreateItem) (Json Item)))
+   , Named "getItem"    (Describe "Get item by ID" (Get ItemPath (Json Item)))
+   , Named "updateItem" (Describe "Update an item" (Put ItemPath (Json CreateItem) (Json Item)))
+   , Named "deleteItem" (Describe "Delete an item" (Delete ItemPath (Json Item)))
    ]
 
 
@@ -137,38 +136,21 @@ deleteItemH ref (PathCapture iid) = do
 -- Named routes record
 -- ===================================================================
 
--- | Handler record for CrudAPI — fields correspond positionally to endpoints.
+-- | Handler record for CrudAPI — field names match Named endpoint labels.
 data CrudHandlers = CrudHandlers
-  { hListItems  :: IO (Json [Item])
-  , hCreateItem :: JsonBody CreateItem -> IO (Json Item)
-  , hGetItem    :: PathCapture Int -> IO (Either AppError (Json Item))
-  , hUpdateItem :: PathCapture Int -> JsonBody CreateItem -> IO (Either AppError (Json Item))
-  , hDeleteItem :: PathCapture Int -> IO (Either AppError (Json Item))
+  { listItems  :: IO (Json [Item])
+  , createItem :: JsonBody CreateItem -> IO (Json Item)
+  , getItem    :: PathCapture Int -> IO (Either AppError (Json Item))
+  , updateItem :: PathCapture Int -> JsonBody CreateItem -> IO (Either AppError (Json Item))
+  , deleteItem :: PathCapture Int -> IO (Either AppError (Json Item))
   }
-
-type HandlerTuple =
-  ( IO (Json [Item])
-  , JsonBody CreateItem -> IO (Json Item)
-  , PathCapture Int -> IO (Either AppError (Json Item))
-  , PathCapture Int -> JsonBody CreateItem -> IO (Either AppError (Json Item))
-  , PathCapture Int -> IO (Either AppError (Json Item))
-  )
-
-instance NamedApi CrudAPI CrudHandlers HandlerTuple where
-  toHandlerTuple h =
-    ( hListItems h
-    , hCreateItem h
-    , hGetItem h
-    , hUpdateItem h
-    , hDeleteItem h
-    )
 
 
 -- ===================================================================
 -- Server + main
 -- ===================================================================
 
--- Alternative: positional wiring
+-- Alternative: positional wiring (Named is transparent to tuples)
 -- server store = mkApi @CrudAPI
 --   ( listItemsH store
 --   , createItemH store
@@ -178,12 +160,12 @@ instance NamedApi CrudAPI CrudHandlers HandlerTuple where
 --   )
 
 server :: Store -> Service IO (Request ByteString) (Response ByteString)
-server store = mkNamedApi @CrudAPI CrudHandlers
-  { hListItems  = listItemsH store
-  , hCreateItem = createItemH store
-  , hGetItem    = getItemH store
-  , hUpdateItem = updateItemH store
-  , hDeleteItem = deleteItemH store
+server store = mkRecordApi @CrudAPI CrudHandlers
+  { listItems  = listItemsH store
+  , createItem = createItemH store
+  , getItem    = getItemH store
+  , updateItem = updateItemH store
+  , deleteItem = deleteItemH store
   }
 
 main :: IO ()

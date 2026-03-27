@@ -77,4 +77,9 @@ main = do
     >>= assert "Serves rejects wrong arity with Named endpoints"
   putStrLn ""
 
+  putStrLn "LookupNamed (negative):"
+  shouldFailToCompile "LookupNamedMissing.hs" "not found in API"
+    >>= assert "LookupNamed rejects missing endpoint name"
+  putStrLn ""
+
   putStrLn "All Named compile-time error tests (core) passed."

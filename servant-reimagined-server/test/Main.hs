@@ -1498,6 +1498,31 @@ testNamedWithTuples = do
 
 
 -- ===================================================================
+-- Test: Versioned routing
+-- ===================================================================
+
+data V1
+instance ApiVersion V1 where versionPrefix = "v1"
+
+type VersionedHealthAPI = '[ Versioned V1 (Get HealthPath Text) ]
+
+testVersionedRouting :: IO ()
+testVersionedRouting = do
+  let svc = mkApi @VersionedHealthAPI (pure "ok" :: IO Text)
+
+  -- GET /v1/health -> 200
+  req1 <- mkReq "GET" ["v1", "health"] "/v1/health" ""
+  resp1 <- runService svc req1
+  assert "versioned: GET /v1/health -> 200" (statusCode (responseStatus resp1) == 200)
+  assert "versioned: GET /v1/health -> 'ok'" (responseBody resp1 == "ok")
+
+  -- GET /health -> 404 (version prefix required)
+  req2 <- mkReq "GET" ["health"] "/health" ""
+  resp2 <- runService svc req2
+  assert "versioned: GET /health -> 404" (statusCode (responseStatus resp2) == 404)
+
+
+-- ===================================================================
 -- Main
 -- ===================================================================
 
@@ -1630,5 +1655,8 @@ main = do
   putStrLn ""
   putStrLn "Named endpoints with tuples (transparency):"
   testNamedWithTuples
+  putStrLn ""
+  putStrLn "Versioned routing:"
+  testVersionedRouting
   putStrLn ""
   putStrLn "All servant-reimagined-server tests passed."

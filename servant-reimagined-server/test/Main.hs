@@ -1523,6 +1523,50 @@ testVersionedRouting = do
 
 
 -- ===================================================================
+-- Test: ValidatedBody extraction
+-- ===================================================================
+
+data NonEmptyValidator
+
+instance Validate NonEmptyValidator Text where
+  validate t
+    | T.null t  = Left "must not be empty"
+    | otherwise = Right t
+
+testValidatedBody :: IO ()
+testValidatedBody = do
+  let handler :: ValidatedBody NonEmptyValidator Text -> IO (Json Text)
+      handler (ValidatedBody t) = pure (Json t)
+  let svc = mkApi @'[Post (At "items") (Json Text) (Json Text)] handler
+
+  -- Valid body
+  req1 <- mkReq "POST" ["items"] "/items" "\"hello\""
+  resp1 <- runService svc req1
+  assert "validated: valid body -> 200" (statusCode (responseStatus resp1) == 200)
+
+  -- Invalid body (empty string)
+  req2 <- mkReq "POST" ["items"] "/items" "\"\""
+  resp2 <- runService svc req2
+  assert "validated: empty body -> 422" (statusCode (responseStatus resp2) == 422)
+
+
+-- ===================================================================
+-- Test: SSE chunk encoding
+-- ===================================================================
+
+testSSEChunk :: IO ()
+testSSEChunk = do
+  let chunk = sseChunk (sseData ("hello" :: Text))
+  assert "SSE: chunk contains data:" (BS.isInfixOf "data: " chunk)
+  assert "SSE: chunk contains payload" (BS.isInfixOf "hello" chunk)
+  assert "SSE: chunk ends with double newline" (BS.isSuffixOf "\n\n" chunk)
+
+  -- With event type
+  let chunk2 = sseChunk (sseEvent "update" ("world" :: Text))
+  assert "SSE: event type present" (BS.isInfixOf "event: update" chunk2)
+
+
+-- ===================================================================
 -- Main
 -- ===================================================================
 
@@ -1658,5 +1702,11 @@ main = do
   putStrLn ""
   putStrLn "Versioned routing:"
   testVersionedRouting
+  putStrLn ""
+  putStrLn "ValidatedBody extraction:"
+  testValidatedBody
+  putStrLn ""
+  putStrLn "SSE chunk encoding:"
+  testSSEChunk
   putStrLn ""
   putStrLn "All servant-reimagined-server tests passed."

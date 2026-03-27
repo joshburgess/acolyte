@@ -78,4 +78,9 @@ main = do
     >>= assert "mkRecordApi rejects record with wrong/missing fields"
   putStrLn ""
 
+  putStrLn "Protected endpoint without auth argument (negative):"
+  shouldFailToCompile "ProtectedWrongAuth.hs" "must be a function"
+    >>= assert "Protected rejects handler without auth argument"
+  putStrLn ""
+
   putStrLn "All Named server compile-time error tests passed."

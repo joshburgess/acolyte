@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 module Main (main) where
@@ -7,6 +8,7 @@ module Main (main) where
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Proxy (Proxy (..))
+import GHC.Generics (Generic)
 import Network.HTTP.Types (status200, status502, status503, status504)
 
 import Servant.Reimagined.Core
@@ -186,6 +188,21 @@ testCookieJar = do
   assert "cookies: multiple jars are independent" True
 
 
+-- ===================================================================
+-- mkClientRecord compile-time type test
+-- ===================================================================
+
+data TestClientRecord = TestClientRecord
+  { health  :: () -> IO (Either ClientError Text)
+  , getUser :: Int -> IO (Either ClientError Text)
+  } deriving (Generic)
+
+-- This compile-time assertion verifies the Generic machinery resolves.
+-- If GBuildClientRecord can't match the field names/types, this won't compile.
+_mkClientRecordType :: Client -> TestClientRecord
+_mkClientRecordType = mkClientRecord @NamedAPI
+
+
 main :: IO ()
 main = do
   putStrLn "servant-reimagined-client tests:"
@@ -219,5 +236,8 @@ main = do
   putStrLn "  OK: LookupNamed \"health\" NamedAPI ~ Named \"health\" (Get HealthPath Text)"
   putStrLn "  OK: LookupNamed \"getUser\" NamedAPI ~ Named \"getUser\" (Get UserByIdPath Text)"
   putStrLn "  OK: callNamed resolves via LookupNamed"
+  putStrLn ""
+  putStrLn "mkClientRecord type resolution (compile-time):"
+  putStrLn "  OK: mkClientRecord @NamedAPI :: Client -> TestClientRecord"
   putStrLn ""
   putStrLn "All servant-reimagined-client tests passed."

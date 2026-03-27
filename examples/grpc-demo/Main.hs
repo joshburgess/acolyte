@@ -25,7 +25,7 @@ import qualified Data.Aeson as Aeson
 import GHC.Generics (Generic)
 
 import Servant.Reimagined.Prelude
-import Servant.Reimagined.OpenApi (generateSpec)
+import Servant.Reimagined.OpenApi (generateSpec, ToSchema)
 import Servant.Reimagined.Grpc
   ( GrpcCodec(..), ProtoMessageName(..), HasProtoFields(..)
   , ProtoField(..), ProtoFieldType(..)
@@ -40,13 +40,13 @@ import Tower.Server.H2 (runServerH2, defaultH2Config)
 -- ===================================================================
 
 data GreetRequest = GreetRequest { name :: !Text }
-  deriving (Generic, ToJSON, FromJSON)
+  deriving (Generic, ToJSON, FromJSON, ToSchema)
 
 data GreetReply = GreetReply { message :: !Text }
-  deriving (Generic, ToJSON, FromJSON)
+  deriving (Generic, ToJSON, FromJSON, ToSchema)
 
 data HealthReply = HealthReply { status :: !Text }
-  deriving (Generic, ToJSON, FromJSON)
+  deriving (Generic, ToJSON, FromJSON, ToSchema)
 
 -- GrpcCodec: simple UTF-8 encoding for the demo
 instance GrpcCodec GreetRequest where

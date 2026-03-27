@@ -327,6 +327,68 @@ testBodySchemas = do
     Nothing -> error "FAIL: no response schema for Generic type"
 
 
+-- ===================================================================
+-- CaptureNamed test
+-- ===================================================================
+
+testCaptureNamed :: IO ()
+testCaptureNamed = do
+  let op = toOperation @(Get (ParamNamed "userId" "users" Int) Text)
+  assert "CaptureNamed: path has named param" (opPath op == "/users/{userId}")
+  assert "CaptureNamed: param name is userId" (paramName (head (opParameters op)) == "userId")
+
+
+-- ===================================================================
+-- Description test
+-- ===================================================================
+
+testDescription :: IO ()
+testDescription = do
+  let op = toOperation @(Description "Detailed docs here" (Get HealthPath Text))
+  assert "Description: opDescription set" (opDescription op == Just "Detailed docs here")
+  assert "Description: summary unset" (opSummary op == Nothing)
+  -- Describe + Description stacking
+  let op2 = toOperation @(Describe "Short" (Description "Long" (Get HealthPath Text)))
+  assert "Describe+Description: summary" (opSummary op2 == Just "Short")
+  assert "Describe+Description: description" (opDescription op2 == Just "Long")
+
+
+-- ===================================================================
+-- Sum type / enum schema test
+-- ===================================================================
+
+data Color = Red | Green | Blue deriving (Generic)
+instance ToSchema Color
+
+data Shape = Circle { radius :: Double } | Rectangle { width :: Double, height :: Double }
+  deriving (Generic)
+instance ToSchema Shape
+
+testSumTypeSchema :: IO ()
+testSumTypeSchema = do
+  -- Sum type with constructors produces oneOf
+  let schema = toSchema @Shape
+  assert "Sum type: has oneOf" (schemaOneOf schema /= Nothing)
+  case schemaOneOf schema of
+    Just variants -> assert "Sum type: 2 variants" (length variants == 2)
+    Nothing -> error "FAIL: expected oneOf"
+
+  -- Either produces oneOf
+  let eitherSchema = toSchema @(Either Text Int)
+  assert "Either: has oneOf" (schemaOneOf eitherSchema /= Nothing)
+
+
+-- ===================================================================
+-- CaptureNamed body schema test
+-- ===================================================================
+
+testCaptureNamedBodySchema :: IO ()
+testCaptureNamedBodySchema = do
+  let op = toOperation @(Post (ParamNamed "userId" "users" Int) (Json Text) (Json Text))
+  assert "CaptureNamed POST: has request body" (opRequestBody op /= Nothing)
+  assert "CaptureNamed POST: has response schema" (opResponseSchema op /= Nothing)
+
+
 main :: IO ()
 main = do
   putStrLn "servant-reimagined-openapi tests:"
@@ -384,5 +446,17 @@ main = do
   putStrLn ""
   putStrLn "Body schemas:"
   testBodySchemas
+  putStrLn ""
+  putStrLn "CaptureNamed:"
+  testCaptureNamed
+  putStrLn ""
+  putStrLn "Description wrapper:"
+  testDescription
+  putStrLn ""
+  putStrLn "Sum type / enum schema:"
+  testSumTypeSchema
+  putStrLn ""
+  putStrLn "CaptureNamed body schema:"
+  testCaptureNamedBodySchema
   putStrLn ""
   putStrLn "All servant-reimagined-openapi tests passed."

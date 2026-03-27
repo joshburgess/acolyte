@@ -668,7 +668,7 @@ type family AllEffectsProvided (api :: [Type]) (provided :: [Effect]) :: Constra
 ```
 Servant.Reimagined.Core
 ├── Servant.Reimagined.Core.API          -- ApiSpec type family, api-level combinators
-├── Servant.Reimagined.Core.Endpoint     -- Endpoint, Get, Post, Put, Delete, Patch
+├── Servant.Reimagined.Core.Endpoint     -- Endpoint, Get, Post, Put, Delete, Patch, Json newtype
 ├── Servant.Reimagined.Core.Path         -- PathSegment, Lit, Capture, CaptureRest
 ├── Servant.Reimagined.Core.Path.Parse   -- Captures type family, CapturesTuple
 ├── Servant.Reimagined.Core.Method       -- Method kind (GET, POST, etc.)
@@ -755,7 +755,12 @@ class IntoResponse a where
 class Handler args result where
   handle :: (args -> IO result) -> BoundHandler
 
--- | The API completeness check
+-- | The API completeness check.
+-- Handler tuples are matched to API endpoints via BuildApi.
+-- BuildApi uses a SplitTuple type class to decompose arbitrary-arity
+-- tuples into head + tail, then two recursive BuildApi instances
+-- (one for Named endpoints, one for plain endpoints) walk the API list.
+-- This replaced the original 25 flat arity-specific instances.
 class Serves (api :: [Type]) handlers where
   boundHandlers :: handlers -> [BoundHandler]
 
@@ -796,7 +801,7 @@ Servant.Reimagined.Server
 ├── Servant.Reimagined.Server.Extract.Query-- QueryParams extractor
 ├── Servant.Reimagined.Server.Extract.State-- AppState extractor
 ├── Servant.Reimagined.Server.Extract.Header -- ReqHeader extractor
-├── Servant.Reimagined.Server.Response     -- IntoResponse class, Json, StatusCode
+├── Servant.Reimagined.Server.Response     -- IntoResponse class, StatusCode (Json newtype is in core)
 ├── Servant.Reimagined.Server.Router       -- Routing dispatch
 ├── Servant.Reimagined.Server.Serves       -- Serves class (compile-time completeness)
 ├── Servant.Reimagined.Server.Named        -- Named endpoints: mkRecordApi, BuildRecordApi
@@ -864,7 +869,11 @@ Servant.Reimagined.Client
 
 **Purpose:** Generates an OpenAPI 3.1 specification from the API type. Paths,
 methods, request/response schemas, security requirements, deprecation markers,
-and content types are all derived from the types.
+and content types are all derived from the types. Annotation wrappers produce
+real spec content: `Describe` sets `opSummary`, `WithParams` populates query
+parameter schemas, `WithHeaders` populates header parameter schemas,
+`RespondsWith` sets response status codes, and request/response body types
+are turned into JSON schemas via `ToSchema` constraints.
 
 **Depends on:** `servant-reimagined-core`, `aeson`, `text`,
 `unordered-containers`
@@ -883,10 +892,19 @@ class ApiToSpec (api :: [Type]) where
 class EndpointToOperation endpoint where
   toOperation :: Proxy endpoint -> Operation
 
--- | JSON Schema derivation (via GHC.Generics or aeson-schemas)
+-- | JSON Schema derivation (via GHC.Generics or aeson-schemas).
+-- Records with deriving Generic get automatic instances via
+-- genericToSchema, which walks GHC.Generics Rep to extract
+-- field names and types.
 class ToSchema a where
   toSchema :: Proxy a -> Schema
 ```
+
+The `Json` newtype (`newtype Json a = Json { unJson :: a }`) lives in
+`Servant.Reimagined.Core.Endpoint` so that both the server and openapi
+packages can reference it. The openapi package provides
+`ToSchema (Json a)` which delegates to the inner type's `ToSchema`
+instance.
 
 **Module structure:**
 

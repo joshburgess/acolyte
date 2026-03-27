@@ -3,7 +3,7 @@ module NamedArityMismatch where
 import Servant.Reimagined.Core
 import Data.Text (Text)
 
-data User; data Json a; data H1; data H2; data H3
+data User; data H1; data H2; data H3
 
 type NamedAPI =
   '[ Named "health" (Get (At "health") Text)

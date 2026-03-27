@@ -263,7 +263,7 @@ The server produces a `Service` — it doesn't know or care what runs it.
 | [`tower-grpc`](tower-grpc/) | gRPC wire protocol: framing, status codes, service dispatch. No protobuf dependency. |
 | [`servant-reimagined-server`](servant-reimagined-server/) | Handler wiring, routing, extractors, effect tracking. |
 | [`servant-reimagined-client`](servant-reimagined-client/) | Type-safe HTTP client derived from the same API type. |
-| [`servant-reimagined-openapi`](servant-reimagined-openapi/) | OpenAPI 3.1 + Swagger 2.0 spec generation from API types. |
+| [`servant-reimagined-openapi`](servant-reimagined-openapi/) | OpenAPI 3.1 + Swagger 2.0 spec generation from API types. Annotations (`Describe`, `WithParams`, `WithHeaders`, `RespondsWith`) populate real operation summaries, parameter schemas, status codes, and request/response body schemas. Custom types get schemas automatically via `Generic`-based `ToSchema` derivation. |
 | [`servant-reimagined-codegen`](servant-reimagined-codegen/) | Generate API types from OpenAPI/Swagger specs. |
 | [`servant-reimagined-grpc`](servant-reimagined-grpc/) | gRPC interpretation: `GrpcCodec`, `GrpcReady`, `.proto` generation, `mkGrpcServiceMap`. |
 | [`servant-reimagined-test`](servant-reimagined-test/) | Direct-dispatch testing: no network, no ports. |
@@ -303,9 +303,11 @@ The `examples/` directory contains 11 complete applications:
   for full benchmarks and analysis.
 - **Optional type-level annotations.** Endpoints can be wrapped with
   `Describe`, `WithParams`, `WithHeaders`, `RespondsWith` / `PostCreated` /
-  `DeleteNoContent`, and streaming markers (`ServerStream`, `ClientStream`,
-  `BidiStream`) for richer OpenAPI specs and client generation -- without
-  changing routing or handler signatures. See the
+  `DeleteNoContent`, `Versioned`, and streaming markers (`ServerStream`,
+  `ClientStream`, `BidiStream`) for richer OpenAPI specs and client
+  generation -- without changing routing or handler signatures.
+  `Versioned V1 (Get ...)` routes to `/v1/...` and is supported by the
+  server, client, and OpenAPI interpretations. See the
   [tutorial](docs/TUTORIAL.md#step-8-annotating-endpoints-for-documentation)
   for details.
 - **Named endpoints.** Wrap endpoints with `Named "fieldName"` to enable

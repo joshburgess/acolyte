@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### New Features
+- **Versioned endpoint routing:** `Versioned V1 (Get ...)` routes to `/v1/...`. Server, client, and OpenAPI all support the `Versioned` wrapper.
+- **`callNamed`:** Look up client endpoints by name with `callNamed @"getUser" @API client 42`, powered by a `LookupNamed` type family.
+- **Generic-based `ToSchema` derivation:** Records with `deriving Generic` get automatic `ToSchema` instances via `genericToSchema`, which walks `GHC.Generics` `Rep` to extract field names and types.
+
+### OpenAPI
+- `Describe "text"` now sets `opSummary` in the generated spec.
+- `RespondsWith 204` now sets the response status code.
+- `WithParams '[QP "page" Int]` produces query parameter schemas.
+- `WithHeaders '[HH "Authorization" Text]` produces header parameter schemas.
+- Request and response body schemas are now populated via `ToSchema` constraints (previously skeleton-only).
+- `ToSchema (Json a)` instance delegates to the inner type's schema.
+
+### Refactoring
+- **`Json` newtype moved to core:** `newtype Json a = Json { unJson :: a }` now lives in `Servant.Reimagined.Core.Endpoint`, accessible to both server and openapi packages.
+- **`BuildApi` refactored:** 25 flat arity-specific instances replaced with a `SplitTuple` type class and 2 recursive `BuildApi` instances.
+- **Crud example updated:** Now uses `Named` + `mkRecordApi` instead of the manual `NamedApi`/`mkNamedApi` pattern.
+
+### Client
+- Added `EndpointRequest` delegation instances for `Versioned`, `Describe`, `WithParams`, `WithHeaders`, and `RespondsWith` wrappers.
+
 ## 0.1.0.0 — Initial release
 
 ### Core Framework

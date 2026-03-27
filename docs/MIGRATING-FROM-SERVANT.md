@@ -145,6 +145,18 @@ server = mkRecordApi @API Handlers { ... }
 `Named` is transparent to routing — you can still use tuples with Named
 endpoints if you prefer. It also sets `operationId` in OpenAPI specs.
 
+For clients, `callNamed` lets you call an endpoint by its type-level
+name instead of by index:
+
+```haskell
+-- Look up "getUser" in the API by name and call it:
+result <- callNamed @"getUser" @API client 42
+```
+
+This uses a `LookupNamed` type family to find the endpoint in the API
+list by its `Named` label, so you get a compile error if the name
+doesn't exist.
+
 The older `mkNamedApi` + manual `NamedApi` instance approach is still
 available for APIs without `Named` wrappers.
 
@@ -183,7 +195,11 @@ What changed:
   the Servant `QueryParam` behavior (returns `Maybe`)
 - `QueryParams` handles repeated params (Servant's `QueryParams`)
 - For OpenAPI/client generation, you can declare params at the type level
-  with `WithParams` — this is optional and doesn't affect routing:
+  with `WithParams` — this is optional and doesn't affect routing. The
+  OpenAPI generator produces real query parameter schemas from these
+  declarations, and request/response body types are turned into JSON
+  schemas via `ToSchema` constraints (with `Generic`-based automatic
+  derivation for record types):
   ```haskell
   WithParams '[QP "page" Int, QP "limit" Int] (Get UsersPath (Json [User]))
   ```
@@ -506,4 +522,6 @@ Run `bash bench/compile-time/run-bench.sh` to verify on your machine.
 | `PostCreated '[JSON] a` | `PostCreated path req resp` (201 status) |
 | `DeleteNoContent` | `DeleteNoContent path` (204 status) |
 | `StreamBody ...` | `ServerStream`, `ClientStream`, `BidiStream` |
+| (no equivalent) | `Versioned V1 (Get ...)` (routes to `/v1/...`) |
+| (no equivalent) | `callNamed @"name" @API client args` (named client calls) |
 | `server = h1 :<\|> h2` | `mkRecordApi @API record` (named routes) |

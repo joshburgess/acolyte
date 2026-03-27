@@ -336,12 +336,55 @@ These wrappers are transparent to routing -- the router unwraps them
 and dispatches as usual. Your handlers don't change. The metadata is
 consumed by:
 
-- **OpenAPI generation:** `Describe` becomes the operation summary,
-  `WithParams` populates parameter schemas, `RespondsWith` sets the
-  status code.
+- **OpenAPI generation:** `Describe` sets `opSummary` in the spec,
+  `WithParams` populates query parameter schemas, `WithHeaders`
+  populates header parameter schemas, `RespondsWith` sets the response
+  status code, and request/response body types are turned into real
+  JSON schemas via `ToSchema` constraints. Custom record types get
+  automatic `ToSchema` instances through `Generic`-based derivation --
+  just add `deriving Generic` to your data types and `genericToSchema`
+  walks the `GHC.Generics` `Rep` to extract field names and types.
 - **Client generation:** `WithParams` and `WithHeaders` produce typed
   helper arguments.
 - **`.proto` generation:** streaming markers control the RPC shape.
+
+### Versioned endpoints
+
+Use `Versioned` to prefix routes with a version segment. The version
+is part of the type, so the server, client, and OpenAPI spec all agree
+on the URL shape:
+
+```haskell
+type API =
+  '[ Versioned V1 (Get UsersPath (Json [User]))     -- GET /v1/users
+   , Versioned V2 (Get UsersPath (Json [UserV2]))   -- GET /v2/users
+   ]
+```
+
+`Versioned` is transparent to handlers -- the router prepends the
+version prefix automatically. The OpenAPI spec includes the versioned
+path.
+
+### Generic ToSchema derivation
+
+If your response or request types are records with `deriving Generic`,
+you get `ToSchema` instances for free:
+
+```haskell
+data Bookmark = Bookmark
+  { bookmarkId  :: Int
+  , bookmarkUrl :: Text
+  , bookmarkTag :: Maybe Text
+  } deriving (Generic)
+
+-- genericToSchema walks GHC.Generics Rep to produce a JSON Schema
+-- with properties "bookmarkId", "bookmarkUrl", "bookmarkTag".
+instance ToSchema Bookmark where
+  toSchema = genericToSchema
+```
+
+This populates request and response body schemas in the generated
+OpenAPI spec.
 
 For gRPC streaming, mark endpoints with `ServerStream`, `ClientStream`,
 or `BidiStream`:

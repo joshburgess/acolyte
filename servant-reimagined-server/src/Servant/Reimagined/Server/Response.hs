@@ -22,6 +22,7 @@ import Network.HTTP.Types
 import qualified Data.Aeson as Aeson
 
 import Http.Core (Response (..))
+import Servant.Reimagined.Core.Endpoint (Json (..))
 import Servant.Reimagined.Server.Extract (ServerError (..))
 
 
@@ -81,8 +82,6 @@ instance IntoResponse ServerError where
 -- handler :: IO (Json User)
 -- handler = pure (Json myUser)
 -- @
-newtype Json a = Json { unJson :: a }
-  deriving (Show, Eq)
 
 instance Aeson.ToJSON a => IntoResponse (Json a) where
   intoResponse (Json val) =

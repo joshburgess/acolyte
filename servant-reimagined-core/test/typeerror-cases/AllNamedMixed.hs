@@ -6,7 +6,7 @@ import Servant.Reimagined.Core
 import Data.Text (Text)
 import Data.Kind (Constraint)
 
-data User; data Json a
+data User
 
 type MixedAPI =
   '[ Named "health" (Get (At "health") Text)

@@ -27,6 +27,7 @@ module Servant.Reimagined.Core
   , Delete
   , Patch
   , NoBody
+  , Json (..)
 
     -- * API specification
   , type API

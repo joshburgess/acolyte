@@ -18,6 +18,8 @@ module Servant.Reimagined.Core.Endpoint
   , Patch
     -- * Request body marker
   , NoBody
+    -- * JSON response/request marker
+  , Json (..)
   ) where
 
 import Data.Kind (Type)
@@ -64,3 +66,14 @@ type Delete path resp = Endpoint 'DELETE path NoBody resp
 
 -- | @PATCH@ endpoint with a request body.
 type Patch path req resp = Endpoint 'PATCH path req resp
+
+
+-- | A JSON-encoded value, used as a request or response body marker.
+--
+-- In API types: @Get path (Json User)@ declares a JSON response.
+-- In handlers: @Json val@ wraps a value for JSON serialization.
+--
+-- The core package defines only the newtype. The server package
+-- provides @IntoResponse (Json a)@ for HTTP responses.
+newtype Json a = Json { unJson :: a }
+  deriving (Show, Eq)

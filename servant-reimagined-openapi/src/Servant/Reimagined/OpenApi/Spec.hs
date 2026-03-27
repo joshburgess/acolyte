@@ -139,8 +139,8 @@ paramToJson p = object
 class EndpointToOperation endpoint where
   toOperation :: Operation
 
--- GET/DELETE/HEAD (no request body)
-instance (KnownMethod m, ReflectPathOA path, m ~ 'Core.GET)
+-- GET (no request body)
+instance (KnownMethod m, ReflectPathOA path, m ~ 'Core.GET, ToSchema resp)
   => EndpointToOperation (Endpoint m path NoBody resp) where
     toOperation = Operation
       { opMethod         = T.pack (show (methodVal @m))
@@ -149,11 +149,12 @@ instance (KnownMethod m, ReflectPathOA path, m ~ 'Core.GET)
       , opSummary        = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
-      , opResponseSchema = Nothing
+      , opResponseSchema = Just (toSchema @resp)
       , opRequestBody    = Nothing
       }
 
-instance (ReflectPathOA path)
+-- DELETE (no request body)
+instance (ReflectPathOA path, ToSchema resp)
   => EndpointToOperation (Endpoint 'Core.DELETE path NoBody resp) where
     toOperation = Operation
       { opMethod         = "DELETE"
@@ -162,12 +163,12 @@ instance (ReflectPathOA path)
       , opSummary        = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
-      , opResponseSchema = Nothing
+      , opResponseSchema = Just (toSchema @resp)
       , opRequestBody    = Nothing
       }
 
 -- POST (with request body)
-instance (ReflectPathOA path)
+instance (ReflectPathOA path, ToSchema req, ToSchema resp)
   => EndpointToOperation (Endpoint 'Core.POST path req resp) where
     toOperation = Operation
       { opMethod         = "POST"
@@ -176,12 +177,12 @@ instance (ReflectPathOA path)
       , opSummary        = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 201
-      , opResponseSchema = Nothing
-      , opRequestBody    = Nothing
+      , opResponseSchema = Just (toSchema @resp)
+      , opRequestBody    = Just (toSchema @req)
       }
 
 -- PUT (with request body)
-instance (ReflectPathOA path)
+instance (ReflectPathOA path, ToSchema req, ToSchema resp)
   => EndpointToOperation (Endpoint 'Core.PUT path req resp) where
     toOperation = Operation
       { opMethod         = "PUT"
@@ -190,12 +191,12 @@ instance (ReflectPathOA path)
       , opSummary        = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
-      , opResponseSchema = Nothing
-      , opRequestBody    = Nothing
+      , opResponseSchema = Just (toSchema @resp)
+      , opRequestBody    = Just (toSchema @req)
       }
 
 -- PATCH (with request body)
-instance (ReflectPathOA path)
+instance (ReflectPathOA path, ToSchema req, ToSchema resp)
   => EndpointToOperation (Endpoint 'Core.PATCH path req resp) where
     toOperation = Operation
       { opMethod         = "PATCH"
@@ -204,8 +205,8 @@ instance (ReflectPathOA path)
       , opSummary        = Nothing
       , opParameters     = reflectOAParams @path
       , opStatusCode     = 200
-      , opResponseSchema = Nothing
-      , opRequestBody    = Nothing
+      , opResponseSchema = Just (toSchema @resp)
+      , opRequestBody    = Just (toSchema @req)
       }
 
 -- Requires delegates

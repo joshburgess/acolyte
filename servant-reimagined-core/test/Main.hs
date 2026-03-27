@@ -21,7 +21,6 @@ data UserV1
 data UserV2
 data Profile
 data CreateUser
-data Json a
 data AuthUser
 data JoinMsg
 data WelcomeMsg

@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeApplications #-}
 module Main (main) where
 
@@ -8,6 +9,7 @@ import qualified Data.Text as T
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as KM
 import qualified Data.ByteString.Lazy as LBS
+import GHC.Generics (Generic)
 
 import Servant.Reimagined.Core
 import Servant.Reimagined.OpenApi
@@ -265,6 +267,66 @@ testStackedWrappers = do
   assert "Stacked: path /z" (opPath op == "/z")
 
 
+-- ===================================================================
+-- Generic ToSchema derivation test
+-- ===================================================================
+
+data TestUser = TestUser { userName :: Text, userAge :: Int }
+  deriving (Generic)
+
+instance ToSchema TestUser
+
+testGenericSchema :: IO ()
+testGenericSchema = do
+  let schema = toSchema @TestUser
+  assert "Generic: type is object" (schemaType schema == "object")
+  assert "Generic: has 2 properties" (length (schemaProperties schema) == 2)
+  let props = schemaProperties schema
+  assert "Generic: has userName" (any (\(k, _) -> k == "userName") props)
+  assert "Generic: has userAge" (any (\(k, _) -> k == "userAge") props)
+  case lookup "userName" props of
+    Just s  -> assert "Generic: userName is string" (schemaType s == "string")
+    Nothing -> error "FAIL: userName property missing"
+  case lookup "userAge" props of
+    Just s  -> assert "Generic: userAge is integer" (schemaType s == "integer")
+    Nothing -> error "FAIL: userAge property missing"
+
+
+-- ===================================================================
+-- Body schema tests
+-- ===================================================================
+
+testBodySchemas :: IO ()
+testBodySchemas = do
+  -- GET response schema
+  let op1 = toOperation @(Get HealthPath Text)
+  assert "body: GET has response schema" (opResponseSchema op1 /= Nothing)
+  case opResponseSchema op1 of
+    Just s  -> assert "body: GET response is string" (schemaType s == "string")
+    Nothing -> error "FAIL: no response schema"
+  assert "body: GET has no request body" (opRequestBody op1 == Nothing)
+
+  -- POST request + response schemas
+  let op2 = toOperation @(Post (At "users") Text Text)
+  assert "body: POST has response schema" (opResponseSchema op2 /= Nothing)
+  assert "body: POST has request body" (opRequestBody op2 /= Nothing)
+
+  -- Json unwrapping
+  let op3 = toOperation @(Get HealthPath (Json [Int]))
+  case opResponseSchema op3 of
+    Just s  -> assert "body: Json [Int] is array" (schemaType s == "array")
+    Nothing -> error "FAIL: no response schema for Json"
+
+  -- Generic type in endpoint
+  let op4 = toOperation @(Post (At "users") (Json TestUser) (Json TestUser))
+  case opRequestBody op4 of
+    Just s  -> assert "body: Generic type in request" (schemaType s == "object")
+    Nothing -> error "FAIL: no request body for Generic type"
+  case opResponseSchema op4 of
+    Just s  -> assert "body: Generic type in response" (length (schemaProperties s) == 2)
+    Nothing -> error "FAIL: no response schema for Generic type"
+
+
 main :: IO ()
 main = do
   putStrLn "servant-reimagined-openapi tests:"
@@ -316,5 +378,11 @@ main = do
   putStrLn ""
   putStrLn "Stacked wrappers:"
   testStackedWrappers
+  putStrLn ""
+  putStrLn "Generic ToSchema derivation:"
+  testGenericSchema
+  putStrLn ""
+  putStrLn "Body schemas:"
+  testBodySchemas
   putStrLn ""
   putStrLn "All servant-reimagined-openapi tests passed."

@@ -18,14 +18,14 @@ module Acolyte.Server.CombineEffects
 import Data.ByteString (ByteString)
 import Data.Kind (Type)
 
-import Tower (Middleware)
+import Spire (Middleware)
 import Http.Core (Request, Response)
 
 import Acolyte.Core.Effect (AllEffectsProvided)
 import Acolyte.Server.Router (Router)
 import Acolyte.Server.Effects
   ( EffectfulServer, fromRouter, provide, run )
-import Tower.Service (Service)
+import Spire.Service (Service)
 
 
 -- | Alias for 'EffectfulServer'. Kept for backward compatibility.

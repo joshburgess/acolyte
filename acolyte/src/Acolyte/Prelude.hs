@@ -8,10 +8,10 @@
 --
 -- * All API types and path helpers from @acolyte-core@
 -- * All extractors, response types, and server wiring from @acolyte-server@
--- * Tower Service\/Layer\/Middleware composition
+-- * Spire Service\/Layer\/Middleware composition
 -- * HTTP middleware (CORS, security headers, tracing, etc.)
 -- * Backend-agnostic HTTP Request\/Response types
--- * tower-server (zero-WAI HTTP server)
+-- * spire-server (zero-WAI HTTP server)
 module Acolyte.Prelude
   ( -- * Core API types (methods, paths, endpoints, effects, wrappers)
     module Acolyte.Core
@@ -19,7 +19,7 @@ module Acolyte.Prelude
     -- * Server (extractors, responses, wiring, effects)
   , module Acolyte.Server
 
-    -- * Tower (composition)
+    -- * Spire (composition)
   , Service (..)
   , Layer (..)
   , Middleware
@@ -112,7 +112,7 @@ module Acolyte.Prelude
   , hAccept
   , hAuthorization
 
-    -- * HTTP middleware layers (tower-http)
+    -- * HTTP middleware layers (spire-http)
   , SecureHeadersConfig (..)
   , defaultSecureHeaders
   , secureHeadersLayer
@@ -130,7 +130,7 @@ module Acolyte.Prelude
   , defaultCompression
   , compressionLayer
 
-    -- * tower-server (zero-WAI HTTP server)
+    -- * spire-server (zero-WAI HTTP server)
   , runServer
   , runServerBS
   , runServerConfig
@@ -140,7 +140,7 @@ module Acolyte.Prelude
   , defaultConfig
   , adaptToBody
 
-    -- * gRPC (tower-grpc)
+    -- * gRPC (spire-grpc)
   , grpcServer
   , GrpcServiceMap
   , grpcServiceMap
@@ -203,7 +203,7 @@ module Acolyte.Prelude
   , generateProto
   , ProtoMessageName (..)
 
-    -- * WebSocket session types (tower-websocket)
+    -- * WebSocket session types (spire-websocket)
   , Session
   , WebSocketConn (..)
   , send
@@ -220,10 +220,10 @@ module Acolyte.Prelude
 
 import Acolyte.Core
 import Acolyte.Server
-import Tower
+import Spire
 import Http.Core
-import Tower.Http
-import Tower.Server
-import Tower.Grpc
+import Spire.Http
+import Spire.Server
+import Spire.Grpc
 import Acolyte.Grpc (GrpcCodec(..), GrpcReady, AllGrpcReady, mkGrpcServiceMap, generateProto, ProtoMessageName(..))
-import Tower.WebSocket.Session
+import Spire.WebSocket.Session

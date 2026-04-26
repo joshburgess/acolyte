@@ -351,7 +351,7 @@ app = cors defaultCors
 
 **acolyte:**
 ```haskell
--- tower middleware (typed, composable with |>)
+-- spire middleware (typed, composable with |>)
 main = do
   ridLayer <- requestIdLayer
   let svc = server
@@ -368,7 +368,7 @@ What changed:
 - Layers compose inside-out (first `|>` is closest to the handler)
 - Each middleware is a `Layer`: a function `Service -> Service`
 - `before`, `after`, `around` combinators for writing middleware
-- WAI middleware still works via `fromWaiMiddleware` bridge in `tower-wai`
+- WAI middleware still works via `fromWaiMiddleware` bridge in `spire-wai`
 
 ## Typed middleware effects
 
@@ -431,7 +431,7 @@ tests = do
 What changed:
 
 - No test framework dependency required (works with any)
-- Requests dispatched directly through the tower Service
+- Requests dispatched directly through the spire Service
 - No network, no port, no warp. Fast and deterministic
 - Same code path as production, minus TCP
 
@@ -445,10 +445,10 @@ main = Warp.run 3000 app
 
 **acolyte:**
 ```haskell
--- Zero WAI (tower-server):
+-- Zero WAI (spire-server):
 main = runServerBS 3000 svc
 
--- On warp (tower-wai):
+-- On warp (spire-wai):
 main = runWarp 3000 svc
 ```
 
@@ -513,7 +513,7 @@ Run `bash bench/compile-time/run-bench.sh` to verify on your machine.
 | `ReaderT Config Handler` | `AppState Config` (handler argument) |
 | `serve (Proxy @API) server` | `mkApi @API (h1, h2, ...)` |
 | `Warp.run 3000 app` | `runServerBS 3000 svc` or `runWarp 3000 svc` |
-| WAI middleware | `tower` layers with `\|>` |
+| WAI middleware | `spire` layers with `\|>` |
 | (no equivalent) | `Requires Auth` + `provide @Auth` |
 | `hspec-wai` | `Acolyte.Test` (no network) |
 | `Summary "..."` | `Describe "..."` (endpoint description) |

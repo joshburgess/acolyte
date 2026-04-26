@@ -27,11 +27,11 @@ library
     , acolyte-client
     , acolyte-openapi
     , acolyte-grpc
-    , tower
-    , tower-http
-    , tower-server
-    , tower-grpc
-    , tower-websocket
+    , spire
+    , spire-http
+    , spire-server
+    , spire-grpc
+    , spire-websocket
     , http-core
     , http-types                 >= 0.12
 

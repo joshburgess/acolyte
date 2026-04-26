@@ -46,7 +46,7 @@ import Data.Kind (Type, Constraint)
 import Data.ByteString (ByteString)
 import GHC.TypeLits (TypeError, ErrorMessage (..))
 
-import Tower.Service (Service (..))
+import Spire.Service (Service (..))
 import Http.Core (Request, Response)
 
 import Acolyte.Core.API (Serves)
@@ -74,7 +74,7 @@ toBoundHandler f = BoundHandler
   }
 
 
--- | Build a tower Service from an API type and a tuple of handler functions.
+-- | Build a spire Service from an API type and a tuple of handler functions.
 --
 -- This is the most ergonomic entry point. Each handler function is
 -- positionally matched to the corresponding endpoint in the API

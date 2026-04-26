@@ -9,8 +9,8 @@ OpenAPI generation, and type-safe clients. One type, four interpretations.
 import Acolyte.Core
 import Acolyte.Server (Json)
 import Acolyte.Grpc
-import Tower.Grpc (grpcServer)
-import Tower.Server.H2 (runServerH2, defaultH2Config)
+import Spire.Grpc (grpcServer)
+import Spire.Server.H2 (runServerH2, defaultH2Config)
 
 type HealthPath = '[ 'Lit "health" ]
 type UsersPath  = '[ 'Lit "users" ]
@@ -159,19 +159,19 @@ instance HasProtoFields User where
 ```
 acolyte-grpc     API type -> GrpcReady check, .proto, mkGrpcServiceMap
          |
-    tower-grpc              gRPC wire protocol: framing, status, dispatch
+    spire-grpc              gRPC wire protocol: framing, status, dispatch
          |
-    tower-server/H2         HTTP/2 transport (via http2 package)
+    spire-server/H2         HTTP/2 transport (via http2 package)
          |
       network               TCP sockets (zero WAI)
 ```
 
 Each layer is independent:
 
-- `tower-grpc` knows nothing about API types: it dispatches from
+- `spire-grpc` knows nothing about API types: it dispatches from
   a `GrpcServiceMap` of `(service, method) -> handler`
 - `acolyte-grpc` builds the service map from the API type
-- `tower-server/H2` handles HTTP/2 framing and doesn't know about gRPC
+- `spire-server/H2` handles HTTP/2 framing and doesn't know about gRPC
 - The same `Service IO (Request Body) (Response Body)` abstraction
   connects all layers
 
@@ -218,7 +218,7 @@ The client sends multiple messages; the server collects them and returns
 a single response.
 
 ```haskell
-import Tower.Grpc (clientStreamHandler, grpcServiceMap, grpcServer)
+import Spire.Grpc (clientStreamHandler, grpcServiceMap, grpcServer)
 
 recordRoute :: [ByteString] -> IO (Either GrpcStatus ByteString)
 recordRoute points = do
@@ -239,7 +239,7 @@ Both sides send multiple messages. The current implementation is
 buffered: all client messages are collected before processing.
 
 ```haskell
-import Tower.Grpc (bidiStreamHandler, grpcServiceMap, grpcServer)
+import Spire.Grpc (bidiStreamHandler, grpcServiceMap, grpcServer)
 
 routeChat :: [ByteString] -> IO (Either GrpcStatus [ByteString])
 routeChat notes = do
@@ -259,8 +259,8 @@ Add the standard `grpc.health.v1.Health/Check` endpoint to any gRPC
 server with `withHealthCheck`:
 
 ```haskell
-import Tower.Grpc (grpcServer, grpcServiceMap)
-import Tower.Grpc.Health (withHealthCheck, HealthStatus (..))
+import Spire.Grpc (grpcServer, grpcServiceMap)
+import Spire.Grpc.Health (withHealthCheck, HealthStatus (..))
 
 main :: IO ()
 main = do
@@ -279,11 +279,11 @@ grpcurl -plaintext -d '{}' localhost:50051 grpc.health.v1.Health/Check
 
 ## Compression
 
-gRPC messages can be gzip-compressed. The `Tower.Grpc.Compression`
+gRPC messages can be gzip-compressed. The `Spire.Grpc.Compression`
 module provides encode/decode helpers:
 
 ```haskell
-import Tower.Grpc.Compression
+import Spire.Grpc.Compression
 
 -- Compress a message payload before framing:
 let compressed = encodeMessageCompressed payload
@@ -300,10 +300,10 @@ the compression algorithm to the peer.
 
 | Package | What it does |
 |---------|-------------|
-| `tower-grpc` | gRPC wire protocol: 5-byte framing, status codes, service dispatch, multiplexing, reflection. No protobuf dependency. |
+| `spire-grpc` | gRPC wire protocol: 5-byte framing, status codes, service dispatch, multiplexing, reflection. No protobuf dependency. |
 | `acolyte-grpc` | API type interpretation: `GrpcCodec`, `GrpcReady`, `.proto` generation, `mkGrpcServiceMap`. |
 | `acolyte-codegen` | Code generation from `.proto` files to Haskell API types. |
-| `tower-server` (H2 module) | HTTP/2 transport via the `http2` package. Zero WAI. |
+| `spire-server` (H2 module) | HTTP/2 transport via the `http2` package. Zero WAI. |
 
 ## Multiplexing
 
@@ -312,8 +312,8 @@ requests by content-type: `application/grpc` goes to the gRPC service,
 everything else goes to the REST service.
 
 ```haskell
-import Tower.Grpc (grpcServer, multiplex)
-import Tower.Server.H2 (runServerH2, defaultH2Config)
+import Spire.Grpc (grpcServer, multiplex)
+import Spire.Server.H2 (runServerH2, defaultH2Config)
 
 main :: IO ()
 main = do
@@ -332,7 +332,7 @@ Enable server reflection so that tools like `grpcurl` and `grpcui`
 can discover services without a `.proto` file:
 
 ```haskell
-import Tower.Grpc (grpcServer, withReflection)
+import Spire.Grpc (grpcServer, withReflection)
 
 main :: IO ()
 main = do

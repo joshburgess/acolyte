@@ -1,4 +1,4 @@
--- | Router and Server: dispatch requests to handlers, produce tower Service.
+-- | Router and Server: dispatch requests to handlers, produce spire Service.
 module Acolyte.Server.Router
   ( -- * Router
     Router
@@ -22,7 +22,7 @@ import qualified Data.Text as T
 import Data.Typeable (Typeable)
 import Network.HTTP.Types (status404, status405)
 
-import Tower.Service (Service (..))
+import Spire.Service (Service (..))
 import Http.Core
   ( Request (..), Response (..)
   , RequestParts (..), splitRequest
@@ -107,7 +107,7 @@ dispatch router req = do
           go rest segs method parts body methodMatched
 
 
--- | Build a tower Service from a router.
+-- | Build a spire Service from a router.
 serve :: Router -> Service IO (Request ByteString) (Response ByteString)
 serve router = Service (dispatch router)
 

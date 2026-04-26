@@ -1,12 +1,12 @@
 -- | @acolyte-server@ — HTTP server interpretation.
 --
--- Interprets acolyte-core API types into a tower Service.
--- Combine with tower-wai to run on warp.
+-- Interprets acolyte-core API types into a spire Service.
+-- Combine with spire-wai to run on warp.
 --
 -- @
 -- import Acolyte.Core
 -- import Acolyte.Server
--- import Tower.Wai (runWarp)
+-- import Spire.Wai (runWarp)
 --
 -- type API = '[ Get '[ Lit "hello" ] Text ]
 --

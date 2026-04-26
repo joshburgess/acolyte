@@ -14,11 +14,11 @@ Strict path (default):
 
 Streaming path:
   Service IO (Request Body) (Response Body)
-    ↑ tower-server and tower-wai consume this
+    ↑ spire-server and spire-wai consume this
     ↑ http-core defines the Body type
 ```
 
-The `adaptToBody` function in tower-server bridges between them: it
+The `adaptToBody` function in spire-server bridges between them: it
 collects the incoming body to strict bytes, runs your handler, then
 wraps the response bytes as a `Body`.
 
@@ -61,8 +61,8 @@ directly instead of going through `mkServer`:
 ```haskell
 import Http.Core
 import Http.Core.Body
-import Tower.Service (Service (..))
-import Tower.Server (runServer)
+import Spire.Service (Service (..))
+import Spire.Server (runServer)
 import Data.IORef
 
 -- Stream a large CSV file
@@ -88,7 +88,7 @@ serveFile path = Service $ \_ ->
     (BodyFile path Nothing)
 ```
 
-Run it directly on tower-server (which speaks `Body` natively):
+Run it directly on spire-server (which speaks `Body` natively):
 
 ```haskell
 main :: IO ()
@@ -123,7 +123,7 @@ You can run your normal `mkServer` API alongside streaming endpoints
 by combining services:
 
 ```haskell
-import Tower.Server (runServer, adaptToBody)
+import Spire.Server (runServer, adaptToBody)
 
 main :: IO ()
 main = do
@@ -189,13 +189,13 @@ hash <- foldBodyChunks
 if isEmptyBody someBody then ... else ...
 ```
 
-## tower-server vs tower-wai
+## spire-server vs spire-wai
 
 Both backends consume `Service IO (Request Body) (Response Body)`:
 
-- **tower-server** handles `BodyStream` by pulling chunks and sending
+- **spire-server** handles `BodyStream` by pulling chunks and sending
   them over the socket. `BodyFile` reads from disk. No WAI involved.
-- **tower-wai** converts `Body` to WAI's `responseStream`,
+- **spire-wai** converts `Body` to WAI's `responseStream`,
   `responseFile`, or `responseLBS` depending on the variant.
 
 Your streaming code works with either backend without changes.

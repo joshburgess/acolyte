@@ -1,7 +1,7 @@
 -- | HTTP body types: strict, streaming, file, and empty.
 --
 -- Direct-style sum type — no CPS callbacks like WAI. Composes
--- naturally with tower's @Service req -> IO resp@ model.
+-- naturally with spire's @Service req -> IO resp@ model.
 module Http.Core.Body
   ( -- * Body type
     Body (..)

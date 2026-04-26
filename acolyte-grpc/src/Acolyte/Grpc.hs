@@ -7,8 +7,8 @@
 -- @
 -- import Acolyte.Core
 -- import Acolyte.Grpc
--- import Tower.Grpc (grpcServer)
--- import Tower.Server.H2 (runServerH2, defaultH2Config)
+-- import Spire.Grpc (grpcServer)
+-- import Spire.Server.H2 (runServerH2, defaultH2Config)
 --
 -- type API = '[ Get HealthPath Text
 --             , Post UsersPath (Json CreateUser) (Json User)

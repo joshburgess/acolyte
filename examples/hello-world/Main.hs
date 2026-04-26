@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- | End-to-end example: define an API, write handlers, stack middleware,
--- run on tower-server.
+-- run on spire-server.
 --
 -- Run: cabal run hello-world
 -- Test: curl http://localhost:3000/health
@@ -64,7 +64,7 @@ authMiddleware = before $ \_ -> pure ()  -- no-op for this example
 
 
 -- ===================================================================
--- 4. Stack tower middleware
+-- 4. Stack spire middleware
 -- ===================================================================
 
 app :: IO (Service IO (Request ByteString) (Response ByteString))
@@ -82,7 +82,7 @@ app = do
 
 
 -- ===================================================================
--- 5. Run on tower-server (zero WAI dependency)
+-- 5. Run on spire-server (zero WAI dependency)
 -- ===================================================================
 
 main :: IO ()

@@ -2,7 +2,7 @@
 --
 -- 'Request' is parameterized by body type, enabling both strict
 -- (@ByteString@) and streaming request bodies. Backend adapters
--- (tower-wai, etc.) convert from their native request types to this.
+-- (spire-wai, etc.) convert from their native request types to this.
 module Http.Core.Request
   ( -- * Request type
     Request (..)

@@ -9,7 +9,7 @@
 -- * "Acolyte.Server" — server interpretation
 -- * "Acolyte.Client" — client interpretation
 -- * "Acolyte.OpenApi" — OpenAPI spec generation
--- * "Tower" — Service\/Layer\/Middleware composition
+-- * "Spire" — Service\/Layer\/Middleware composition
 -- * "Http.Core" — backend-agnostic Request\/Response
 module Acolyte
   ( module Acolyte.Prelude

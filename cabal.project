@@ -1,17 +1,17 @@
 packages:
   acolyte-core
-  tower
+  spire
   http-core
-  tower-http
-  tower-wai
+  spire-http
+  spire-wai
   acolyte-server
   acolyte-client
   acolyte-openapi
   acolyte-test
   acolyte
-  tower-server
-  tower-grpc
-  tower-websocket
+  spire-server
+  spire-grpc
+  spire-websocket
   acolyte-grpc
   acolyte-codegen
   examples/hello-world
@@ -28,7 +28,7 @@ packages:
   examples/streaming
   bench/compile-time
   bench/runtime
-  tower-protobuf
+  spire-protobuf
 
 -- Enable all test suites by default (including hedgehog property tests)
 tests: True
@@ -39,19 +39,19 @@ tests: True
 -- Production optimization: -O2 for all library code
 package acolyte-core
   ghc-options: -O2
-package tower
+package spire
   ghc-options: -O2
 package http-core
   ghc-options: -O2
-package tower-http
+package spire-http
   ghc-options: -O2
-package tower-wai
+package spire-wai
   ghc-options: -O2
-package tower-server
+package spire-server
   ghc-options: -O2
-package tower-grpc
+package spire-grpc
   ghc-options: -O2
-package tower-websocket
+package spire-websocket
   ghc-options: -O2
 package acolyte-server
   ghc-options: -O2

@@ -19,8 +19,8 @@ executable grpc-demo
   build-depends:
       base                       >= 4.20 && < 5
     , acolyte
-    , tower-grpc
-    , tower-server
+    , spire-grpc
+    , spire-server
     , http-core
     , acolyte-grpc
     , acolyte-openapi

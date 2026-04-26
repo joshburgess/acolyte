@@ -8,14 +8,14 @@ Client (curl, browser, etc.)
     │ TCP connection
     ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ tower-server                                                  │
+│ spire-server                                                  │
 │                                                               │
 │  1. Accept TCP connection (Network.Socket)                    │
 │  2. Read headers with timeout (slow loris protection)         │
 │  3. Parse HTTP/1.1 request line + headers (Parse.hs)          │
 │  4. Read body (Content-Length or chunked)                      │
 │  5. Build http-core Request                                   │
-│  6. Call runService on the tower Service ──────────────────┐  │
+│  6. Call runService on the spire Service ──────────────────┐  │
 │  7. Receive http-core Response                             │  │
 │  8. Render HTTP/1.1 response (Render.hs)                   │  │
 │  9. Send over socket                                       │  │
@@ -26,7 +26,7 @@ Client (curl, browser, etc.)
 │
 ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ tower middleware stack (composed with |>)                      │
+│ spire middleware stack (composed with |>)                      │
 │                                                               │
 │  Request flows INWARD (first |> is innermost):                │
 │                                                               │
@@ -92,7 +92,7 @@ Client (grpcurl, h2c client, etc.)
     │ TCP + HTTP/2 framing
     ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ tower-server H2 module                                        │
+│ spire-server H2 module                                        │
 │                                                               │
 │  Uses the http2 package (Kazu Yamamoto):                      │
 │  1. allocSimpleConfig for socket                              │
@@ -101,7 +101,7 @@ Client (grpcurl, h2c client, etc.)
 │     - Extract :method, :path from pseudo-headers              │
 │     - Token-based headers → [(CI ByteString, ByteString)]     │
 │     - Body: pull-based BodyStream from getRequestBodyChunk    │
-│  4. Call tower Service (same as HTTP/1.1 from here)           │
+│  4. Call spire Service (same as HTTP/1.1 from here)           │
 │  5. toH2Response converts http-core Response → http2 Response │
 │     - BodyStrict → responseBuilder                            │
 │     - BodyStream → responseStreaming                           │
@@ -120,7 +120,7 @@ Client (grpcurl, gRPC client)
     │ body: [5-byte header][protobuf payload]
     ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ tower-grpc (grpcServer)                                       │
+│ spire-grpc (grpcServer)                                       │
 │                                                               │
 │  1. Check content-type starts with "application/grpc"         │
 │     → No? Return HTTP 415.                                    │
@@ -148,12 +148,12 @@ Any client
     │
     ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ multiplex (Tower.Grpc.Multiplex)                              │
+│ multiplex (Spire.Grpc.Multiplex)                              │
 │                                                               │
 │  content-type: application/grpc*  ──►  gRPC Service           │
 │  anything else                    ──►  REST Service           │
 │                                                               │
-│  Both are tower Services. Both use the same http-core types.  │
+│  Both are spire Services. Both use the same http-core types.  │
 │  The multiplexer is a 3-line function.                         │
 └──────────────────────────────────────────────────────────────┘
 ```

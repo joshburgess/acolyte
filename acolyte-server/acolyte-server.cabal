@@ -7,7 +7,7 @@ description:
   server. Provides handler binding, request extraction, response
   encoding, routing, and the compile-time completeness check.
   .
-  Produces a tower Service — backend-agnostic. Combine with tower-wai
+  Produces a spire Service — backend-agnostic. Combine with spire-wai
   to run on warp, or any other adapter.
 
 license:         BSD-3-Clause
@@ -39,7 +39,7 @@ library
   build-depends:
       base                    >= 4.20 && < 5
     , acolyte-core
-    , tower
+    , spire
     , http-core
     , aeson                   >= 2.1  && < 2.3
     , bytestring              >= 0.11 && < 0.13
@@ -92,7 +92,7 @@ test-suite spec
       base                    >= 4.20 && < 5
     , acolyte-server
     , acolyte-core
-    , tower
+    , spire
     , http-core
     , aeson                   >= 2.1  && < 2.3
     , bytestring              >= 0.11 && < 0.13

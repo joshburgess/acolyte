@@ -38,7 +38,7 @@ module Acolyte.Server.Combine
 import Data.ByteString (ByteString)
 import Data.Kind (Type)
 
-import Tower.Service (Service)
+import Spire.Service (Service)
 import Http.Core (Request, Response)
 
 import Acolyte.Core.API (Serves, type (++))

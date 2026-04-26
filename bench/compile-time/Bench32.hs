@@ -7,7 +7,7 @@ module Main (main) where
 import Data.ByteString (ByteString)
 import Data.Text (Text)
 
-import Tower (Service)
+import Spire (Service)
 import Http.Core (Request, Response)
 
 import Acolyte.Core

@@ -2,7 +2,7 @@
 module RecordApiMissingField where
 import Data.ByteString (ByteString)
 import Data.Text (Text)
-import Tower.Service (Service)
+import Spire.Service (Service)
 import Http.Core (Request, Response)
 import Acolyte.Core
 import Acolyte.Server

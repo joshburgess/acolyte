@@ -1,6 +1,6 @@
 -- | Testing utilities for acolyte APIs.
 --
--- Test APIs by dispatching requests directly through the tower Service
+-- Test APIs by dispatching requests directly through the spire Service
 -- — no network, no warp, no ports. Fast and deterministic.
 --
 -- @
@@ -42,7 +42,7 @@ import Network.HTTP.Types (Status, statusCode, RequestHeaders, Header, HeaderNam
 
 import qualified Data.Aeson as Aeson
 
-import Tower.Service (Service (..))
+import Spire.Service (Service (..))
 import Http.Core
 
 
@@ -50,7 +50,7 @@ import Http.Core
 -- Making requests
 -- ===================================================================
 
--- | Send a request to a tower Service (no network).
+-- | Send a request to a spire Service (no network).
 request
   :: Service IO (Request ByteString) (Response ByteString)
   -> ByteString     -- ^ HTTP method

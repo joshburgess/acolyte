@@ -2,7 +2,7 @@
 --
 -- These are Layer 2 wrappers (see ARCHITECTURE.md "Two-Layer Middleware
 -- Model"). They sit in the API type and modify how individual handlers
--- are bound and dispatched. They are NOT tower Layers — they operate
+-- are bound and dispatched. They are NOT spire Layers — they operate
 -- inside the framework's handler dispatch with full type information.
 --
 -- * 'Protected' — requires authentication; handler must accept auth type

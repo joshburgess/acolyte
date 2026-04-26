@@ -6,16 +6,16 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Network.HTTP.Types (status400, status500)
 
-import Tower
-import Tower.Service (Service (..))
+import Spire
+import Spire.Service (Service (..))
 import Http.Core
 import Http.Core.Body (Body, fromBytes, bodyToStrict)
 import Acolyte.Core
 import Acolyte.Server
 import Acolyte.Test
 import Acolyte.Test.Grpc
-import Tower.Grpc (grpcServer, grpcServiceMap, unaryHandler, multiplex)
-import Tower.Server (adaptToBody)
+import Spire.Grpc (grpcServer, grpcServiceMap, unaryHandler, multiplex)
+import Spire.Server (adaptToBody)
 import Acolyte.OpenApi
   ( generateSpec, OpenApiSpec(..), specOps )
 import Acolyte.Grpc

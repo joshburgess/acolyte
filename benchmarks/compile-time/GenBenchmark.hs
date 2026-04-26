@@ -23,7 +23,7 @@ genModule n = unlines $
   , "import Data.Text (Text)"
   , "import Data.ByteString (ByteString)"
   , "import Http.Core (Request, Response)"
-  , "import Tower.Service (Service)"
+  , "import Spire.Service (Service)"
   , ""
   , "-- | " ++ show n ++ "-endpoint API"
   ] ++

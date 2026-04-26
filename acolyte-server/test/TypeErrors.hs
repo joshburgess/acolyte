@@ -26,7 +26,7 @@ shouldFailToCompile file expectedFragment = do
     , "-no-keep-hi-files"
     , "-package", "acolyte-core"
     , "-package", "acolyte-server"
-    , "-package", "tower"
+    , "-package", "spire"
     , "-package", "http-core"
     , "-package", "bytestring"
     , "-package", "text"

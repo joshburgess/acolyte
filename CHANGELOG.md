@@ -4,10 +4,10 @@
 
 ### Core framework
 - Type-level API definition with promoted lists (constant compile time)
-- Service/Layer/Middleware composition (tower)
+- Service/Layer/Middleware composition (spire)
 - Backend-agnostic HTTP types (http-core)
 - HTTP middleware: security headers, CORS, tracing, request ID, compression, timeouts
-- Two backend adapters: tower-wai (warp) and tower-server (zero WAI)
+- Two backend adapters: spire-wai (warp) and spire-server (zero WAI)
 - Automatic handler wiring with compile-time completeness check
 - EffectfulServer with phantom-type effect tracking
 - 23 request extractors with ToHandler ergonomic conversion
@@ -21,27 +21,27 @@
 - Direct-dispatch testing utilities (acolyte-test)
 
 ### gRPC
-- HTTP/2 transport via the http2 package (tower-server)
-- gRPC wire protocol: framing, status codes, service dispatch (tower-grpc)
+- HTTP/2 transport via the http2 package (spire-server)
+- gRPC wire protocol: framing, status codes, service dispatch (spire-grpc)
 - gRPC API type interpretation: GrpcCodec, GrpcReady, .proto generation (acolyte-grpc)
-- REST+gRPC multiplexing on a single port (`Tower.Grpc.Multiplex`)
+- REST+gRPC multiplexing on a single port (`Spire.Grpc.Multiplex`)
 - Content negotiation runtime (`Acolyte.Server.Negotiate`)
 - Complete .proto generation with full message definitions
 - .proto to API type codegen (`Acolyte.Codegen.Proto`)
-- gRPC server reflection (`Tower.Grpc.Reflection`)
+- gRPC server reflection (`Spire.Grpc.Reflection`)
 - Real network integration tests for gRPC
 - gRPC testing utilities (acolyte-test)
 
 ### gRPC streaming and services
 - Client streaming handler (`clientStreamHandler`): collect multiple client messages, return one response
 - Bidirectional streaming handler (`bidiStreamHandler`): collect multiple client messages, return multiple responses
-- gRPC health check service (`Tower.Grpc.Health`): implements `grpc.health.v1.Health/Check` protocol
+- gRPC health check service (`Spire.Grpc.Health`): implements `grpc.health.v1.Health/Check` protocol
 - `withHealthCheck` helper to add health check to any service map
-- gRPC gzip compression (`Tower.Grpc.Compression`): `compressMessage`, `decompressMessage`, `encodeMessageCompressed`, `decompressGrpcBody`
+- gRPC gzip compression (`Spire.Grpc.Compression`): `compressMessage`, `decompressMessage`, `encodeMessageCompressed`, `decompressGrpcBody`
 - `grpc-encoding: gzip` header support
 
 ### WebSocket session types
-- Session-typed WebSocket runtime (tower-websocket)
+- Session-typed WebSocket runtime (spire-websocket)
 - Phantom-typed `Session` handle enforces send/recv protocol at compile time
 - Operations: `send`, `recv`, `offer`, `select1`, `select2`, `close`, `recurse`, `loop`
 - Branching protocols via `Offer` / `Select`

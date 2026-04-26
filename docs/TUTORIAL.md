@@ -16,9 +16,9 @@ individual packages to see where each piece comes from.
 build-depends:
     acolyte-core
   , acolyte-server
-  , tower
-  , tower-http
-  , tower-server
+  , spire
+  , spire-http
+  , spire-server
   , http-core
   , aeson
   , bytestring
@@ -50,8 +50,8 @@ import Network.HTTP.Types (status400, status404, status500)
 
 import Acolyte.Core
 import Acolyte.Server
-import Tower
-import Tower.Service (Service (..))
+import Spire
+import Spire.Service (Service (..))
 
 -- Path types: use At and Param helpers for concise definitions
 type HealthPath    = At "health"
@@ -157,11 +157,11 @@ still available.
 
 ## Step 4: Add middleware
 
-Middleware uses the tower `|>` operator. Layers compose inside-out:
+Middleware uses the spire `|>` operator. Layers compose inside-out:
 the first `|>` is closest to the handler.
 
 ```haskell
-import Tower.Http
+import Spire.Http
 
 app :: IO (Service IO (Request ByteString) (Response ByteString))
 app = do
@@ -182,7 +182,7 @@ Each middleware is a `Layer`: a function that wraps a `Service`.
 You can write your own:
 
 ```haskell
-import Tower (before)
+import Spire (before)
 
 myLogging :: Middleware IO (Request ByteString) (Response ByteString)
 myLogging = before $ \req ->
@@ -191,10 +191,10 @@ myLogging = before $ \req ->
 
 ## Step 5: Run the server
 
-Pick a backend. `tower-server` is zero-WAI:
+Pick a backend. `spire-server` is zero-WAI:
 
 ```haskell
-import Tower.Server (runServerBS)
+import Spire.Server (runServerBS)
 
 main :: IO ()
 main = do
@@ -203,10 +203,10 @@ main = do
   runServerBS 3000 svc
 ```
 
-Or use warp via `tower-wai`:
+Or use warp via `spire-wai`:
 
 ```haskell
-import Tower.Wai (runWarp)
+import Spire.Wai (runWarp)
 
 main :: IO ()
 main = do
@@ -303,7 +303,7 @@ tests = do
 ```
 
 The `request` function builds a full `Request` and calls `runService`
-on the tower `Service` directly. Same code path as production, minus
+on the spire `Service` directly. Same code path as production, minus
 the TCP.
 
 ## Step 8: Annotating endpoints for documentation
@@ -494,9 +494,9 @@ Here's the full picture of how a request flows:
 ```
 HTTP bytes on the wire
         |
-   tower-server (or tower-wai)    -- parse HTTP, build Request
+   spire-server (or spire-wai)    -- parse HTTP, build Request
         |
-   tower middleware stack          -- security headers, CORS, tracing, etc.
+   spire middleware stack          -- security headers, CORS, tracing, etc.
         |
    acolyte-server       -- match route, extract captures, dispatch
         |
@@ -504,12 +504,12 @@ HTTP bytes on the wire
         |
    IntoResponse                    -- convert to Response ByteString
         |
-   tower middleware stack          -- post-processing (compression, headers)
+   spire middleware stack          -- post-processing (compression, headers)
         |
-   tower-server (or tower-wai)    -- render HTTP, send bytes
+   spire-server (or spire-wai)    -- render HTTP, send bytes
 ```
 
-Every boundary is a tower `Service`. The server produces one, the
+Every boundary is a spire `Service`. The server produces one, the
 backend consumes one, and middleware wraps one. That's the entire
 composition model.
 

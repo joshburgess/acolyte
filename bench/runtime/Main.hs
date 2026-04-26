@@ -24,7 +24,7 @@ import qualified Data.CaseInsensitive as CI
 import GHC.Generics (Generic)
 import Network.HTTP.Types (statusCode)
 
-import Tower (Service (..), Middleware, before, (|>))
+import Spire (Service (..), Middleware, before, (|>))
 import Http.Core
   ( Request (..)
   , Response (..)
@@ -44,14 +44,14 @@ import Acolyte.Server
   , emptyRouter
   , addRoute
   )
-import Tower.Grpc.Codec
+import Spire.Grpc.Codec
   ( encodeMessage
   , encodeMessages
   , decodeMessage
   , decodeMessages
   , GrpcMessage (..)
   )
-import Tower.Protobuf
+import Spire.Protobuf
   ( ProtoMessage (..)
   , Field (..)
   , DecodeError (..)
@@ -59,8 +59,8 @@ import Tower.Protobuf
   , encode
   , decode
   )
-import Tower.Protobuf.Wire (encodeVarint, decodeVarint)
-import Tower.Protobuf.Encode (ProtoBuilder (..), runProtoBuilder)
+import Spire.Protobuf.Wire (encodeVarint, decodeVarint)
+import Spire.Protobuf.Encode (ProtoBuilder (..), runProtoBuilder)
 
 
 -- ===================================================================

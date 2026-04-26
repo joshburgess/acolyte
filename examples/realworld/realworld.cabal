@@ -5,7 +5,7 @@ synopsis:        RealWorld (Conduit) backend built with acolyte
 description:
   Implementation of the RealWorld spec (https://realworld-docs.netlify.app)
   using acolyte. Demonstrates type-level API definition,
-  typed middleware effects, extractors, and the full tower stack.
+  typed middleware effects, extractors, and the full spire stack.
   Uses an in-memory store — no database dependency.
 
 build-type:      Simple

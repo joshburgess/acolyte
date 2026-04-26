@@ -38,8 +38,8 @@ import Acolyte.Core.Wrapper
   , ServerStream, ClientStream, BidiStream, RespondsWith
   )
 
-import Tower.Grpc (GrpcServiceMap, GrpcHandler(..), GrpcRequest(..), GrpcResponse(..), grpcServiceMap, grpcOk, grpcInternal, unaryHandler)
-import Tower.Grpc.Codec (encodeMessage, decodeMessage, GrpcMessage(..))
+import Spire.Grpc (GrpcServiceMap, GrpcHandler(..), GrpcRequest(..), GrpcResponse(..), grpcServiceMap, grpcOk, grpcInternal, unaryHandler)
+import Spire.Grpc.Codec (encodeMessage, decodeMessage, GrpcMessage(..))
 
 import Acolyte.Grpc.Proto (GrpcCodec(..))
 

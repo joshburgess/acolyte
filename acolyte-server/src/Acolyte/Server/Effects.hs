@@ -32,9 +32,9 @@ module Acolyte.Server.Effects
 import Data.Kind (Type)
 import Data.ByteString (ByteString)
 
-import Tower (Middleware, Service)
-import Tower.Service (Service (..))
-import Tower.Layer (applyLayer)
+import Spire (Middleware, Service)
+import Spire.Service (Service (..))
+import Spire.Layer (applyLayer)
 import Http.Core (Request, Response)
 
 import Acolyte.Core.API (Serves)
@@ -111,7 +111,7 @@ provide mw (EffectfulServer svc) =
   EffectfulServer (applyLayer mw svc)
 
 
--- | Finalize the server into a tower Service.
+-- | Finalize the server into a spire Service.
 --
 -- Only compiles if every 'Requires' in the API has been provided.
 run

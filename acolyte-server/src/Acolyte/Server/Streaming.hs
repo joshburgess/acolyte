@@ -115,7 +115,7 @@ sseChunk ev = BS.concat $ concat
 -- than all at once after the handler completes.
 --
 -- Sets @Content-Type: text/event-stream@ and produces a 'BodyStream'
--- that emits SSE-formatted chunks. The tower-server layer renders
+-- that emits SSE-formatted chunks. The spire-server layer renders
 -- this with @Transfer-Encoding: chunked@.
 sseResponse :: Aeson.ToJSON a => ServerStreamHandler a -> IO (Response Body)
 sseResponse handler = do

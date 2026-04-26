@@ -22,8 +22,8 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Network.HTTP.Types (status404, status405)
 
-import Tower (Middleware, middleware)
-import Tower.Service (Service (..))
+import Spire (Middleware, middleware)
+import Spire.Service (Service (..))
 import Http.Core (Request (..), Response (..))
 
 import Acolyte.Server.Handler (HasEndpointInfo (..), MatchResult (..))

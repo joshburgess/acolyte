@@ -12,7 +12,7 @@ import Acolyte.Server
 import Data.Text (Text)
 import Data.ByteString (ByteString)
 import Http.Core (Request, Response)
-import Tower.Service (Service)
+import Spire.Service (Service)
 
 -- | 1-endpoint API
 type Path1 = '[ 'Lit "resource1" ]

@@ -25,8 +25,8 @@ import Network.HTTP.Types
 
 import Network.HTTP.Types (status500)
 
-import Tower
-import Tower.Service (Service (..))
+import Spire
+import Spire.Service (Service (..))
 import Http.Core
 import Acolyte.Core
 import Acolyte.Server
@@ -125,7 +125,7 @@ testMkServer = do
 
 
 -- ===================================================================
--- Test 2: mkServer composes with tower middleware
+-- Test 2: mkServer composes with spire middleware
 -- ===================================================================
 
 testWithMiddleware :: IO ()
@@ -139,7 +139,7 @@ testWithMiddleware = do
             (mkHandler0 (pure (Json ("user" :: Text))))
         )
 
-  -- Add a header via tower middleware
+  -- Add a header via spire middleware
   let addHeader :: Middleware IO (Request ByteString) (Response ByteString)
       addHeader = middleware $ \inner -> Service $ \req -> do
         resp <- runService inner req
@@ -1583,7 +1583,7 @@ main = do
   putStrLn "mkServer (automatic wiring):"
   testMkServer
   putStrLn ""
-  putStrLn "Tower middleware composition:"
+  putStrLn "Spire middleware composition:"
   testWithMiddleware
   putStrLn ""
   putStrLn "EffectfulServer (typed middleware tracking):"

@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- | gRPC testing utilities for acolyte APIs.
 --
--- Test gRPC services by dispatching requests directly through the tower
+-- Test gRPC services by dispatching requests directly through the spire
 -- Service -- no network, no HTTP/2, no ports. Fast and deterministic.
 --
 -- @
@@ -29,17 +29,17 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 
-import Tower.Service (Service (..))
+import Spire.Service (Service (..))
 import Http.Core
 import Http.Core.Body (Body, fromBytes, bodyToStrict)
-import Tower.Grpc.Codec (encodeMessage, decodeMessage, GrpcMessage(..))
+import Spire.Grpc.Codec (encodeMessage, decodeMessage, GrpcMessage(..))
 
 
 -- ===================================================================
 -- Making gRPC requests
 -- ===================================================================
 
--- | Send a gRPC request to a tower Service (no network).
+-- | Send a gRPC request to a spire Service (no network).
 --
 -- Constructs a proper gRPC request with:
 --

@@ -26,7 +26,7 @@ import Data.Kind (Type, Constraint)
 import Data.Text (Text)
 import GHC.TypeLits (TypeError, ErrorMessage (..))
 
-import qualified Tower.Protobuf
+import qualified Spire.Protobuf
 
 import Acolyte.Core.Endpoint (Endpoint, NoBody)
 import Acolyte.Core.Effect (Requires)
@@ -57,12 +57,12 @@ class GrpcCodec a where
   grpcEncode :: a -> ByteString
   grpcDecode :: ByteString -> Maybe a
 
--- | Any 'Tower.Protobuf.ProtoMessage' automatically gets 'GrpcCodec'.
+-- | Any 'Spire.Protobuf.ProtoMessage' automatically gets 'GrpcCodec'.
 -- Users who derive 'ProtoMessage' get gRPC for free -- no separate
 -- 'GrpcCodec' instance needed.
-instance {-# OVERLAPPABLE #-} Tower.Protobuf.ProtoMessage a => GrpcCodec a where
-  grpcEncode = Tower.Protobuf.encode
-  grpcDecode = either (const Nothing) Just . Tower.Protobuf.decode
+instance {-# OVERLAPPABLE #-} Spire.Protobuf.ProtoMessage a => GrpcCodec a where
+  grpcEncode = Spire.Protobuf.encode
+  grpcDecode = either (const Nothing) Just . Spire.Protobuf.decode
 
 
 -- | The protobuf message name for .proto generation.

@@ -628,7 +628,7 @@ instance FromRequestParts NestedPath where
 -- ===================================================================
 
 -- | Client connection metadata (IP address, port).
--- Stored in Extensions by the backend adapter (tower-server, tower-wai).
+-- Stored in Extensions by the backend adapter (spire-server, spire-wai).
 --
 -- @
 -- handler :: ConnectInfo -> IO Text

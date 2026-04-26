@@ -87,7 +87,7 @@ regressions on small APIs.
 
 ## Middleware is free
 
-This was the most surprising result. Adding tower middleware layers
+This was the most surprising result. Adding spire middleware layers
 has **zero measurable overhead**:
 
 ```

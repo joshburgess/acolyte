@@ -52,7 +52,7 @@ import Data.Kind (Type)
 import Data.ByteString (ByteString)
 import GHC.Records (HasField (..))
 
-import Tower.Service (Service)
+import Spire.Service (Service)
 import Http.Core (Request, Response)
 
 import Acolyte.Core.API (Serves)
@@ -82,7 +82,7 @@ class NamedApi (api :: [Type]) record tuple | record -> tuple where
   toHandlerTuple :: record -> tuple
 
 
--- | Build a tower 'Service' from a named handler record.
+-- | Build a spire 'Service' from a named handler record.
 --
 -- Equivalent to @mkApi \@api . toHandlerTuple@.
 --
@@ -150,7 +150,7 @@ instance {-# OVERLAPPING #-}
       (addRoute (toBoundHandler @(Named name (Protected auth inner)) (getField @name rec)) router)
 
 
--- | Build a tower 'Service' from a Named API and a handler record.
+-- | Build a spire 'Service' from a Named API and a handler record.
 --
 -- Record fields are matched to endpoints by name — field order does
 -- not matter. Every endpoint in the API must be wrapped with 'Named',

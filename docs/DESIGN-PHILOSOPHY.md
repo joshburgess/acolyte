@@ -19,11 +19,11 @@ no runtime reflection.
     (mkApi @API)     (mkGrpcServiceMap @API)  (generateSpec @API)
           │                    │                     │
           ▼                    ▼                     ▼
-    tower Service        tower Service          JSON document
+    spire Service        spire Service          JSON document
           │                    │
           ▼                    ▼
     ┌──────────┐    ┌──────────────┐
-    │tower-wai │    │ tower-server │
+    │spire-wai │    │ spire-server │
     │  (warp)  │    │ (HTTP/1.1+2) │
     └──────────┘    └──────────────┘
 ```
@@ -84,7 +84,7 @@ a single pass. `CheckArity` either reduces to `()` or fires a
 including GHC startup). Zero exponential behavior.
 
 ### Problem: No shared middleware layer
-### Fix: tower (a standalone Haskell library)
+### Fix: spire (a standalone Haskell library)
 
 ```haskell
 newtype Service m req resp = Service { runService :: req -> m resp }
@@ -100,9 +100,9 @@ Three types. That's the entire abstraction. Middleware composes with
 server |> cors |> tracing |> secureHeaders
 ```
 
-tower has no HTTP knowledge. http-core has no WAI knowledge. The server
-produces a Service; the backend adapter consumes it. Swap tower-wai for
-tower-server (or any other adapter that consumes the same boundary).
+spire has no HTTP knowledge. http-core has no WAI knowledge. The server
+produces a Service; the backend adapter consumes it. Swap spire-wai for
+spire-server (or any other adapter that consumes the same boundary).
 Nothing above the adapter changes.
 
 ### Problem: No compile-time middleware enforcement
@@ -152,7 +152,7 @@ users never see it.
 There are two fundamentally different kinds of middleware:
 
 ```
-Layer 1: Generic (tower)          Layer 2: Per-endpoint (type wrappers)
+Layer 1: Generic (spire)          Layer 2: Per-endpoint (type wrappers)
 ─────────────────────────         ────────────────────────────────────
 CORS, compression, tracing,       Protected, Validated, Versioned,
 timeouts, secure headers.         Requires, WithParams, Describe.
@@ -182,17 +182,17 @@ delegates through them to the inner endpoint.
           ┌─────────────────┼───────────────────┐
           │                 │                    │
     ┌─────▼──────┐   ┌─────▼──────┐
-    │  tower-wai  │   │tower-server│
+    │  spire-wai  │   │spire-server│
     │   (warp)    │   │(HTTP/1.1+2)│
     └────────────┘   └────────────┘
 ```
 
 The boundary is `Service IO (Request Body) (Response Body)`. Everything
 above it is portable. Everything below it is a backend adapter. The
-project ships two: `tower-wai` (warp) and `tower-server` (zero WAI,
+project ships two: `spire-wai` (warp) and `spire-server` (zero WAI,
 HTTP/1.1+2 over raw sockets). New backends (Lambda, custom transports)
 are written by implementing the same boundary. WAI types never leak
-above tower-wai.
+above spire-wai.
 
 ## Type-level annotation composability
 

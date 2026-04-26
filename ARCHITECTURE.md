@@ -18,7 +18,7 @@ Target compiler: **GHC 9.10.3**.
    type-level machinery. Every interpretation (server, client, OpenAPI, gRPC)
    lives in a separate package that reads the same core types.
 
-2. **The Service/Layer abstraction is a standalone library.** `tower` is not
+2. **The Service/Layer abstraction is a standalone library.** `spire` is not
    tied to the web framework, the same way Rust's `tower` crate is not tied
    to `axum`. It depends only on `base` and is usable from any Haskell
    project that wants composable middleware: web servers, gRPC, message
@@ -34,7 +34,7 @@ Target compiler: **GHC 9.10.3**.
    over recursive constraint chains. Compile times are benchmarked
    (`bench/compile-time/`) and stay constant from 1 to 32 endpoints.
 
-5. **WAI is confined to a single adapter.** Only `tower-wai` imports
+5. **WAI is confined to a single adapter.** Only `spire-wai` imports
    `Network.Wai`. Every other package operates on backend-agnostic types
    from `http-core`. Replacing the backend means replacing one adapter
    package, not rewriting the framework.
@@ -60,24 +60,24 @@ Target compiler: **GHC 9.10.3**.
                        └────────────────────────┘
 
    ┌────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-   │   tower    │◄──│  tower-http  │   │  tower-grpc  │   │tower-protobuf│
+   │   spire    │◄──│  spire-http  │   │  spire-grpc  │   │spire-protobuf│
    └────────────┘   └──────────────┘   └──────────────┘   └──────────────┘
         ▲                                     ▲                  ▲
         │                                     │                  │
    ┌────┴────────┐  ┌────────────┐            └──────────────────┘
-   │ tower-server │  │  tower-wai │                used by
+   │ spire-server │  │  spire-wai │                used by
    │ (HTTP/1.1+H2)│  │ (warp/WAI) │            acolyte-grpc
    │   no WAI     │  └────────────┘
    └─────────────┘
 
    ┌────────────┐
    │ http-core  │   backend-agnostic Request/Response, Extensions map
-   └────────────┘   used by every package above except tower itself
+   └────────────┘   used by every package above except spire itself
 ```
 
 Sixteen packages total, organized in three families:
 
-- **`tower-*`**: protocol and transport. Service/Layer composition,
+- **`spire-*`**: protocol and transport. Service/Layer composition,
   HTTP middleware, HTTP/1.1+HTTP/2 server, WAI adapter, gRPC wire protocol,
   protobuf, WebSocket. None of these know what a `acolyte`
   endpoint is.
@@ -85,7 +85,7 @@ Sixteen packages total, organized in three families:
   interpretations that read it: server, client, OpenAPI, gRPC, codegen,
   test utilities. Plus the facade.
 - **`http-core`**: the shared HTTP vocabulary. Backend-agnostic
-  `Request`/`Response`/`Extensions`. Used everywhere except `tower` itself.
+  `Request`/`Response`/`Extensions`. Used everywhere except `spire` itself.
 
 ---
 
@@ -95,15 +95,15 @@ There are two fundamentally different kinds of middleware in this codebase,
 operating at different levels. They compose orthogonally and are easy to
 confuse.
 
-### Layer 1: generic middleware (tower Layers)
+### Layer 1: generic middleware (spire Layers)
 
 CORS, compression, tracing, timeouts, secure headers, request IDs, rate
 limiting. These wrap the entire server as
 `Service IO Request Response -> Service IO Request Response` and transform
 requests and responses without any knowledge of individual endpoint types.
-They compose via tower's `Layer` abstraction.
+They compose via spire's `Layer` abstraction.
 
-**Where they live:** `tower`, `tower-http`.
+**Where they live:** `spire`, `spire-http`.
 
 **What they see:** request method, path, headers, body bytes, response
 status. Nothing about the API type, endpoint types, handler arguments, or
@@ -121,7 +121,7 @@ separately via `|>`. At `run` time, a type family checks that every
 `Protected auth endpoint`, `ValidatedBody validator endpoint`,
 `Versioned version endpoint`, `Requires effect endpoint`, `Named name endpoint`.
 These are type-level wrappers on individual endpoints in the API type. They
-are **not** tower Layers. They modify how individual handlers are bound and
+are **not** spire Layers. They modify how individual handlers are bound and
 dispatched by the router.
 
 **Where they live:** types in `acolyte-core`, dispatch logic in
@@ -165,7 +165,7 @@ body type, response type, auth type, validator type, version prefix.
                                  │ wrapped by
                                  ▼
   ┌──────────────────────────────────────────────────────────────┐
-  │  tower / tower-http                                           │
+  │  spire / spire-http                                           │
   │  Generic middleware: CORS, tracing, compression, timeouts.    │
   │  Operates on http-core Request/Response. No endpoint types.   │
   └──────────────────────────────┬───────────────────────────────┘
@@ -173,7 +173,7 @@ body type, response type, auth type, validator type, version prefix.
                 ┌────────────────┼────────────────┐
                 ▼                                 ▼
        ┌─────────────────┐               ┌─────────────────┐
-       │   tower-wai     │               │  tower-server   │
+       │   spire-wai     │               │  spire-server   │
        │ converts to WAI │               │ HTTP/1.1+H2+TLS │
        └────────┬────────┘               │   no WAI        │
                 ▼                        └─────────────────┘
@@ -190,7 +190,7 @@ WAI directly.
 A consequence worth highlighting: an endpoint can be both `Protected`
 (layer 2) and `Requires Auth` (layer 1). `Protected` ensures the handler
 receives auth credentials at dispatch time. `Requires Auth` ensures the
-auth middleware tower Layer is present in the stack. Two different concerns,
+auth middleware spire Layer is present in the stack. Two different concerns,
 both compile-checked, neither aware of the other.
 
 ---
@@ -228,8 +228,8 @@ data Response body = Response
 ```
 
 Each backend provides a thin adapter that converts between these types and
-its own. `tower-wai` converts to/from `Wai.Application` (and offers
-`fromWaiMiddleware` for using existing WAI middleware). `tower-server`
+its own. `spire-wai` converts to/from `Wai.Application` (and offers
+`fromWaiMiddleware` for using existing WAI middleware). `spire-server`
 parses and renders HTTP/1.1 and HTTP/2 directly from raw sockets and never
 imports WAI at all.
 
@@ -286,7 +286,7 @@ current layout.
 
 ### Foundation (no internal dependencies)
 
-#### `tower`
+#### `spire`
 
 Service and Layer composition. The Haskell counterpart to Rust's `tower`
 crate. Depends only on `base`. Defines:
@@ -334,26 +334,26 @@ interpretation reads.
 
 ### Middleware
 
-#### `tower-http`
+#### `spire-http`
 
-HTTP-specific tower Layers. Depends on `tower`, `http-core`, `zlib`,
+HTTP-specific spire Layers. Depends on `spire`, `http-core`, `zlib`,
 `directory`, `filepath`. Provides CORS, secure headers, request ID,
 tracing, timeouts, gzip/deflate compression, and static file serving.
 
 ### Backend adapters (pick one or more)
 
-#### `tower-wai`
+#### `spire-wai`
 
-WAI/warp adapter. Depends on `tower`, `http-core`, `wai`, `warp`. The
+WAI/warp adapter. Depends on `spire`, `http-core`, `wai`, `warp`. The
 *only* package in the codebase that imports `Network.Wai`. Provides
 `runWarp`, `toWaiApp`, `fromWaiApp`, `fromWaiMiddleware`,
 `toWaiMiddleware`. Use this when you want existing WAI middleware (gzip,
 logger, anything from `wai-extra`) or when you want warp's mature
 HTTP/2/TLS implementation.
 
-#### `tower-server`
+#### `spire-server`
 
-Tower-native HTTP/1.1 + HTTP/2 server with TLS. Depends on `tower`,
+Spire-native HTTP/1.1 + HTTP/2 server with TLS. Depends on `spire`,
 `http-core`, `network`, `attoparsec`, `tls`, `http2`, `http-semantics`,
 `network-run`, `async`. Zero WAI dependency. Use this when you want the
 smallest possible dependency footprint, or when serving gRPC (which needs
@@ -361,15 +361,15 @@ HTTP/2).
 
 ### Wire protocols
 
-#### `tower-grpc`
+#### `spire-grpc`
 
-gRPC wire protocol. Depends on `tower`, `http-core`, `zlib`. Handles
+gRPC wire protocol. Depends on `spire`, `http-core`, `zlib`. Handles
 framing, status codes, service dispatch, REST+gRPC multiplexing, server
 reflection, health checks, and gzip compression. Knows nothing about
-protobuf or about API types; pairs with `tower-protobuf` for codecs and
+protobuf or about API types; pairs with `spire-protobuf` for codecs and
 with `acolyte-grpc` for type-driven dispatch.
 
-#### `tower-protobuf`
+#### `spire-protobuf`
 
 Standalone Protocol Buffers encoder/decoder. Depends only on `base`,
 `bytestring`, `text`, `containers`. Independent of the rest of the
@@ -377,10 +377,10 @@ codebase: usable in any Haskell project that needs proto3 wire format,
 including the packed-repeated and proto3-map field encodings. Has its own
 benchmarks and protoc cross-validation tests.
 
-#### `tower-websocket`
+#### `spire-websocket`
 
 WebSocket session types. Depends on `acolyte-core` (for the
-`SessionType` algebra), `tower`, `http-core`, `aeson`. Provides a
+`SessionType` algebra), `spire`, `http-core`, `aeson`. Provides a
 phantom-typed `Session s` handle whose type parameter tracks the current
 protocol state. Operations (`send`, `recv`, `offer`, `select1`, `select2`,
 `close`, `recurse`, `loop`) consume the old session and produce one at the
@@ -391,7 +391,7 @@ via a `WebSocketConn` abstraction.
 
 #### `acolyte-server`
 
-HTTP server interpretation. Depends on `acolyte-core`, `tower`,
+HTTP server interpretation. Depends on `acolyte-core`, `spire`,
 `http-core`, `aeson`. Produces a `Service IO (Request ByteString) (Response ByteString)`
 from an API type and a tuple (or record) of handlers. Provides:
 
@@ -405,7 +405,7 @@ from an API type and a tuple (or record) of handlers. Provides:
   APIs larger than 25 endpoints.
 - Content negotiation, validation, async SSE streaming.
 
-Backend-agnostic: produces a tower Service, doesn't know or care what runs
+Backend-agnostic: produces a spire Service, doesn't know or care what runs
 it.
 
 #### `acolyte-client`
@@ -438,17 +438,17 @@ in.
 #### `acolyte-grpc`
 
 gRPC interpretation of the same API type. Depends on
-`acolyte-core`, `acolyte-server`, `tower`,
-`tower-grpc`, `tower-protobuf`. Provides `GrpcCodec`, `GrpcReady`
+`acolyte-core`, `acolyte-server`, `spire`,
+`spire-grpc`, `spire-protobuf`. Provides `GrpcCodec`, `GrpcReady`
 constraint, `mkGrpcServiceMap`, `.proto` generation. Pair with
-`Tower.Grpc.Multiplex` to serve REST and gRPC on the same port from the
+`Spire.Grpc.Multiplex` to serve REST and gRPC on the same port from the
 same handlers.
 
 #### `acolyte-test`
 
 Direct-dispatch testing. Depends on `acolyte-core`,
-`acolyte-server`, `tower`, `tower-grpc`, `http-core`,
-`QuickCheck`. Sends requests directly through a tower Service: no
+`acolyte-server`, `spire`, `spire-grpc`, `http-core`,
+`QuickCheck`. Sends requests directly through a spire Service: no
 ports, no sockets, deterministic. Helpers like `get`, `post`,
 `shouldHaveStatus`, `shouldHaveBody` for both REST and gRPC.
 
@@ -457,14 +457,14 @@ ports, no sockets, deterministic. Helpers like `get`, `post`,
 #### `acolyte`
 
 Re-exports the most common types and functions from across the stack.
-Depends on every other `acolyte-*` package plus `tower`,
-`tower-http`, `tower-server`, `tower-grpc`, `tower-websocket`, `http-core`.
+Depends on every other `acolyte-*` package plus `spire`,
+`spire-http`, `spire-server`, `spire-grpc`, `spire-websocket`, `http-core`.
 Most users import `Acolyte.Prelude` and get everything they
 need.
 
 The facade does **not** depend on `acolyte-codegen` (it's a
-build-time tool, not a runtime library) or on `tower-wai` (so apps that
-prefer `tower-server` don't pull in WAI). To use either, depend on it
+build-time tool, not a runtime library) or on `spire-wai` (so apps that
+prefer `spire-server` don't pull in WAI). To use either, depend on it
 explicitly.
 
 ---
@@ -512,12 +512,12 @@ data and analysis.
 | API encoding | Promoted lists `'[a, b, c]` | Constant compile time vs. exponential `:<|>` |
 | Path literals | `Symbol` (`GHC.TypeLits`) | Native; no marker types or TH needed |
 | Type-level computation | Closed type families, flat indexing | No backtracking, no recursive instance chains |
-| Service abstraction | `tower` newtype, not type class | Simpler, no orphan instances, no coherence issues |
+| Service abstraction | `spire` newtype, not type class | Simpler, no orphan instances, no coherence issues |
 | HTTP types | `http-core`, not WAI | Backend-agnostic; WAI confined to one adapter |
 | Handler monad | `IO` directly | Eliminates `liftIO`; no transformer stack forced on users |
 | State passing | Extractors (`AppState`), not `ReaderT` | Explicit, composable, scoped per handler |
 | Error handling | `Either AppError a` return values | No `throwError`/`catchError` machinery |
-| Backend | Pluggable via adapter packages | `tower-wai` (warp) or `tower-server` (zero-WAI HTTP/1.1+H2) |
+| Backend | Pluggable via adapter packages | `spire-wai` (warp) or `spire-server` (zero-WAI HTTP/1.1+H2) |
 | WebSocket sessions | Phantom-typed `Session s` handle | Same guarantees as Linear Haskell, simpler ergonomics |
 | Streaming | Async SSE + chunked transfer | Forks the producer, delivers events as they're ready |
 | Testing | Dedicated package, direct dispatch | No ports, no sockets, deterministic |

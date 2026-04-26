@@ -90,8 +90,8 @@ handlers and that each one matches its endpoint type. No `wrapHandler`,
 no `toHandler`. Just pass your functions positionally.
 
 ```haskell
-import Tower (Service, (|>))
-import Tower.Http (secureHeadersLayer, defaultSecureHeaders)
+import Spire (Service, (|>))
+import Spire.Http (secureHeadersLayer, defaultSecureHeaders)
 
 server :: Service IO (Request ByteString) (Response ByteString)
 server = mkApi @API (healthHandler, listUsersHandler)
@@ -116,11 +116,11 @@ server = mkRecordApi @NamedAPI Handlers { ... }
 
 ### 4. Add middleware and run
 
-Middleware composes with `|>`. Pick a backend: `tower-server` (zero
-WAI) or `tower-wai` (warp).
+Middleware composes with `|>`. Pick a backend: `spire-server` (zero
+WAI) or `spire-wai` (warp).
 
 ```haskell
-import Tower.Server (runServerBS)
+import Spire.Server (runServerBS)
 
 main :: IO ()
 main = do
@@ -157,7 +157,7 @@ This effect is required by an endpoint but was not provided.
 ## Testing without a network
 
 `acolyte-test` dispatches requests directly through the
-tower Service. No ports, no sockets, deterministic.
+spire Service. No ports, no sockets, deterministic.
 
 ```haskell
 import Acolyte.Test
@@ -177,7 +177,7 @@ session handles. Each operation (send, recv, offer, select) transitions
 the type-level state, so the compiler rejects out-of-order messages.
 
 ```haskell
-import Tower.WebSocket
+import Spire.WebSocket
 import Acolyte.Core.Session (SessionType (..))
 
 type EchoProtocol = 'Send Text ('Recv Text 'End)
@@ -214,40 +214,40 @@ proto = generateProto @API "pkg" "Svc"
 -- cabal run proto-codegen -- service.proto
 ```
 
-Run on HTTP/2 via tower-server (zero WAI):
+Run on HTTP/2 via spire-server (zero WAI):
 
 ```haskell
 main = runServerH2 (defaultH2Config 50051) grpcSvc
 ```
 
-Features: REST+gRPC multiplexing (`Tower.Grpc.Multiplex`), content
+Features: REST+gRPC multiplexing (`Spire.Grpc.Multiplex`), content
 negotiation (`Acolyte.Server.Negotiate`), server reflection
-(`Tower.Grpc.Reflection`), bidirectional `.proto` codegen, client
+(`Spire.Grpc.Reflection`), bidirectional `.proto` codegen, client
 streaming and bidirectional streaming handlers, gRPC health check
-service (`Tower.Grpc.Health`), and gzip compression
-(`Tower.Grpc.Compression`).
+service (`Spire.Grpc.Health`), and gzip compression
+(`Spire.Grpc.Compression`).
 
 See the [gRPC guide](docs/GRPC.md) for the full walkthrough.
 
 ## Architecture
 
 ```
-acolyte-server    API types -> REST handlers -> tower Service
-acolyte-grpc      API types -> gRPC handlers -> tower Service
+acolyte-server    API types -> REST handlers -> spire Service
+acolyte-grpc      API types -> gRPC handlers -> spire Service
          |                            |
-   tower / tower-http / tower-grpc   Service/Layer/Middleware/gRPC framing
+   spire / spire-http / spire-grpc   Service/Layer/Middleware/gRPC framing
          |
       http-core              Backend-agnostic Request/Response
          |
-  tower-wai | tower-server   Pick your backend (HTTP/1.1 + HTTP/2)
+  spire-wai | spire-server   Pick your backend (HTTP/1.1 + HTTP/2)
          |           |
        warp      raw sockets
 
-  tower-websocket            WebSocket session types (protocol-enforced)
+  spire-websocket            WebSocket session types (protocol-enforced)
 ```
 
-Each layer is independent. `tower` knows nothing about HTTP. `http-core`
-knows nothing about WAI. `tower-grpc` knows nothing about API types.
+Each layer is independent. `spire` knows nothing about HTTP. `http-core`
+knows nothing about WAI. `spire-grpc` knows nothing about API types.
 The server produces a `Service` and doesn't know or care what runs it.
 
 ## Packages
@@ -255,19 +255,19 @@ The server produces a `Service` and doesn't know or care what runs it.
 | Package | What it does |
 |---------|-------------|
 | [`acolyte-core`](acolyte-core/) | Type-level API: endpoints, paths, effects, sessions, versioning. Depends on `base` only. |
-| [`tower`](tower/) | Service/Layer/Middleware composition. Depends on `base` only. Standalone (use it anywhere). |
+| [`spire`](spire/) | Service/Layer/Middleware composition. Depends on `base` only. Standalone (use it anywhere). |
 | [`http-core`](http-core/) | Backend-agnostic Request, Response, Extensions (typed heterogeneous map). |
-| [`tower-http`](tower-http/) | HTTP middleware: security headers, request ID, tracing, CORS, gzip, timeouts. |
-| [`tower-wai`](tower-wai/) | WAI/warp backend adapter. The only package that imports WAI. |
-| [`tower-server`](tower-server/) | Tower-native HTTP/1.1 + HTTP/2 server with TLS. Zero WAI dependency. |
-| [`tower-grpc`](tower-grpc/) | gRPC wire protocol: framing, status codes, service dispatch. No protobuf dependency. |
+| [`spire-http`](spire-http/) | HTTP middleware: security headers, request ID, tracing, CORS, gzip, timeouts. |
+| [`spire-wai`](spire-wai/) | WAI/warp backend adapter. The only package that imports WAI. |
+| [`spire-server`](spire-server/) | Spire-native HTTP/1.1 + HTTP/2 server with TLS. Zero WAI dependency. |
+| [`spire-grpc`](spire-grpc/) | gRPC wire protocol: framing, status codes, service dispatch. No protobuf dependency. |
 | [`acolyte-server`](acolyte-server/) | Handler wiring, routing, extractors, effect tracking. |
 | [`acolyte-client`](acolyte-client/) | Type-safe HTTP client derived from the same API type. |
 | [`acolyte-openapi`](acolyte-openapi/) | OpenAPI 3.1 + Swagger 2.0 spec generation from API types. Annotations (`Describe`, `WithParams`, `WithHeaders`, `RespondsWith`) populate real operation summaries, parameter schemas, status codes, and request/response body schemas. Custom types get schemas automatically via `Generic`-based `ToSchema` derivation. |
 | [`acolyte-codegen`](acolyte-codegen/) | Generate API types from OpenAPI/Swagger specs. |
 | [`acolyte-grpc`](acolyte-grpc/) | gRPC interpretation: `GrpcCodec`, `GrpcReady`, `.proto` generation, `mkGrpcServiceMap`. |
 | [`acolyte-test`](acolyte-test/) | Direct-dispatch testing: no network, no ports. |
-| [`tower-websocket`](tower-websocket/) | WebSocket session types: phantom-typed `Session` handle enforces send/recv protocol at compile time. |
+| [`spire-websocket`](spire-websocket/) | WebSocket session types: phantom-typed `Session` handle enforces send/recv protocol at compile time. |
 | [`acolyte`](acolyte/) | Facade. Re-exports everything for convenience. |
 
 ## Examples
@@ -293,10 +293,10 @@ The `examples/` directory contains 12 complete applications:
   Compile time scales linearly, not exponentially.
 - **IO handlers.** No `ExceptT`, no `ReaderT`. State via extractors
   (`AppState`), errors via `Either`.
-- **tower Service as the boundary.** The server produces it, the backend
+- **spire Service as the boundary.** The server produces it, the backend
   consumes it. Middleware composes with `|>`.
-- **WAI is confined.** Only `tower-wai` imports WAI. Swap it for
-  `tower-server`, a Lambda adapter, or anything else.
+- **WAI is confined.** Only `spire-wai` imports WAI. Swap it for
+  `spire-server`, a Lambda adapter, or anything else.
 - **Compile times are first-class.** 1 to 32 endpoints compile in
   constant time (~1.3s including GHC startup).
 - **Runtime is fast.** 142 ns dispatch, 14 ns gRPC decode, middleware

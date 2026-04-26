@@ -13,7 +13,7 @@ description:
   packages; this package knows nothing about them.
 
 license:         BSD-3-Clause
-license-file:    ../LICENSE
+license-file:    LICENSE
 author:          Josh Burgess
 maintainer:      Josh Burgess <joshburgess.webdev@gmail.com>
 homepage:        https://github.com/joshburgess/acolyte

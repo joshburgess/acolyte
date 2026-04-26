@@ -13,7 +13,7 @@ description:
   and @mkGrpcServer@ to build a gRPC service from the API type.
 
 license:         BSD-3-Clause
-license-file:    ../LICENSE
+license-file:    LICENSE
 author:          Josh Burgess
 maintainer:      Josh Burgess <joshburgess.webdev@gmail.com>
 homepage:        https://github.com/joshburgess/acolyte

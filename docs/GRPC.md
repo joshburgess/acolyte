@@ -1,14 +1,14 @@
 # gRPC support
 
-servant-reimagined serves gRPC from the same API type that drives REST,
+acolyte serves gRPC from the same API type that drives REST,
 OpenAPI generation, and type-safe clients. One type, four interpretations.
 
 ## Quick start
 
 ```haskell
-import Servant.Reimagined.Core
-import Servant.Reimagined.Server (Json)
-import Servant.Reimagined.Grpc
+import Acolyte.Core
+import Acolyte.Server (Json)
+import Acolyte.Grpc
 import Tower.Grpc (grpcServer)
 import Tower.Server.H2 (runServerH2, defaultH2Config)
 
@@ -49,16 +49,16 @@ grpcurl -plaintext -d '{"name":"alice"}' localhost:50051 myapp.MyService/Users
 ```haskell
 type API = '[ Get HealthPath Text, Post UsersPath (Json CreateUser) (Json User) ]
 
--- REST server (servant-reimagined-server):
+-- REST server (acolyte-server):
 restSvc = mkServer @API restHandlers
 
--- gRPC server (servant-reimagined-grpc):
+-- gRPC server (acolyte-grpc):
 grpcSvc = grpcServer (mkGrpcServiceMap @API "pkg" "Svc" grpcHandlers)
 
--- OpenAPI spec (servant-reimagined-openapi):
+-- OpenAPI spec (acolyte-openapi):
 spec = generateSpec @API "My API" "1.0"
 
--- .proto file (servant-reimagined-grpc):
+-- .proto file (acolyte-grpc):
 proto = generateProto @API "pkg" "Svc"
 ```
 
@@ -157,7 +157,7 @@ instance HasProtoFields User where
 ## Architecture
 
 ```
-servant-reimagined-grpc     API type -> GrpcReady check, .proto, mkGrpcServiceMap
+acolyte-grpc     API type -> GrpcReady check, .proto, mkGrpcServiceMap
          |
     tower-grpc              gRPC wire protocol: framing, status, dispatch
          |
@@ -170,7 +170,7 @@ Each layer is independent:
 
 - `tower-grpc` knows nothing about API types: it dispatches from
   a `GrpcServiceMap` of `(service, method) -> handler`
-- `servant-reimagined-grpc` builds the service map from the API type
+- `acolyte-grpc` builds the service map from the API type
 - `tower-server/H2` handles HTTP/2 framing and doesn't know about gRPC
 - The same `Service IO (Request Body) (Response Body)` abstraction
   connects all layers
@@ -301,8 +301,8 @@ the compression algorithm to the peer.
 | Package | What it does |
 |---------|-------------|
 | `tower-grpc` | gRPC wire protocol: 5-byte framing, status codes, service dispatch, multiplexing, reflection. No protobuf dependency. |
-| `servant-reimagined-grpc` | API type interpretation: `GrpcCodec`, `GrpcReady`, `.proto` generation, `mkGrpcServiceMap`. |
-| `servant-reimagined-codegen` | Code generation from `.proto` files to Haskell API types. |
+| `acolyte-grpc` | API type interpretation: `GrpcCodec`, `GrpcReady`, `.proto` generation, `mkGrpcServiceMap`. |
+| `acolyte-codegen` | Code generation from `.proto` files to Haskell API types. |
 | `tower-server` (H2 module) | HTTP/2 transport via the `http2` package. Zero WAI. |
 
 ## Multiplexing
@@ -356,7 +356,7 @@ files with full message definitions, use `generateProtoFull` with
 `MessageDef` and `HasProtoFields`:
 
 ```haskell
-import Servant.Reimagined.Grpc (generateProtoFull, MessageDef(..), HasProtoFields(..))
+import Acolyte.Grpc (generateProtoFull, MessageDef(..), HasProtoFields(..))
 
 instance HasProtoFields CreateUser where
   protoFields =
@@ -397,12 +397,12 @@ message User {
 
 ## .proto to Haskell
 
-The `servant-reimagined-codegen` package can parse `.proto` files and
+The `acolyte-codegen` package can parse `.proto` files and
 generate Haskell API types, closing the loop for interop with
 existing gRPC ecosystems:
 
 ```haskell
-import Servant.Reimagined.Codegen.Proto (parseProtoFile, generateHaskellApi)
+import Acolyte.Codegen.Proto (parseProtoFile, generateHaskellApi)
 
 main :: IO ()
 main = do

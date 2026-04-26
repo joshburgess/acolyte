@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes how `servant-reimagined` is organized: the package
+This document describes how `acolyte` is organized: the package
 layout, the layered design, and the rationale behind the major boundaries.
 For a quick start use the [README](README.md). For request-to-response flow
 diagrams use [`docs/DATA-FLOW.md`](docs/DATA-FLOW.md). For benchmarks see
@@ -45,7 +45,7 @@ Target compiler: **GHC 9.10.3**.
 
 ```
                        ┌──────────────────────────┐
-                       │   servant-reimagined     │
+                       │   acolyte     │
                        │       (facade)           │
                        └──────────────┬───────────┘
                                       │
@@ -56,7 +56,7 @@ Target compiler: **GHC 9.10.3**.
    └──────────────┴──────────────┴────┼────┘
                                       ▼
                        ┌────────────────────────┐
-                       │ servant-reimagined-core │
+                       │ acolyte-core │
                        └────────────────────────┘
 
    ┌────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
@@ -66,7 +66,7 @@ Target compiler: **GHC 9.10.3**.
         │                                     │                  │
    ┌────┴────────┐  ┌────────────┐            └──────────────────┘
    │ tower-server │  │  tower-wai │                used by
-   │ (HTTP/1.1+H2)│  │ (warp/WAI) │            servant-reimagined-grpc
+   │ (HTTP/1.1+H2)│  │ (warp/WAI) │            acolyte-grpc
    │   no WAI     │  └────────────┘
    └─────────────┘
 
@@ -79,9 +79,9 @@ Sixteen packages total, organized in three families:
 
 - **`tower-*`**: protocol and transport. Service/Layer composition,
   HTTP middleware, HTTP/1.1+HTTP/2 server, WAI adapter, gRPC wire protocol,
-  protobuf, WebSocket. None of these know what a `servant-reimagined`
+  protobuf, WebSocket. None of these know what a `acolyte`
   endpoint is.
-- **`servant-reimagined-*`**: type-level API specification and the
+- **`acolyte-*`**: type-level API specification and the
   interpretations that read it: server, client, OpenAPI, gRPC, codegen,
   test utilities. Plus the facade.
 - **`http-core`**: the shared HTTP vocabulary. Backend-agnostic
@@ -124,8 +124,8 @@ These are type-level wrappers on individual endpoints in the API type. They
 are **not** tower Layers. They modify how individual handlers are bound and
 dispatched by the router.
 
-**Where they live:** types in `servant-reimagined-core`, dispatch logic in
-`servant-reimagined-server`.
+**Where they live:** types in `acolyte-core`, dispatch logic in
+`acolyte-server`.
 
 **What they see:** the full endpoint type, including method, path, request
 body type, response type, auth type, validator type, version prefix.
@@ -148,7 +148,7 @@ body type, response type, auth type, validator type, version prefix.
 
 ```
   ┌──────────────────────────────────────────────────────────────┐
-  │  servant-reimagined-core                                      │
+  │  acolyte-core                                      │
   │  Type-level: Endpoint, Requires, Protected, ValidatedBody,    │
   │  Versioned, Named, session types, change tracking.            │
   │  Pure types. No runtime. No IO.                               │
@@ -156,7 +156,7 @@ body type, response type, auth type, validator type, version prefix.
                                  │ read by
                                  ▼
   ┌──────────────────────────────────────────────────────────────┐
-  │  servant-reimagined-server                                    │
+  │  acolyte-server                                    │
   │  Per-endpoint dispatch: handler binding, auth enforcement,    │
   │  validation, versioned routing, content negotiation.          │
   │                                                               │
@@ -311,7 +311,7 @@ Backend-agnostic HTTP types. Depends on `base`, `bytestring`, `text`,
 `Extensions` (typed heterogeneous map keyed by `TypeRep`), strict and
 streaming body types.
 
-#### `servant-reimagined-core`
+#### `acolyte-core`
 
 Pure type-level API specification. Depends only on `base` and `text`.
 Defines the vocabulary that every interpretation reads:
@@ -367,7 +367,7 @@ gRPC wire protocol. Depends on `tower`, `http-core`, `zlib`. Handles
 framing, status codes, service dispatch, REST+gRPC multiplexing, server
 reflection, health checks, and gzip compression. Knows nothing about
 protobuf or about API types; pairs with `tower-protobuf` for codecs and
-with `servant-reimagined-grpc` for type-driven dispatch.
+with `acolyte-grpc` for type-driven dispatch.
 
 #### `tower-protobuf`
 
@@ -379,7 +379,7 @@ benchmarks and protoc cross-validation tests.
 
 #### `tower-websocket`
 
-WebSocket session types. Depends on `servant-reimagined-core` (for the
+WebSocket session types. Depends on `acolyte-core` (for the
 `SessionType` algebra), `tower`, `http-core`, `aeson`. Provides a
 phantom-typed `Session s` handle whose type parameter tracks the current
 protocol state. Operations (`send`, `recv`, `offer`, `select1`, `select2`,
@@ -389,9 +389,9 @@ via a `WebSocketConn` abstraction.
 
 ### API interpretations
 
-#### `servant-reimagined-server`
+#### `acolyte-server`
 
-HTTP server interpretation. Depends on `servant-reimagined-core`, `tower`,
+HTTP server interpretation. Depends on `acolyte-core`, `tower`,
 `http-core`, `aeson`. Produces a `Service IO (Request ByteString) (Response ByteString)`
 from an API type and a tuple (or record) of handlers. Provides:
 
@@ -408,18 +408,18 @@ from an API type and a tuple (or record) of handlers. Provides:
 Backend-agnostic: produces a tower Service, doesn't know or care what runs
 it.
 
-#### `servant-reimagined-client`
+#### `acolyte-client`
 
-Type-safe HTTP client. Depends on `servant-reimagined-core`, `http-core`,
+Type-safe HTTP client. Depends on `acolyte-core`, `http-core`,
 `http-client`, `http-client-tls`. Each endpoint becomes a callable
 function with the right argument and return types. `callNamed @"getUser"`
 looks up endpoints by name. `mkClientRecord` builds a typed client record
 from a `Named` API via `Generic`.
 
-#### `servant-reimagined-openapi`
+#### `acolyte-openapi`
 
 OpenAPI 3.1 + Swagger 2.0 generation. Depends on
-`servant-reimagined-core`, `aeson`, plus standard text/bytes/containers.
+`acolyte-core`, `aeson`, plus standard text/bytes/containers.
 Produces a real spec from the API type: `Describe` becomes `summary`,
 `WithParams` becomes parameter schemas, `RespondsWith 204` becomes the
 response status code, request/response body types become JSON schemas via
@@ -427,42 +427,42 @@ the `ToSchema` class. Records with `deriving Generic` get automatic
 `ToSchema` instances. Sums and `Either` produce `oneOf`. `Maybe` emits
 `nullable: true`.
 
-#### `servant-reimagined-codegen`
+#### `acolyte-codegen`
 
 Bidirectional code generation. Standalone executable plus library, no
 internal dependencies. Generates Haskell API types from OpenAPI/Swagger
-specs (`servant-reimagined-codegen <spec>.json`) or from `.proto` files
+specs (`acolyte-codegen <spec>.json`) or from `.proto` files
 (`proto-codegen <service>.proto`), and emits handler stubs ready to fill
 in.
 
-#### `servant-reimagined-grpc`
+#### `acolyte-grpc`
 
 gRPC interpretation of the same API type. Depends on
-`servant-reimagined-core`, `servant-reimagined-server`, `tower`,
+`acolyte-core`, `acolyte-server`, `tower`,
 `tower-grpc`, `tower-protobuf`. Provides `GrpcCodec`, `GrpcReady`
 constraint, `mkGrpcServiceMap`, `.proto` generation. Pair with
 `Tower.Grpc.Multiplex` to serve REST and gRPC on the same port from the
 same handlers.
 
-#### `servant-reimagined-test`
+#### `acolyte-test`
 
-Direct-dispatch testing. Depends on `servant-reimagined-core`,
-`servant-reimagined-server`, `tower`, `tower-grpc`, `http-core`,
+Direct-dispatch testing. Depends on `acolyte-core`,
+`acolyte-server`, `tower`, `tower-grpc`, `http-core`,
 `QuickCheck`. Sends requests directly through a tower Service: no
 ports, no sockets, deterministic. Helpers like `get`, `post`,
 `shouldHaveStatus`, `shouldHaveBody` for both REST and gRPC.
 
 ### Facade
 
-#### `servant-reimagined`
+#### `acolyte`
 
 Re-exports the most common types and functions from across the stack.
-Depends on every other `servant-reimagined-*` package plus `tower`,
+Depends on every other `acolyte-*` package plus `tower`,
 `tower-http`, `tower-server`, `tower-grpc`, `tower-websocket`, `http-core`.
-Most users import `Servant.Reimagined.Prelude` and get everything they
+Most users import `Acolyte.Prelude` and get everything they
 need.
 
-The facade does **not** depend on `servant-reimagined-codegen` (it's a
+The facade does **not** depend on `acolyte-codegen` (it's a
 build-time tool, not a runtime library) or on `tower-wai` (so apps that
 prefer `tower-server` don't pull in WAI). To use either, depend on it
 explicitly.

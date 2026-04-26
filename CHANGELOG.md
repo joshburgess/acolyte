@@ -14,23 +14,23 @@
 - Custom type errors for handler count mismatch and missing effects
 
 ### Interpretations
-- HTTP server (servant-reimagined-server)
-- Type-safe HTTP client (servant-reimagined-client)
-- OpenAPI 3.1 + Swagger 2.0 generation (servant-reimagined-openapi)
-- Code generation from OpenAPI/Swagger specs (servant-reimagined-codegen)
-- Direct-dispatch testing utilities (servant-reimagined-test)
+- HTTP server (acolyte-server)
+- Type-safe HTTP client (acolyte-client)
+- OpenAPI 3.1 + Swagger 2.0 generation (acolyte-openapi)
+- Code generation from OpenAPI/Swagger specs (acolyte-codegen)
+- Direct-dispatch testing utilities (acolyte-test)
 
 ### gRPC
 - HTTP/2 transport via the http2 package (tower-server)
 - gRPC wire protocol: framing, status codes, service dispatch (tower-grpc)
-- gRPC API type interpretation: GrpcCodec, GrpcReady, .proto generation (servant-reimagined-grpc)
+- gRPC API type interpretation: GrpcCodec, GrpcReady, .proto generation (acolyte-grpc)
 - REST+gRPC multiplexing on a single port (`Tower.Grpc.Multiplex`)
-- Content negotiation runtime (`Servant.Reimagined.Server.Negotiate`)
+- Content negotiation runtime (`Acolyte.Server.Negotiate`)
 - Complete .proto generation with full message definitions
-- .proto to API type codegen (`Servant.Reimagined.Codegen.Proto`)
+- .proto to API type codegen (`Acolyte.Codegen.Proto`)
 - gRPC server reflection (`Tower.Grpc.Reflection`)
 - Real network integration tests for gRPC
-- gRPC testing utilities (servant-reimagined-test)
+- gRPC testing utilities (acolyte-test)
 
 ### gRPC streaming and services
 - Client streaming handler (`clientStreamHandler`): collect multiple client messages, return one response
@@ -90,6 +90,6 @@
 - Compile-time benchmarks (1 to 32 endpoints in constant time)
 
 ### Implementation notes
-- `Json` newtype lives in `Servant.Reimagined.Core.Endpoint`, accessible to both server and openapi packages
+- `Json` newtype lives in `Acolyte.Core.Endpoint`, accessible to both server and openapi packages
 - `BuildApi` uses two recursive instances plus a `SplitTuple` type class with arity-2-through-25 instances, instead of 25 flat per-arity instances
 - Crud example uses `Named` + `mkRecordApi` for record-based handler binding

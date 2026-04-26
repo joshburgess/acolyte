@@ -1,7 +1,7 @@
 cabal-version:   3.0
 name:            hello-world
 version:         0.1.0.0
-synopsis:        Example servant-reimagined application
+synopsis:        Example acolyte application
 build-type:      Simple
 
 executable hello-world
@@ -18,6 +18,6 @@ executable hello-world
 
   build-depends:
       base                       >= 4.20 && < 5
-    , servant-reimagined
+    , acolyte
     , bytestring                 >= 0.11 && < 0.13
     , text                       >= 2.0  && < 2.2

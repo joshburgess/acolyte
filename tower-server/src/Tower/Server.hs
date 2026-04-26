@@ -265,7 +265,7 @@ waitForConns ref = do
 -- | Run a ByteString-based service on tower-server.
 --
 -- This is the convenient entry point for services built with
--- servant-reimagined-server (which produces @Service IO (Request
+-- acolyte-server (which produces @Service IO (Request
 -- ByteString) (Response ByteString)@). The Body conversion is
 -- handled internally — users never see the Body type.
 --
@@ -287,7 +287,7 @@ runServerConfigBS config svc = runServerConfig config (adaptToBody svc)
 -- streaming bodies), and wraps the ByteString response body as
 -- a strict Body.
 --
--- This is the bridge between servant-reimagined-server (which works
+-- This is the bridge between acolyte-server (which works
 -- with strict ByteString) and tower-server (which works with Body).
 adaptToBody
   :: Service IO (Request ByteString) (Response ByteString)

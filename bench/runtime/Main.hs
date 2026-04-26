@@ -2,7 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
--- | Runtime performance benchmarks for servant-reimagined.
+-- | Runtime performance benchmarks for acolyte.
 --
 -- Measures dispatch throughput, gRPC codec speed, middleware overhead,
 -- extractor cost, and router scaling — all without network I/O.
@@ -30,10 +30,10 @@ import Http.Core
   , Response (..)
   , emptyExtensions
   )
-import Servant.Reimagined.Core
+import Acolyte.Core
   ( Get, At, Param
   )
-import Servant.Reimagined.Server
+import Acolyte.Server
   ( mkApi
   , PathCapture (..)
   , QueryParam (..)

@@ -13,7 +13,7 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS8
 import Data.Text (Text)
 
-import Servant.Reimagined.Prelude
+import Acolyte.Prelude
 
 import API
 import Types

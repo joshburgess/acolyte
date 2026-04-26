@@ -1,7 +1,7 @@
 -- | WAI/warp backend adapter for tower.
 --
 -- This is the __only package that imports WAI__. Everything above
--- (tower, tower-http, servant-reimagined-server) uses http-core types
+-- (tower, tower-http, acolyte-server) uses http-core types
 -- and is backend-agnostic.
 --
 -- @

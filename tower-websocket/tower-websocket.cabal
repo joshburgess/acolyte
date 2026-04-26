@@ -1,7 +1,7 @@
 cabal-version:   3.0
 name:            tower-websocket
 version:         0.1.0.0
-synopsis:        WebSocket session type runtime for servant-reimagined
+synopsis:        WebSocket session type runtime for acolyte
 description:
   Linear session types for WebSocket protocols. The phantom-typed
   Session handle enforces send/recv ordering at compile time via
@@ -12,8 +12,8 @@ license:         BSD-3-Clause
 license-file:    ../LICENSE
 author:          Josh Burgess
 maintainer:      Josh Burgess
-homepage:        https://github.com/joshburgess/servant-reimagined
-bug-reports:     https://github.com/joshburgess/servant-reimagined/issues
+homepage:        https://github.com/joshburgess/acolyte
+bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple
 
 library
@@ -23,7 +23,7 @@ library
 
   build-depends:
       base                    >= 4.20 && < 5
-    , servant-reimagined-core
+    , acolyte-core
     , tower
     , http-core
     , bytestring              >= 0.11 && < 0.13
@@ -52,7 +52,7 @@ test-suite spec
   build-depends:
       base                    >= 4.20 && < 5
     , tower-websocket
-    , servant-reimagined-core
+    , acolyte-core
     , bytestring              >= 0.11 && < 0.13
     , text                    >= 2.0  && < 2.2
     , aeson                   >= 2.1  && < 2.3
@@ -69,7 +69,7 @@ test-suite properties
   build-depends:
       base                    >= 4.20 && < 5
     , tower-websocket
-    , servant-reimagined-core
+    , acolyte-core
     , hedgehog                >= 1.4  && < 1.8
     , bytestring              >= 0.11 && < 0.13
     , text                    >= 2.0  && < 2.2
@@ -77,4 +77,4 @@ test-suite properties
 
 source-repository head
   type:     git
-  location: https://github.com/joshburgess/servant-reimagined.git
+  location: https://github.com/joshburgess/acolyte.git

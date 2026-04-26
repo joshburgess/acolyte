@@ -62,7 +62,7 @@ APIs are promoted lists, not trees:
 -- Servant (tree, exponential):
 type API = A :<|> B :<|> C :<|> D :<|> E
 
--- servant-reimagined (flat list, constant):
+-- acolyte (flat list, constant):
 type API = '[ A, B, C, D, E ]
 ```
 

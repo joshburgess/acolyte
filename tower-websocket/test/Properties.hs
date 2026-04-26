@@ -16,8 +16,8 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.IORef
 
 import Tower.WebSocket.Session
-import Servant.Reimagined.Core.Session (Dual)
-import qualified Servant.Reimagined.Core.Session as S
+import Acolyte.Core.Session (Dual)
+import qualified Acolyte.Core.Session as S
 
 
 -- ===================================================================

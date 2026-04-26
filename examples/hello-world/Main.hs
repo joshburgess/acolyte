@@ -15,7 +15,7 @@ import qualified Data.ByteString.Char8 as BS8
 import Data.Text (Text)
 import qualified Data.Text as T
 
-import Servant.Reimagined.Prelude
+import Acolyte.Prelude
 
 
 -- ===================================================================
@@ -87,7 +87,7 @@ app = do
 
 main :: IO ()
 main = do
-  putStrLn "Starting servant-reimagined example on http://localhost:3000"
+  putStrLn "Starting acolyte example on http://localhost:3000"
   putStrLn ""
   putStrLn "Endpoints:"
   putStrLn "  GET  /health      -> health check"

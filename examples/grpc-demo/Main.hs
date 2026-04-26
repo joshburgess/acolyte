@@ -3,7 +3,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 -- | One type, four interpretations: REST + gRPC + OpenAPI + Proto3.
 --
--- Demonstrates the core thesis of servant-reimagined: a single API type
+-- Demonstrates the core thesis of acolyte: a single API type
 -- drives server routing, gRPC multiplexing, OpenAPI spec generation,
 -- and .proto definition output.
 --
@@ -24,9 +24,9 @@ import Data.Aeson (ToJSON, FromJSON)
 import qualified Data.Aeson as Aeson
 import GHC.Generics (Generic)
 
-import Servant.Reimagined.Prelude
-import Servant.Reimagined.OpenApi (generateSpec, ToSchema)
-import Servant.Reimagined.Grpc
+import Acolyte.Prelude
+import Acolyte.OpenApi (generateSpec, ToSchema)
+import Acolyte.Grpc
   ( GrpcCodec(..), ProtoMessageName(..), HasProtoFields(..)
   , ProtoField(..), ProtoFieldType(..)
   , CollectTypeDef(..), MessageDef(..)

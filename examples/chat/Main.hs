@@ -29,7 +29,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import GHC.Generics (Generic)
 
-import Servant.Reimagined.Prelude
+import Acolyte.Prelude
 
 
 -- ===================================================================

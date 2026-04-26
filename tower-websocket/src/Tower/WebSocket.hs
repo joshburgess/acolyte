@@ -1,13 +1,13 @@
--- | WebSocket session types for servant-reimagined.
+-- | WebSocket session types for acolyte.
 --
 -- This module re-exports everything needed to write session-typed
 -- WebSocket handlers. Session types are defined in
--- "Servant.Reimagined.Core.Session"; runtime enforcement lives in
+-- "Acolyte.Core.Session"; runtime enforcement lives in
 -- "Tower.WebSocket.Session".
 --
 -- @
 -- import Tower.WebSocket
--- import Servant.Reimagined.Core.Session (SessionType (..))
+-- import Acolyte.Core.Session (SessionType (..))
 --
 -- type ChatProtocol =
 --   'Recv Text ('Send Text ('Rec ('Offer
@@ -23,4 +23,4 @@ module Tower.WebSocket
   ) where
 
 import Tower.WebSocket.Session
-import Servant.Reimagined.Core.Session (SessionType (..), Dual)
+import Acolyte.Core.Session (SessionType (..), Dual)

@@ -18,7 +18,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Network.HTTP.Types (Status, statusCode, status400, status404, status422)
 
-import Servant.Reimagined.Prelude
+import Acolyte.Prelude
 
 
 -- ===================================================================
@@ -167,7 +167,7 @@ data CrudHandlers = CrudHandlers
 -- mkClientRecord derives a typed client record from the Named API:
 --
 -- @
--- import Servant.Reimagined.Client (mkClientRecord, ClientConfig)
+-- import Acolyte.Client (mkClientRecord, ClientConfig)
 --
 -- data CrudClient = CrudClient
 --   { listItems  :: IO (Json [Item])

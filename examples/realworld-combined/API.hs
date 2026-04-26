@@ -10,8 +10,8 @@
 module API where
 
 import Data.Text (Text)
-import Servant.Reimagined.Core
-import Servant.Reimagined.Server (Json)
+import Acolyte.Core
+import Acolyte.Server (Json)
 import Types
 
 

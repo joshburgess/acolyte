@@ -1,6 +1,6 @@
-# servant-reimagined
+# acolyte
 
-[![CI](https://github.com/joshburgess/servant-reimagined/actions/workflows/ci.yml/badge.svg)](https://github.com/joshburgess/servant-reimagined/actions/workflows/ci.yml)
+[![CI](https://github.com/joshburgess/acolyte/actions/workflows/ci.yml/badge.svg)](https://github.com/joshburgess/acolyte/actions/workflows/ci.yml)
 
 A composable, type-safe web framework for Haskell. Your API is a type,
 your middleware is tracked at compile time, and your backend is pluggable.
@@ -22,8 +22,8 @@ ghcup set ghc 9.10.3
 Clone and build:
 
 ```sh
-git clone <repo-url> servant-reimagined
-cd servant-reimagined
+git clone <repo-url> acolyte
+cd acolyte
 cabal build all        # ~7s clean build
 cabal test all         # 27 test suites, 1000+ assertions, 60+ hedgehog properties
 ```
@@ -52,8 +52,8 @@ are typed.
 ```haskell
 {-# LANGUAGE DataKinds #-}
 
-import Servant.Reimagined.Core
-import Servant.Reimagined.Server
+import Acolyte.Core
+import Acolyte.Server
 
 type HealthPath = At "health"           -- expands to '[ 'Lit "health" ]
 type UsersPath  = At "users"            -- expands to '[ 'Lit "users" ]
@@ -156,11 +156,11 @@ This effect is required by an endpoint but was not provided.
 
 ## Testing without a network
 
-`servant-reimagined-test` dispatches requests directly through the
+`acolyte-test` dispatches requests directly through the
 tower Service. No ports, no sockets, deterministic.
 
 ```haskell
-import Servant.Reimagined.Test
+import Acolyte.Test
 
 test :: IO ()
 test = do
@@ -178,7 +178,7 @@ the type-level state, so the compiler rejects out-of-order messages.
 
 ```haskell
 import Tower.WebSocket
-import Servant.Reimagined.Core.Session (SessionType (..))
+import Acolyte.Core.Session (SessionType (..))
 
 type EchoProtocol = 'Send Text ('Recv Text 'End)
 
@@ -221,7 +221,7 @@ main = runServerH2 (defaultH2Config 50051) grpcSvc
 ```
 
 Features: REST+gRPC multiplexing (`Tower.Grpc.Multiplex`), content
-negotiation (`Servant.Reimagined.Server.Negotiate`), server reflection
+negotiation (`Acolyte.Server.Negotiate`), server reflection
 (`Tower.Grpc.Reflection`), bidirectional `.proto` codegen, client
 streaming and bidirectional streaming handlers, gRPC health check
 service (`Tower.Grpc.Health`), and gzip compression
@@ -232,8 +232,8 @@ See the [gRPC guide](docs/GRPC.md) for the full walkthrough.
 ## Architecture
 
 ```
-servant-reimagined-server    API types -> REST handlers -> tower Service
-servant-reimagined-grpc      API types -> gRPC handlers -> tower Service
+acolyte-server    API types -> REST handlers -> tower Service
+acolyte-grpc      API types -> gRPC handlers -> tower Service
          |                            |
    tower / tower-http / tower-grpc   Service/Layer/Middleware/gRPC framing
          |
@@ -254,21 +254,21 @@ The server produces a `Service` and doesn't know or care what runs it.
 
 | Package | What it does |
 |---------|-------------|
-| [`servant-reimagined-core`](servant-reimagined-core/) | Type-level API: endpoints, paths, effects, sessions, versioning. Depends on `base` only. |
+| [`acolyte-core`](acolyte-core/) | Type-level API: endpoints, paths, effects, sessions, versioning. Depends on `base` only. |
 | [`tower`](tower/) | Service/Layer/Middleware composition. Depends on `base` only. Standalone (use it anywhere). |
 | [`http-core`](http-core/) | Backend-agnostic Request, Response, Extensions (typed heterogeneous map). |
 | [`tower-http`](tower-http/) | HTTP middleware: security headers, request ID, tracing, CORS, gzip, timeouts. |
 | [`tower-wai`](tower-wai/) | WAI/warp backend adapter. The only package that imports WAI. |
 | [`tower-server`](tower-server/) | Tower-native HTTP/1.1 + HTTP/2 server with TLS. Zero WAI dependency. |
 | [`tower-grpc`](tower-grpc/) | gRPC wire protocol: framing, status codes, service dispatch. No protobuf dependency. |
-| [`servant-reimagined-server`](servant-reimagined-server/) | Handler wiring, routing, extractors, effect tracking. |
-| [`servant-reimagined-client`](servant-reimagined-client/) | Type-safe HTTP client derived from the same API type. |
-| [`servant-reimagined-openapi`](servant-reimagined-openapi/) | OpenAPI 3.1 + Swagger 2.0 spec generation from API types. Annotations (`Describe`, `WithParams`, `WithHeaders`, `RespondsWith`) populate real operation summaries, parameter schemas, status codes, and request/response body schemas. Custom types get schemas automatically via `Generic`-based `ToSchema` derivation. |
-| [`servant-reimagined-codegen`](servant-reimagined-codegen/) | Generate API types from OpenAPI/Swagger specs. |
-| [`servant-reimagined-grpc`](servant-reimagined-grpc/) | gRPC interpretation: `GrpcCodec`, `GrpcReady`, `.proto` generation, `mkGrpcServiceMap`. |
-| [`servant-reimagined-test`](servant-reimagined-test/) | Direct-dispatch testing: no network, no ports. |
+| [`acolyte-server`](acolyte-server/) | Handler wiring, routing, extractors, effect tracking. |
+| [`acolyte-client`](acolyte-client/) | Type-safe HTTP client derived from the same API type. |
+| [`acolyte-openapi`](acolyte-openapi/) | OpenAPI 3.1 + Swagger 2.0 spec generation from API types. Annotations (`Describe`, `WithParams`, `WithHeaders`, `RespondsWith`) populate real operation summaries, parameter schemas, status codes, and request/response body schemas. Custom types get schemas automatically via `Generic`-based `ToSchema` derivation. |
+| [`acolyte-codegen`](acolyte-codegen/) | Generate API types from OpenAPI/Swagger specs. |
+| [`acolyte-grpc`](acolyte-grpc/) | gRPC interpretation: `GrpcCodec`, `GrpcReady`, `.proto` generation, `mkGrpcServiceMap`. |
+| [`acolyte-test`](acolyte-test/) | Direct-dispatch testing: no network, no ports. |
 | [`tower-websocket`](tower-websocket/) | WebSocket session types: phantom-typed `Session` handle enforces send/recv protocol at compile time. |
-| [`servant-reimagined`](servant-reimagined/) | Facade. Re-exports everything for convenience. |
+| [`acolyte`](acolyte/) | Facade. Re-exports everything for convenience. |
 
 ## Examples
 

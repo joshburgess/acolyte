@@ -7,8 +7,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Bench16 where
 
-import Servant.Reimagined.Core
-import Servant.Reimagined.Server
+import Acolyte.Core
+import Acolyte.Server
 import Data.Text (Text)
 import Data.ByteString (ByteString)
 import Http.Core (Request, Response)

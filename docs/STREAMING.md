@@ -1,6 +1,6 @@
 # Streaming request and response bodies
 
-servant-reimagined has two body paths: a **strict path** for normal
+acolyte has two body paths: a **strict path** for normal
 handlers and a **streaming path** for large payloads. Most of the time
 you use the strict path. This guide covers when and how to use streaming.
 
@@ -9,7 +9,7 @@ you use the strict path. This guide covers when and how to use streaming.
 ```
 Strict path (default):
   Service IO (Request ByteString) (Response ByteString)
-    ↑ servant-reimagined-server produces this
+    ↑ acolyte-server produces this
     ↑ mkServer, effectfulServer, all handlers use this
 
 Streaming path:

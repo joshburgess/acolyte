@@ -47,7 +47,7 @@ module Tower.WebSocket.Session
   , Unfold
   ) where
 
-import Servant.Reimagined.Core.Session (SessionType (..))
+import Acolyte.Core.Session (SessionType (..))
 
 import Control.Exception (Exception, throwIO)
 import qualified Data.Aeson as Aeson

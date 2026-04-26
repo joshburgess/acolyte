@@ -4,7 +4,7 @@
 module Main (main) where
 
 import Tower.WebSocket.Session
-import Servant.Reimagined.Core.Session (SessionType (..))
+import Acolyte.Core.Session (SessionType (..))
 
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LBS

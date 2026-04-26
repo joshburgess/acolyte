@@ -1,19 +1,19 @@
 packages:
-  servant-reimagined-core
+  acolyte-core
   tower
   http-core
   tower-http
   tower-wai
-  servant-reimagined-server
-  servant-reimagined-client
-  servant-reimagined-openapi
-  servant-reimagined-test
-  servant-reimagined
+  acolyte-server
+  acolyte-client
+  acolyte-openapi
+  acolyte-test
+  acolyte
   tower-server
   tower-grpc
   tower-websocket
-  servant-reimagined-grpc
-  servant-reimagined-codegen
+  acolyte-grpc
+  acolyte-codegen
   examples/hello-world
   examples/minimal
   examples/realworld
@@ -37,7 +37,7 @@ tests: True
 -- with-compiler: ghc-9.10.3
 
 -- Production optimization: -O2 for all library code
-package servant-reimagined-core
+package acolyte-core
   ghc-options: -O2
 package tower
   ghc-options: -O2
@@ -53,17 +53,17 @@ package tower-grpc
   ghc-options: -O2
 package tower-websocket
   ghc-options: -O2
-package servant-reimagined-server
+package acolyte-server
   ghc-options: -O2
-package servant-reimagined-client
+package acolyte-client
   ghc-options: -O2
-package servant-reimagined-openapi
+package acolyte-openapi
   ghc-options: -O2
-package servant-reimagined-grpc
+package acolyte-grpc
   ghc-options: -O2
-package servant-reimagined-codegen
+package acolyte-codegen
   ghc-options: -O2
-package servant-reimagined-test
+package acolyte-test
   ghc-options: -O2
-package servant-reimagined
+package acolyte
   ghc-options: -O2

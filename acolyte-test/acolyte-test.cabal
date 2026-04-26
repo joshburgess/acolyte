@@ -1,0 +1,83 @@
+cabal-version:   3.0
+name:            acolyte-test
+version:         0.1.0.0
+synopsis:        Testing utilities for acolyte APIs
+description:
+  Test helpers for APIs built with acolyte. Direct dispatch
+  (no network), response assertions, and warp-based integration testing.
+
+license:         BSD-3-Clause
+license-file:    ../LICENSE
+author:          Josh Burgess
+maintainer:      Josh Burgess
+homepage:        https://github.com/joshburgess/acolyte
+bug-reports:     https://github.com/joshburgess/acolyte/issues
+build-type:      Simple
+
+library
+  exposed-modules:
+    Acolyte.Test
+    Acolyte.Test.Grpc
+    Acolyte.Test.Property
+
+  build-depends:
+      base                       >= 4.20 && < 5
+    , acolyte-core
+    , acolyte-server
+    , tower
+    , tower-grpc
+    , http-core
+    , aeson                      >= 2.1  && < 2.3
+    , bytestring                 >= 0.11 && < 0.13
+    , text                       >= 2.0  && < 2.2
+    , http-types                 >= 0.12 && < 0.13
+    , QuickCheck                 >= 2.14 && < 2.17
+
+  hs-source-dirs: src
+  default-language: GHC2024
+  default-extensions:
+    DataKinds
+    TypeFamilies
+    TypeOperators
+    OverloadedStrings
+    AllowAmbiguousTypes
+    ScopedTypeVariables
+    StrictData
+
+  ghc-options: -Wall -funbox-strict-fields
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: test
+  default-language: GHC2024
+  default-extensions:
+    DataKinds
+    TypeFamilies
+    TypeOperators
+    OverloadedStrings
+    AllowAmbiguousTypes
+    ScopedTypeVariables
+    StrictData
+
+  ghc-options: -Wall -rtsopts "-with-rtsopts=-K1K"
+
+  build-depends:
+      base                       >= 4.20 && < 5
+    , acolyte-test
+    , acolyte-core
+    , acolyte-server
+    , acolyte-openapi
+    , acolyte-grpc
+    , tower
+    , tower-grpc
+    , tower-server
+    , http-core
+    , aeson                      >= 2.1  && < 2.3
+    , bytestring                 >= 0.11 && < 0.13
+    , text                       >= 2.0  && < 2.2
+    , http-types                 >= 0.12 && < 0.13
+
+source-repository head
+  type:     git
+  location: https://github.com/joshburgess/acolyte.git

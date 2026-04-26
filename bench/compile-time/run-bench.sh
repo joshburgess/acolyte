@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Compile-time benchmark for servant-reimagined.
+# Compile-time benchmark for acolyte.
 # Measures how compile time scales with the number of API endpoints.
 
 TARGETS=("bench-1" "bench-4" "bench-8" "bench-16" "bench-32")
 SIZES=(1 4 8 16 32)
 
-echo "=== servant-reimagined compile-time benchmark ==="
+echo "=== acolyte compile-time benchmark ==="
 echo ""
 echo "Cleaning build artifacts..."
 cabal clean 2>/dev/null || true

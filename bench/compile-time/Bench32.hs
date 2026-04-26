@@ -10,8 +10,8 @@ import Data.Text (Text)
 import Tower (Service)
 import Http.Core (Request, Response)
 
-import Servant.Reimagined.Core
-import Servant.Reimagined.Server
+import Acolyte.Core
+import Acolyte.Server
 
 -- Sub-API 1: paths 1-16
 type Path1  = '[ 'Lit "path1" ]

@@ -1,6 +1,6 @@
 # Error handling patterns
 
-servant-reimagined has no `ExceptT`, no `throwError`, and no monad
+acolyte has no `ExceptT`, no `throwError`, and no monad
 transformer stack. Errors are values. This guide shows the patterns
 that replace them.
 
@@ -261,7 +261,7 @@ lookupOrFail action msg = EitherIO $ do
 
 ## Summary
 
-| Servant | servant-reimagined |
+| Servant | acolyte |
 |---------|--------------------|
 | `throwError err404` | `pure $ Left (mkError status404 "...")` |
 | `catchError` | `case ... of Left e -> ...; Right a -> ...` |

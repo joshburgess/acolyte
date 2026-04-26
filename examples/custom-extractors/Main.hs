@@ -20,7 +20,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Network.HTTP.Types (statusCode)
 
-import Servant.Reimagined.Prelude
+import Acolyte.Prelude
 
 
 -- ===================================================================

@@ -14,7 +14,7 @@ import qualified Data.ByteString as BS
 import Data.Text (Text)
 import qualified Data.Text as T
 
-import Servant.Reimagined.Prelude
+import Acolyte.Prelude
 
 
 -- ===================================================================
@@ -73,7 +73,7 @@ type NegotiateAPI =
 -- to pick the right serialization format.
 --
 -- 'Optional (ReqHeader "Accept")' gracefully handles missing headers.
--- 'negotiate' from Servant.Reimagined.Server.Negotiate does the matching:
+-- 'negotiate' from Acolyte.Server.Negotiate does the matching:
 --   - parseAccept parses "application/json, text/plain;q=0.9" into ranked list
 --   - matchFormat finds the best encoder from userFormats
 --   - Returns 406 Not Acceptable if nothing matches

@@ -17,7 +17,7 @@ import Data.Time (getCurrentTime)
 import Network.HTTP.Types (status401, status404, status422)
 
 import Http.Core (RequestParts (..), lookupExtension)
-import Servant.Reimagined.Server
+import Acolyte.Server
 
 import Types
 import Store

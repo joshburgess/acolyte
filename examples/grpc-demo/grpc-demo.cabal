@@ -18,12 +18,12 @@ executable grpc-demo
 
   build-depends:
       base                       >= 4.20 && < 5
-    , servant-reimagined
+    , acolyte
     , tower-grpc
     , tower-server
     , http-core
-    , servant-reimagined-grpc
-    , servant-reimagined-openapi
+    , acolyte-grpc
+    , acolyte-openapi
     , aeson                      >= 2.1  && < 2.3
     , bytestring                 >= 0.11 && < 0.13
     , text                       >= 2.0  && < 2.2

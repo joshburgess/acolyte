@@ -1,7 +1,7 @@
 cabal-version:   3.0
 name:            compile-bench
 version:         0.1.0.0
-synopsis:        Compile-time benchmarks for servant-reimagined
+synopsis:        Compile-time benchmarks for acolyte
 build-type:      Simple
 
 common shared
@@ -12,8 +12,8 @@ common shared
     TypeApplications
   build-depends:
       base                       >= 4.20 && < 5
-    , servant-reimagined-core
-    , servant-reimagined-server
+    , acolyte-core
+    , acolyte-server
     , tower
     , http-core
     , text                       >= 2.0  && < 2.2

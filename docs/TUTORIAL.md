@@ -1,4 +1,4 @@
-# Building a web API with servant-reimagined
+# Building a web API with acolyte
 
 This walkthrough builds a small bookmarks API from scratch. By the end
 you'll have typed endpoints, JSON handlers, middleware, effect tracking,
@@ -8,14 +8,14 @@ compile-time guarantees that everything fits together.
 ## Setup
 
 Make sure you have GHC 9.10.3 and cabal-install. If you're adding this
-to an existing project, depend on the `servant-reimagined` facade
+to an existing project, depend on the `acolyte` facade
 package (it re-exports everything). For this tutorial we'll use the
 individual packages to see where each piece comes from.
 
 ```cabal
 build-depends:
-    servant-reimagined-core
-  , servant-reimagined-server
+    acolyte-core
+  , acolyte-server
   , tower
   , tower-http
   , tower-server
@@ -48,8 +48,8 @@ import qualified Data.Text as T
 import Data.ByteString (ByteString)
 import Network.HTTP.Types (status400, status404, status500)
 
-import Servant.Reimagined.Core
-import Servant.Reimagined.Server
+import Acolyte.Core
+import Acolyte.Server
 import Tower
 import Tower.Service (Service (..))
 
@@ -268,11 +268,11 @@ This effect is required by an endpoint but was not provided.
 
 ## Step 7: Test without a network
 
-`servant-reimagined-test` lets you dispatch requests directly through
+`acolyte-test` lets you dispatch requests directly through
 the service. No ports, no sockets, no flaky network tests.
 
 ```haskell
-import Servant.Reimagined.Test
+import Acolyte.Test
 
 tests :: IO ()
 tests = do
@@ -442,7 +442,7 @@ match the endpoint names, and `mkClientRecord` fills in the typed
 client functions automatically:
 
 ```haskell
-import Servant.Reimagined.Client (mkClientRecord, ClientConfig)
+import Acolyte.Client (mkClientRecord, ClientConfig)
 
 data MyClient = MyClient
   { listBookmarks  :: IO (Json [Text])
@@ -498,7 +498,7 @@ HTTP bytes on the wire
         |
    tower middleware stack          -- security headers, CORS, tracing, etc.
         |
-   servant-reimagined-server       -- match route, extract captures, dispatch
+   acolyte-server       -- match route, extract captures, dispatch
         |
    your HandlerFn                  -- pure IO, returns a response type
         |
@@ -539,12 +539,12 @@ for a full 15-endpoint example using this pattern.
 
 ## Where to go from here
 
-- **OpenAPI generation:** `servant-reimagined-openapi` generates
+- **OpenAPI generation:** `acolyte-openapi` generates
   OpenAPI 3.1 or Swagger 2.0 specs from your API type. Same type,
   zero drift.
-- **Type-safe client:** `servant-reimagined-client` derives an HTTP
+- **Type-safe client:** `acolyte-client` derives an HTTP
   client from the same API type your server uses.
-- **Code generation:** `servant-reimagined-codegen` generates API
+- **Code generation:** `acolyte-codegen` generates API
   types from existing OpenAPI/Swagger specs.
 - **The architecture:** [`ARCHITECTURE.md`](../ARCHITECTURE.md) covers
   the full package dependency graph, the two-layer middleware model,

@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
--- | RealWorld (Conduit) backend — servant-reimagined edition.
+-- | RealWorld (Conduit) backend — acolyte edition.
 --
 -- Run:  cabal run realworld
 -- Test: curl -s http://localhost:3000/api/tags
@@ -12,7 +12,7 @@ module Main (main) where
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS8
 
-import Servant.Reimagined.Prelude
+import Acolyte.Prelude
 
 import API
 import Types

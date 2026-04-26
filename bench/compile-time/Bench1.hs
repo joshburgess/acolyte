@@ -7,8 +7,8 @@ import Data.Text (Text)
 import Tower (Service)
 import Http.Core (Request, Response)
 
-import Servant.Reimagined.Core
-import Servant.Reimagined.Server
+import Acolyte.Core
+import Acolyte.Server
 
 type Path1 = '[ 'Lit "path1" ]
 

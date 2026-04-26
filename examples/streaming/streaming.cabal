@@ -14,8 +14,8 @@ executable streaming
 
   build-depends:
       base                       >= 4.20 && < 5
-    , servant-reimagined-server
-    , servant-reimagined-core
+    , acolyte-server
+    , acolyte-core
     , http-core
     , aeson                      >= 2.1  && < 2.3
     , bytestring                 >= 0.11 && < 0.13

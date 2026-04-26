@@ -43,7 +43,7 @@ Client (curl, browser, etc.)
                                    │
                                    ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ servant-reimagined-server (Router)                            │
+│ acolyte-server (Router)                            │
 │                                                               │
 │  1. splitRequest → (RequestParts, body bytes)                 │
 │  2. Linear scan of BoundHandlers:                             │
@@ -199,7 +199,7 @@ Any client
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Compile-time: Servant vs servant-reimagined
+## Compile-time: Servant vs acolyte
 
 ```
 Servant (recursive :<|> tree):
@@ -217,7 +217,7 @@ Servant (recursive :<|> tree):
   in the tree. For n endpoints: O(2^n) work.
 
 
-servant-reimagined (flat list + flat instances):
+acolyte (flat list + flat instances):
 
   type API = '[ A, B, C, D ]
 

@@ -1,7 +1,7 @@
 cabal-version: 3.0
 name: runtime-bench
 version: 0.1.0.0
-synopsis: Runtime performance benchmarks for servant-reimagined
+synopsis: Runtime performance benchmarks for acolyte
 
 executable runtime-bench
   main-is: Main.hs
@@ -17,8 +17,8 @@ executable runtime-bench
   ghc-options: -O2 -Wall -Wno-orphans -rtsopts
   build-depends:
       base >= 4.20 && < 5
-    , servant-reimagined-core
-    , servant-reimagined-server
+    , acolyte-core
+    , acolyte-server
     , tower
     , tower-grpc
     , tower-protobuf

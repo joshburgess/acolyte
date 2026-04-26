@@ -1,5 +1,5 @@
 {-# LANGUAGE DataKinds, OverloadedStrings, TypeApplications #-}
--- | Minimal servant-reimagined server: one GET endpoint, no middleware.
+-- | Minimal acolyte server: one GET endpoint, no middleware.
 --
 -- Run:  cabal run minimal
 -- Test: curl http://localhost:3000/hello
@@ -8,7 +8,7 @@ module Main (main) where
 import Data.ByteString (ByteString)
 import Data.Text (Text)
 
-import Servant.Reimagined.Prelude
+import Acolyte.Prelude
 
 -- | The API: a single GET /hello endpoint returning plain text.
 type HelloAPI = '[ Get (At "hello") Text ]

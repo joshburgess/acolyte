@@ -11,8 +11,8 @@ license:         BSD-3-Clause
 license-file:    ../LICENSE
 author:          Josh Burgess
 maintainer:      Josh Burgess
-homepage:        https://github.com/joshburgess/servant-reimagined
-bug-reports:     https://github.com/joshburgess/servant-reimagined/issues
+homepage:        https://github.com/joshburgess/acolyte
+bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple
 
 library
@@ -69,4 +69,4 @@ test-suite spec
 
 source-repository head
   type:     git
-  location: https://github.com/joshburgess/servant-reimagined.git
+  location: https://github.com/joshburgess/acolyte.git

@@ -27,7 +27,7 @@ import Data.ByteString (ByteString)
 import Data.Text (Text)
 import qualified Data.Text as T
 
-import Servant.Reimagined.Prelude
+import Acolyte.Prelude
 
 
 -- ===================================================================

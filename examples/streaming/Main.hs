@@ -8,7 +8,7 @@ module Main (main) where
 import qualified Data.ByteString.Char8 as BS8
 import Data.Text (Text)
 
-import Servant.Reimagined.Server.Streaming
+import Acolyte.Server.Streaming
   (SSEvent (..), sseData, sseEvent, sseChunk, sseResponse, sseResponseSync)
 
 import Http.Core (Response (..))

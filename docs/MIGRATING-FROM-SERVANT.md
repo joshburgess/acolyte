@@ -1,7 +1,7 @@
 # Migrating from Servant
 
 A side-by-side guide for Servant users. Every section shows the Servant
-way, then the servant-reimagined equivalent.
+way, then the acolyte equivalent.
 
 ## API definition
 
@@ -13,7 +13,7 @@ type API = "users" :> Get '[JSON] [User]
       :<|> "health" :> Get '[PlainText] Text
 ```
 
-**servant-reimagined:**
+**acolyte:**
 ```haskell
 type UsersPath    = At "users"              -- '[ 'Lit "users" ]
 type UserByIdPath = Param "users" Int       -- '[ 'Lit "users", 'Capture Int ]
@@ -59,7 +59,7 @@ createUser body = liftIO $ do
   pure user
 ```
 
-**servant-reimagined:**
+**acolyte:**
 ```haskell
 getUsers :: IO (Json [User])
 getUsers = Json <$> readIORef usersRef
@@ -97,7 +97,7 @@ server :: Server API
 server = getUsers :<|> getUser :<|> createUser :<|> health
 ```
 
-**servant-reimagined:**
+**acolyte:**
 ```haskell
 server :: Service IO (Request ByteString) (Response ByteString)
 server = mkApi @API (getUsers, getUser, createUser, health)
@@ -170,7 +170,7 @@ getUsers :: Maybe Int -> Handler [User]
 getUsers mPage = ...
 ```
 
-**servant-reimagined:**
+**acolyte:**
 ```haskell
 type API = '[ Get UsersPath (Json [User]) ]
 
@@ -213,7 +213,7 @@ type API = "users" :> Header "Authorization" Text :> Get '[JSON] [User]
 getUsers :: Maybe Text -> Handler [User]
 ```
 
-**servant-reimagined:**
+**acolyte:**
 ```haskell
 -- Required (400 if missing):
 getUsers :: ReqHeader "Authorization" -> IO (Json [User])
@@ -243,7 +243,7 @@ type API = "users" :> ReqBody '[JSON] CreateUser :> Post '[JSON] User
 createUser :: CreateUser -> Handler User
 ```
 
-**servant-reimagined:**
+**acolyte:**
 ```haskell
 type API = '[ Post UsersPath (Json CreateUser) (Json User) ]
 
@@ -276,7 +276,7 @@ getUser uid = do
     Just u  -> pure u
 ```
 
-**servant-reimagined:**
+**acolyte:**
 ```haskell
 -- Option 1: Either in the return type
 getUser :: PathCapture Int -> IO (Either ServerError (Json User))
@@ -320,7 +320,7 @@ app cfg = serve api $ hoistServer api (nt cfg) server
   where nt cfg m = runReaderT m cfg
 ```
 
-**servant-reimagined:**
+**acolyte:**
 ```haskell
 -- State via AppState extractor
 getUsers :: AppState Config -> IO (Json [User])
@@ -349,7 +349,7 @@ app = cors defaultCors
     $ serve api server
 ```
 
-**servant-reimagined:**
+**acolyte:**
 ```haskell
 -- tower middleware (typed, composable with |>)
 main = do
@@ -374,7 +374,7 @@ What changed:
 
 This has no Servant equivalent.
 
-**servant-reimagined:**
+**acolyte:**
 ```haskell
 type API =
   '[ Requires Auth (Get UserPath (Json User))     -- needs auth
@@ -411,10 +411,10 @@ spec = with app $ do
     get "/health" `shouldRespondWith` 200
 ```
 
-**servant-reimagined:**
+**acolyte:**
 ```haskell
 -- Direct dispatch (no network, no port, no warp)
-import Servant.Reimagined.Test
+import Acolyte.Test
 
 tests :: IO ()
 tests = do
@@ -443,7 +443,7 @@ main :: IO ()
 main = Warp.run 3000 app
 ```
 
-**servant-reimagined:**
+**acolyte:**
 ```haskell
 -- Zero WAI (tower-server):
 main = runServerBS 3000 svc
@@ -462,7 +462,7 @@ The server produces a `Service`. The backend consumes it. Swap
 type API = UsersAPI :<|> ArticlesAPI :<|> TagsAPI
 ```
 
-**servant-reimagined:**
+**acolyte:**
 ```haskell
 type FullAPI = UsersAPI ++ ArticlesAPI ++ TagsAPI
 
@@ -480,7 +480,7 @@ checked across the combined type.
 
 ## Compile times
 
-| Endpoints | Servant  | servant-reimagined |
+| Endpoints | Servant  | acolyte |
 |-----------|----------|--------------------|
 | 1         | ~0.5s    | ~1.3s              |
 | 4         | ~1.5s    | ~1.3s              |
@@ -489,7 +489,7 @@ checked across the combined type.
 | 32        | ~60s+    | ~1.3s              |
 
 Servant compile time grows exponentially with endpoint count due to
-recursive `:<|>` constraint solving. servant-reimagined stays constant
+recursive `:<|>` constraint solving. acolyte stays constant
 because APIs are flat lists with closed type families and direct tuple
 indexing.
 
@@ -497,7 +497,7 @@ Run `bash bench/compile-time/run-bench.sh` to verify on your machine.
 
 ## Cheat sheet
 
-| Servant | servant-reimagined |
+| Servant | acolyte |
 |---------|--------------------|
 | `:<|>` | `'[endpoint1, endpoint2, ...]` |
 | `"path" :>` | `At "path"` (or `'Lit "path"`) |
@@ -515,7 +515,7 @@ Run `bash bench/compile-time/run-bench.sh` to verify on your machine.
 | `Warp.run 3000 app` | `runServerBS 3000 svc` or `runWarp 3000 svc` |
 | WAI middleware | `tower` layers with `\|>` |
 | (no equivalent) | `Requires Auth` + `provide @Auth` |
-| `hspec-wai` | `Servant.Reimagined.Test` (no network) |
+| `hspec-wai` | `Acolyte.Test` (no network) |
 | `Summary "..."` | `Describe "..."` (endpoint description) |
 | `QueryParam "p" Int :>` (in type) | `WithParams '[QP "p" Int]` (type-level annotation) |
 | `Header "h" Text :>` (in type) | `WithHeaders '[HH "h" Text]` (type-level annotation) |

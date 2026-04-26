@@ -195,7 +195,7 @@ getUser (PathCapture uid) = do
 When a `FromRequestParts` extractor fails (missing query param, bad
 path capture, missing header), it returns a `ServerError` which becomes
 a 400-level JSON response automatically. You don't need to handle these
-in your handler — the `ToHandler` machinery short-circuits before your
+in your handler. The `ToHandler` machinery short-circuits before your
 function is called.
 
 ```haskell

@@ -18,7 +18,7 @@ Streaming path:
     ↑ http-core defines the Body type
 ```
 
-The `adaptToBody` function in tower-server bridges between them — it
+The `adaptToBody` function in tower-server bridges between them: it
 collects the incoming body to strict bytes, runs your handler, then
 wraps the response bytes as a `Body`.
 
@@ -28,13 +28,13 @@ strict path is all you need. The entire body is in memory as a
 
 ## When you need streaming
 
-- **Large file uploads** — collecting a 500 MB file into a `ByteString`
+- **Large file uploads**: collecting a 500 MB file into a `ByteString`
   before your handler runs will spike memory
-- **Large file downloads** — serializing a large response into a
+- **Large file downloads**: serializing a large response into a
   `ByteString` before sending defeats the purpose
-- **Server-sent events** — responses that stay open and send chunks
+- **Server-sent events**: responses that stay open and send chunks
   incrementally
-- **Proxying** — forwarding a request body to another service without
+- **Proxying**: forwarding a request body to another service without
   buffering it
 
 ## The Body type
@@ -50,7 +50,7 @@ data Body
 ```
 
 `BodyStream` is a pull-based producer. The consumer calls the IO action
-repeatedly — it returns `Just (Chunk bytes)` for data, `Just ChunkFlush`
+repeatedly. It returns `Just (Chunk bytes)` for data, `Just ChunkFlush`
 as a flush hint, and `Nothing` when done.
 
 ## Streaming responses

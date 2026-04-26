@@ -81,8 +81,8 @@ createUser (JsonBody body) = do
 What changed:
 
 - `Handler` monad becomes plain `IO`
-- No `liftIO` — you're already in `IO`
-- No `throwError` — return `Left error` instead
+- No `liftIO` (you're already in `IO`)
+- No `throwError` (return `Left error` instead)
 - Path captures are explicit arguments (`PathCapture Int`)
 - Request body is an explicit argument (`JsonBody CreateUser`)
 - Return types use `Json` wrapper for JSON responses
@@ -106,7 +106,7 @@ server = mkApi @API (getUsers, getUser, createUser, health)
 What changed:
 
 - `:<|>` becomes a tuple
-- `mkApi` matches handlers positionally to endpoints — no annotations needed
+- `mkApi` matches handlers positionally to endpoints (no annotations needed)
 - Wrong handler count = compile error with a clear message:
   `API has 4 endpoint(s) but 3 handler(s) were provided.`
 
@@ -122,7 +122,7 @@ server = mkServer @API
 ```
 
 For large APIs, wrap endpoints with `Named` and use `mkRecordApi` to
-match handlers by field name instead of position — no manual instance
+match handlers by field name instead of position. No manual instance
 needed:
 
 ```haskell
@@ -132,7 +132,7 @@ type API =
    , Named "createUser" (Post UsersPath (Json CreateUser) (Json User))
    ]
 
--- Field order doesn't matter — matched by name via GHC.Records.HasField
+-- Field order doesn't matter (matched by name via GHC.Records.HasField)
 data Handlers = Handlers
   { createUser :: JsonBody CreateUser -> IO (Json User)
   , getUsers   :: IO (Json [User])
@@ -142,7 +142,7 @@ data Handlers = Handlers
 server = mkRecordApi @API Handlers { ... }
 ```
 
-`Named` is transparent to routing — you can still use tuples with Named
+`Named` is transparent to routing: you can still use tuples with Named
 endpoints if you prefer. It also sets `operationId` in OpenAPI specs.
 
 For clients, `callNamed` lets you call an endpoint by its type-level
@@ -189,13 +189,13 @@ search (QueryParams tags) = ...
 
 What changed:
 
-- Query params are not in the API type — they're extractor arguments
+- Query params are not in the API type. They're extractor arguments
   in the handler
 - `QueryParam` is required (400 if missing). Use `OptionalParam` for
   the Servant `QueryParam` behavior (returns `Maybe`)
 - `QueryParams` handles repeated params (Servant's `QueryParams`)
 - For OpenAPI/client generation, you can declare params at the type level
-  with `WithParams` — this is optional and doesn't affect routing. The
+  with `WithParams`. This is optional and doesn't affect routing. The
   OpenAPI generator produces real query parameter schemas from these
   declarations, and request/response body types are turned into JSON
   schemas via `ToSchema` constraints (with `Generic`-based automatic
@@ -335,7 +335,7 @@ main = do
   runServerBS 3000 svc
 ```
 
-No `ReaderT`. No `hoistServer`. State is an extractor — it comes as a
+No `ReaderT`. No `hoistServer`. State is an extractor: it comes as a
 handler argument, not a monad layer.
 
 ## Middleware
@@ -366,7 +366,7 @@ What changed:
 
 - `|>` instead of function composition
 - Layers compose inside-out (first `|>` is closest to the handler)
-- Each middleware is a `Layer` — a function `Service -> Service`
+- Each middleware is a `Layer`: a function `Service -> Service`
 - `before`, `after`, `around` combinators for writing middleware
 - WAI middleware still works via `fromWaiMiddleware` bridge in `tower-wai`
 
@@ -413,7 +413,7 @@ spec = with app $ do
 
 **servant-reimagined:**
 ```haskell
--- Direct dispatch — no network, no port, no warp
+-- Direct dispatch (no network, no port, no warp)
 import Servant.Reimagined.Test
 
 tests :: IO ()
@@ -432,7 +432,7 @@ What changed:
 
 - No test framework dependency required (works with any)
 - Requests dispatched directly through the tower Service
-- No network, no port, no warp — fast and deterministic
+- No network, no port, no warp. Fast and deterministic
 - Same code path as production, minus TCP
 
 ## Running the server
@@ -453,7 +453,7 @@ main = runWarp 3000 svc
 ```
 
 The server produces a `Service`. The backend consumes it. Swap
-`runServerBS` for `runWarp` — nothing else changes.
+`runServerBS` for `runWarp`, nothing else changes.
 
 ## Sub-API composition
 

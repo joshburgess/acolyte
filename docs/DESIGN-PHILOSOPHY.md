@@ -39,7 +39,7 @@ take minutes.
 
 **No shared middleware layer.** Every Haskell web framework has its own
 middleware abstraction (or none). There's no equivalent of Rust's tower
-crate — a composable, framework-agnostic Service/Layer pattern that
+crate (a composable, framework-agnostic Service/Layer pattern) that
 works for web servers, gRPC, message queues, and anything else.
 
 **No compile-time middleware enforcement.** Servant has no way to verify
@@ -84,7 +84,7 @@ a single pass. `CheckArity` either reduces to `()` or fires a
 including GHC startup). Zero exponential behavior.
 
 ### Problem: No shared middleware layer
-### Fix: tower — a standalone Haskell library
+### Fix: tower (a standalone Haskell library)
 
 ```haskell
 newtype Service m req resp = Service { runService :: req -> m resp }
@@ -102,8 +102,8 @@ server |> cors |> tracing |> secureHeaders
 
 tower has no HTTP knowledge. http-core has no WAI knowledge. The server
 produces a Service; the backend adapter consumes it. Swap tower-wai for
-tower-server (or tower-lambda, or raw sockets) — nothing above the
-adapter changes.
+tower-server (or any other adapter that consumes the same boundary).
+Nothing above the adapter changes.
 
 ### Problem: No compile-time middleware enforcement
 ### Fix: Phantom-type effect tracking
@@ -125,7 +125,7 @@ The check uses two type families:
 1. `RequiredEffects` walks the API and collects all effect tags
 2. `AllIn` checks each tag against the provided list
 
-Both are closed type families — no instance resolution, no overlapping
+Both are closed type families: no instance resolution, no overlapping
 pragmas, no ambiguity.
 
 ### Problem: Monolithic handler monad
@@ -139,12 +139,12 @@ getUser (PathCapture uid) = ...
 
 No `Handler` monad. No `liftIO`. State comes from `AppState` extractors.
 Errors come from `Either` return types. Each extractor is a
-`FromRequestParts` instance that pulls data from the request — path
+`FromRequestParts` instance that pulls data from the request: path
 captures, query params, headers, JSON body, form data, multipart uploads.
 
 `ToHandler` converts any function whose arguments are
 `FromRequestParts` extractors and whose return is `IntoResponse` into
-the internal `HandlerFn`. `mkApi` calls `toHandler` internally —
+the internal `HandlerFn`. `mkApi` calls `toHandler` internally, so
 users never see it.
 
 ## The two-layer middleware model
@@ -168,7 +168,7 @@ endpoint matched or what the handler signature is.
 
 Layer 2 operates at the type level. `Requires Auth` adds a compile-time
 check. `WithParams` documents query parameters. `Describe` adds OpenAPI
-descriptions. These wrappers are transparent to routing — `HasEndpointInfo`
+descriptions. These wrappers are transparent to routing: `HasEndpointInfo`
 delegates through them to the inner endpoint.
 
 ## Backend agnosticism
@@ -181,15 +181,18 @@ delegates through them to the inner endpoint.
                             │ Service IO (Request Body) (Response Body)
           ┌─────────────────┼───────────────────┐
           │                 │                    │
-    ┌─────▼──────┐   ┌─────▼──────┐   ┌────────▼────────┐
-    │  tower-wai  │   │tower-server│   │   tower-lambda   │
-    │   (warp)    │   │(HTTP/1.1+2)│   │  (AWS Lambda)    │
-    └────────────┘   └────────────┘   └─────────────────┘
+    ┌─────▼──────┐   ┌─────▼──────┐
+    │  tower-wai  │   │tower-server│
+    │   (warp)    │   │(HTTP/1.1+2)│
+    └────────────┘   └────────────┘
 ```
 
 The boundary is `Service IO (Request Body) (Response Body)`. Everything
-above it is portable. Everything below it is a backend adapter. WAI
-types never leak above tower-wai.
+above it is portable. Everything below it is a backend adapter. The
+project ships two: `tower-wai` (warp) and `tower-server` (zero WAI,
+HTTP/1.1+2 over raw sockets). New backends (Lambda, custom transports)
+are written by implementing the same boundary. WAI types never leak
+above tower-wai.
 
 ## Type-level annotation composability
 
@@ -217,7 +220,7 @@ them. gRPC generation reads streaming markers. The effect system reads
 | Compile 1 endpoint | < 2s | ~1.3s |
 | Compile 32 endpoints | < 2s | ~1.3s |
 | Compile 32 endpoints (Servant) | - | ~60s+ |
-| Type family reduction (Serves) | O(1) | O(1) — constraint synonym |
+| Type family reduction (Serves) | O(1) | O(1) (constraint synonym) |
 | Type family reduction (AllEffectsProvided) | O(n*m) | n=endpoints, m=effects |
 | Instance resolution (BuildApi) | O(1) | Flat instances, no recursion |
 | Handler dispatch (runtime) | O(n) | Linear scan of routes |

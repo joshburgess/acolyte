@@ -2,7 +2,7 @@
 
 This walkthrough builds a small bookmarks API from scratch. By the end
 you'll have typed endpoints, JSON handlers, middleware, effect tracking,
-and tests — all without WAI, without monad transformers, and with
+and tests, all without WAI, without monad transformers, and with
 compile-time guarantees that everything fits together.
 
 ## Setup
@@ -53,7 +53,7 @@ import Servant.Reimagined.Server
 import Tower
 import Tower.Service (Service (..))
 
--- Path types — use At and Param helpers for concise definitions
+-- Path types: use At and Param helpers for concise definitions
 type HealthPath    = At "health"
 type BookmarksPath = At "bookmarks"
 type BookmarkPath  = Param "bookmarks" Int
@@ -130,7 +130,7 @@ response.
 ## Step 3: Wire handlers to the API
 
 `mkApi` connects your handlers to the API type. Pass handler functions
-positionally — no `wrapHandler`, no `toHandler`, no type annotations.
+positionally. No `wrapHandler`, no `toHandler`, no type annotations.
 The compiler checks at compile time that:
 
 1. You have the right number of handlers (one per endpoint)
@@ -149,7 +149,7 @@ server = mkApi @BookmarkAPI
 ```
 
 If you add an endpoint to the API but forget a handler, you get a type
-error — not a runtime 404.
+error, not a runtime 404.
 
 For cases where you need explicit control, the lower-level
 `mkServer` + `wrapHandler @EndpointType (toHandler fn)` pattern is
@@ -178,7 +178,7 @@ app = do
     |> secureHeadersLayer defaultSecureHeaders  -- OWASP security headers
 ```
 
-Each middleware is a `Layer` — a function that wraps a `Service`.
+Each middleware is a `Layer`: a function that wraps a `Service`.
 You can write your own:
 
 ```haskell
@@ -215,7 +215,7 @@ main = do
   runWarp 3000 svc
 ```
 
-The server code doesn't change — only the import and the run function.
+The server code doesn't change. Only the import and the run function.
 That's the pluggable backend at work.
 
 ## Step 6: Add typed effect tracking
@@ -256,7 +256,7 @@ The flow is:
 1. `effectfulServer` creates a builder with `provided = '[]`
 2. Each `provide @Effect mw` adds the effect to the provided list and
    applies the middleware
-3. `run` finalizes — but only compiles if every `Requires` in the API
+3. `run` finalizes, but only compiles if every `Requires` in the API
    has a matching `provide`
 
 Delete the `provide @Auth` line and you'll see:
@@ -399,7 +399,7 @@ type StreamAPI =
 
 ### Named endpoints and record-based handlers
 
-For larger APIs, positional tuple matching becomes fragile — swap two
+For larger APIs, positional tuple matching becomes fragile: swap two
 handlers and you get confusing type errors instead of a clear mismatch.
 Wrap endpoints with `Named` and use `mkRecordApi` to match handlers by
 field name instead of position:
@@ -411,7 +411,7 @@ type API =
    , Named "createBookmark" (Post BookmarksPath (Json Text) (Json Text))
    ]
 
--- Field order doesn't matter — names are matched automatically
+-- Field order doesn't matter (names are matched automatically)
 data Handlers = Handlers
   { createBookmark :: JsonBody Text -> IO (Json Text)
   , listBookmarks  :: IO (Json [Text])
@@ -421,7 +421,7 @@ data Handlers = Handlers
 server = mkRecordApi @API Handlers { ... }
 ```
 
-`Named` is transparent — it works exactly like `Describe` for routing,
+`Named` is transparent: it works exactly like `Describe` for routing,
 so you can still use positional tuples if you prefer:
 
 ```haskell
@@ -433,7 +433,7 @@ server = mkApi @API (listHandler, getHandler, createHandler)
 your generated specs stable, human-readable operation identifiers.
 
 For a manual approach without `Named` wrappers, the older `NamedApi`
-class + `mkNamedApi` pattern is still available — see
+class + `mkNamedApi` pattern is still available. See
 [`examples/crud`](../examples/crud/) for an example.
 
 On the client side, `mkClientRecord` constructs a typed client record
@@ -480,7 +480,7 @@ createUser (ValidatedBody user) = do
   pure (Json saved)
 ```
 
-The handler never sees invalid data — the framework rejects it before
+The handler never sees invalid data: the framework rejects it before
 dispatch. This keeps validation logic separate from business logic and
 ensures it is applied consistently.
 

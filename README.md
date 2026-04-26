@@ -25,7 +25,7 @@ Clone and build:
 git clone <repo-url> servant-reimagined
 cd servant-reimagined
 cabal build all        # ~7s clean build
-cabal test all         # 40 test suites, 612+ assertions, 43 hedgehog properties
+cabal test all         # 27 test suites, 1000+ assertions, 60+ hedgehog properties
 ```
 
 Run the hello-world example:
@@ -66,8 +66,8 @@ type API =
 
 ### 2. Write handlers
 
-Handlers are plain IO functions. The type signature *is* the extraction
-— arguments are automatically pulled from the request.
+Handlers are plain IO functions. The type signature *is* the extraction:
+arguments are automatically pulled from the request.
 
 ```haskell
 healthHandler :: IO Text
@@ -87,7 +87,7 @@ No monad transformers, no `liftIO`, no manual extraction boilerplate.
 
 `mkApi` checks at compile time that you have the right number of
 handlers and that each one matches its endpoint type. No `wrapHandler`,
-no `toHandler` — just pass your functions positionally.
+no `toHandler`. Just pass your functions positionally.
 
 ```haskell
 import Tower (Service, (|>))
@@ -116,7 +116,7 @@ server = mkRecordApi @NamedAPI Handlers { ... }
 
 ### 4. Add middleware and run
 
-Middleware composes with `|>`. Pick a backend — `tower-server` (zero
+Middleware composes with `|>`. Pick a backend: `tower-server` (zero
 WAI) or `tower-wai` (warp).
 
 ```haskell
@@ -157,7 +157,7 @@ This effect is required by an endpoint but was not provided.
 ## Testing without a network
 
 `servant-reimagined-test` dispatches requests directly through the
-tower Service — no ports, no sockets, deterministic.
+tower Service. No ports, no sockets, deterministic.
 
 ```haskell
 import Servant.Reimagined.Test
@@ -205,12 +205,12 @@ restSvc = mkServer @API restHandlers
 grpcSvc = grpcServer (mkGrpcServiceMap @API "pkg" "Svc" grpcHandlers)
 
 -- Multiplex REST + gRPC on a single port:
-combined = multiplexServices restSvc grpcSvc
+combined = multiplex (adaptToBody restSvc) grpcSvc
 
 -- .proto file with full message definitions:
 proto = generateProto @API "pkg" "Svc"
 
--- Or go the other way — .proto → API types:
+-- Or go the other way (.proto to API types):
 -- cabal run proto-codegen -- service.proto
 ```
 
@@ -248,14 +248,14 @@ servant-reimagined-grpc      API types -> gRPC handlers -> tower Service
 
 Each layer is independent. `tower` knows nothing about HTTP. `http-core`
 knows nothing about WAI. `tower-grpc` knows nothing about API types.
-The server produces a `Service` — it doesn't know or care what runs it.
+The server produces a `Service` and doesn't know or care what runs it.
 
 ## Packages
 
 | Package | What it does |
 |---------|-------------|
 | [`servant-reimagined-core`](servant-reimagined-core/) | Type-level API: endpoints, paths, effects, sessions, versioning. Depends on `base` only. |
-| [`tower`](tower/) | Service/Layer/Middleware composition. Depends on `base` only. Standalone — use it anywhere. |
+| [`tower`](tower/) | Service/Layer/Middleware composition. Depends on `base` only. Standalone (use it anywhere). |
 | [`http-core`](http-core/) | Backend-agnostic Request, Response, Extensions (typed heterogeneous map). |
 | [`tower-http`](tower-http/) | HTTP middleware: security headers, request ID, tracing, CORS, gzip, timeouts. |
 | [`tower-wai`](tower-wai/) | WAI/warp backend adapter. The only package that imports WAI. |
@@ -268,24 +268,24 @@ The server produces a `Service` — it doesn't know or care what runs it.
 | [`servant-reimagined-grpc`](servant-reimagined-grpc/) | gRPC interpretation: `GrpcCodec`, `GrpcReady`, `.proto` generation, `mkGrpcServiceMap`. |
 | [`servant-reimagined-test`](servant-reimagined-test/) | Direct-dispatch testing: no network, no ports. |
 | [`tower-websocket`](tower-websocket/) | WebSocket session types: phantom-typed `Session` handle enforces send/recv protocol at compile time. |
-| [`servant-reimagined`](servant-reimagined/) | Facade — re-exports everything for convenience. |
+| [`servant-reimagined`](servant-reimagined/) | Facade. Re-exports everything for convenience. |
 
 ## Examples
 
 The `examples/` directory contains 12 complete applications:
 
-- [`examples/minimal`](examples/minimal/) — simplest possible server (1 endpoint)
-- [`examples/hello-world`](examples/hello-world/) — 3 endpoints, effect tracking, middleware stack
-- [`examples/crud`](examples/crud/) — full CRUD with named routes, structured errors, and ValidatedBody
-- [`examples/auth`](examples/auth/) — custom authentication extractors
-- [`examples/custom-extractors`](examples/custom-extractors/) — writing your own request extractors
-- [`examples/grpc-demo`](examples/grpc-demo/) — gRPC server with .proto generation
-- [`examples/chat`](examples/chat/) — session-typed WebSocket chat
-- [`examples/negotiate`](examples/negotiate/) — content negotiation (JSON, XML, plain text)
-- [`examples/versioned-api`](examples/versioned-api/) — API versioning with typed version headers
-- [`examples/streaming`](examples/streaming/) — Server-Sent Events with async streaming
-- [`examples/realworld`](examples/realworld/) — RealWorld spec API types split into 6 sub-APIs
-- [`examples/realworld-combined`](examples/realworld-combined/) — full RealWorld backend: 15 endpoints across 6 sub-APIs with handlers, in-memory store, and combined effect tracking
+- [`examples/minimal`](examples/minimal/): simplest possible server (1 endpoint)
+- [`examples/hello-world`](examples/hello-world/): 3 endpoints, effect tracking, middleware stack
+- [`examples/crud`](examples/crud/): full CRUD with named routes, structured errors, and ValidatedBody
+- [`examples/auth`](examples/auth/): custom authentication extractors
+- [`examples/custom-extractors`](examples/custom-extractors/): writing your own request extractors
+- [`examples/grpc-demo`](examples/grpc-demo/): gRPC server with .proto generation
+- [`examples/chat`](examples/chat/): session-typed WebSocket chat
+- [`examples/negotiate`](examples/negotiate/): content negotiation (JSON, XML, plain text)
+- [`examples/versioned-api`](examples/versioned-api/): API versioning with typed version headers
+- [`examples/streaming`](examples/streaming/): Server-Sent Events with async streaming
+- [`examples/realworld`](examples/realworld/): RealWorld spec API types split into 6 sub-APIs
+- [`examples/realworld-combined`](examples/realworld-combined/): full RealWorld backend, 15 endpoints across 6 sub-APIs with handlers, in-memory store, and combined effect tracking
 
 ## Key design decisions
 
@@ -306,13 +306,13 @@ The `examples/` directory contains 12 complete applications:
   `Describe`, `WithParams`, `WithHeaders`, `RespondsWith` / `PostCreated` /
   `DeleteNoContent`, `Versioned`, and streaming markers (`ServerStream`,
   `ClientStream`, `BidiStream`) for richer OpenAPI specs and client
-  generation -- without changing routing or handler signatures.
+  generation, without changing routing or handler signatures.
   `Versioned V1 (Get ...)` routes to `/v1/...` and is supported by the
   server, client, and OpenAPI interpretations. See the
   [tutorial](docs/TUTORIAL.md#step-8-annotating-endpoints-for-documentation)
   for details.
 - **Named endpoints.** Wrap endpoints with `Named "fieldName"` to enable
-  record-based handler binding via `mkRecordApi` — field order doesn't
+  record-based handler binding via `mkRecordApi`. Field order doesn't
   matter, the compiler matches by name. `Named` also sets `operationId`
   in OpenAPI specs. Fully opt-in: unnamed endpoints and positional tuples
   continue to work unchanged. On the client side, `mkClientRecord`
@@ -321,7 +321,7 @@ The `examples/` directory contains 12 complete applications:
   a `Validate v a` check before the handler sees the data. Validation
   failures return 422 with a structured error. Define a validator type,
   write a `Validate` instance, and use `ValidatedBody` in the handler
-  signature — no manual error-checking boilerplate.
+  signature: no manual error-checking boilerplate.
 - **Async SSE streaming.** `sseResponse` runs the handler in a forked
   thread and delivers Server-Sent Events incrementally via chunked
   transfer encoding. For simple cases, `sseResponseSync` collects all
@@ -329,22 +329,21 @@ The `examples/` directory contains 12 complete applications:
 
 ## Next steps
 
-- Read the [**Tutorial**](docs/TUTORIAL.md) — a step-by-step walkthrough
+- Read the [**Tutorial**](docs/TUTORIAL.md): a step-by-step walkthrough
   building a complete API
-- Read the [**Design Philosophy**](docs/DESIGN-PHILOSOPHY.md) — why every
+- Read the [**Design Philosophy**](docs/DESIGN-PHILOSOPHY.md): why every
   decision was made, compile-time performance analysis, Servant comparison
-- Read the [**Data Flow**](docs/DATA-FLOW.md) — request-to-response flow
+- Read the [**Data Flow**](docs/DATA-FLOW.md): request-to-response flow
   diagrams for HTTP/1.1, HTTP/2, gRPC, and the compile-time type checking flow
 - Coming from Servant? Read the [**Migration Guide**](docs/MIGRATING-FROM-SERVANT.md)
-  — side-by-side comparison of every concept
+  for a side-by-side comparison of every concept
 - Read the [**Error Handling Guide**](docs/ERROR-HANDLING.md) for patterns
   on structured errors, early return, and fallible extractors
 - Read the [**Streaming Guide**](docs/STREAMING.md) for large request/response
   bodies
 - Read the [**gRPC Guide**](docs/GRPC.md) for serving gRPC from the same API
   type
-- Read the [**Performance Guide**](docs/PERFORMANCE.md) — compile-time and
+- Read the [**Performance Guide**](docs/PERFORMANCE.md) for compile-time and
   runtime benchmarks with analysis
 - Browse the [examples](examples/) for patterns to copy
 - See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full design
-- See [`VISION.md`](VISION.md) for project goals

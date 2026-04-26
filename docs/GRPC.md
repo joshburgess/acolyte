@@ -78,8 +78,8 @@ The full gRPC path becomes `/{package}.{service}/{method}`, e.g.
 
 ### Serialization
 
-`GrpcCodec` is the serialization class. It's deliberately minimal —
-no proto-lens dependency, no code generation required:
+`GrpcCodec` is the serialization class. It's deliberately minimal:
+no proto-lens dependency, no code generation required.
 
 ```haskell
 class GrpcCodec a where
@@ -168,10 +168,10 @@ servant-reimagined-grpc     API type -> GrpcReady check, .proto, mkGrpcServiceMa
 
 Each layer is independent:
 
-- `tower-grpc` knows nothing about API types — it dispatches from
+- `tower-grpc` knows nothing about API types: it dispatches from
   a `GrpcServiceMap` of `(service, method) -> handler`
 - `servant-reimagined-grpc` builds the service map from the API type
-- `tower-server/H2` handles HTTP/2 framing — it doesn't know about gRPC
+- `tower-server/H2` handles HTTP/2 framing and doesn't know about gRPC
 - The same `Service IO (Request Body) (Response Body)` abstraction
   connects all layers
 
@@ -319,7 +319,7 @@ main :: IO ()
 main = do
   let grpcSvc = grpcServer (mkGrpcServiceMap @API "myapp" "MyService" grpcHandlers)
   let restSvc = mkServer @API restHandlers
-  let combined = multiplex restSvc grpcSvc
+  let combined = multiplex (adaptToBody restSvc) grpcSvc
   runServerH2 (defaultH2Config 8080) combined
 ```
 

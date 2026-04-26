@@ -1,8 +1,8 @@
 # Performance
 
 This document covers both compile-time and runtime performance.
-The numbers come from real benchmarks running on the codebase —
-run them yourself with `bash bench/compile-time/run-bench.sh` and
+The numbers come from real benchmarks running on the codebase.
+Run them yourself with `bash bench/compile-time/run-bench.sh` and
 `cabal run runtime-bench -- +RTS -T`.
 
 ## The headline numbers
@@ -20,7 +20,7 @@ run them yourself with `bash bench/compile-time/run-bench.sh` and
 
 Servant's biggest pain point is compile time. Its `:<|>` tree encoding
 forces GHC to recursively decompose the API type at every constraint
-resolution step. This is O(2^n) — at 20 endpoints, you're waiting
+resolution step. This is O(2^n): at 20 endpoints, you're waiting
 minutes.
 
 We use flat promoted lists and flat tuple instances. GHC matches one
@@ -36,7 +36,7 @@ Endpoints       Time (s)
 32                  1.30
 ```
 
-That's not linear — it's **constant**. The ~1.3 seconds is GHC startup
+That's not linear, it's **constant**. The ~1.3 seconds is GHC startup
 and dependency loading. The actual type checking of the API adds
 effectively nothing regardless of how many endpoints you have.
 
@@ -50,8 +50,8 @@ API than Servant does for a 3-endpoint one.
 
 A request hits the server, gets split into parts and body, and the
 router does a linear scan of bound handlers. For a 1-endpoint API,
-the entire round trip — match path, extract captures, run handler,
-serialize response — takes **142 ns**.
+the entire round trip (match path, extract captures, run handler,
+serialize response) takes **142 ns**.
 
 ```
 dispatch/1-endpoint/hit:      148 ns    1.4 KB allocated
@@ -70,11 +70,11 @@ for `/users/42` arrives, the router looks up `"users"` in the Map
 (O(log n)), then linear scans only the 2-3 routes sharing that prefix.
 
 This is why 25 routes (155 ns) is actually *faster* than 3 routes
-hitting the last match (346 ns) — the 3-route case has all routes
+hitting the last match (346 ns): the 3-route case has all routes
 sharing a prefix (`/items`), forcing a full scan of the candidate list,
 while the 25-route case distributes across many distinct first segments.
 
-A 404 miss at 25 routes takes only 77 ns — the Map lookup finds no
+A 404 miss at 25 routes takes only 77 ns: the Map lookup finds no
 candidates, so no matchers run at all.
 
 We benchmarked three optimization strategies:
@@ -82,7 +82,7 @@ We benchmarked three optimization strategies:
 2. **Method + segment compound key**: slower due to 405 detection overhead
 3. **Segment count pre-check**: marginal benefit over the segment index
 
-The segment index alone is the sweet spot — simple, effective, no
+The segment index alone is the sweet spot: simple, effective, no
 regressions on small APIs.
 
 ## Middleware is free
@@ -100,12 +100,12 @@ middleware/5-layers:    134 ns    1.4 KB allocated
 Why? Because a `Layer` is just a function `Service -> Service`. When
 you write `server |> cors |> tracing |> secureHeaders`, GHC inlines
 the layer applications at compile time. The middleware functions get
-fused into a single call chain — there's no list of layers being
+fused into a single call chain. There's no list of layers being
 traversed at runtime. The `before`, `after`, and `around` combinators
 are all marked `INLINABLE`, so GHC can see through them.
 
 This means you should **never** hesitate to add middleware. Security
-headers, CORS, request IDs, tracing — stack as many as you need.
+headers, CORS, request IDs, tracing: stack as many as you need.
 The compile-time cost is zero (flat composition) and the runtime cost
 is zero (GHC optimizes it away).
 
@@ -129,7 +129,7 @@ adds ~55-60 ns. The allocation increase comes from the `IORef`
 lookups and the `Either` wrapping.
 
 For a typical handler with 2-3 extractors, you're looking at 300-370
-ns total — still well under a microsecond. The ergonomic benefit of
+ns total. Still well under a microsecond. The ergonomic benefit of
 writing `getUser :: PathCapture Int -> QueryParam "fields" Text -> IO (Json User)`
 instead of manually pulling from request parts is worth far more than
 60 ns.
@@ -155,13 +155,13 @@ grpc-codec/decode/10KB:     14 ns     288 B allocated
 grpc-codec/decode/100KB:    14 ns     288 B allocated
 ```
 
-Decoding is **constant time** — 14 ns regardless of whether the
+Decoding is **constant time**: 14 ns regardless of whether the
 payload is 10 bytes or 100 KB. It doesn't copy the payload; it
 returns a slice of the input ByteString. The 288 bytes allocated is
 the `GrpcMessage` record and the `Maybe`/tuple wrapper.
 
 Encoding scales with payload size because it must copy bytes into the
-Builder output buffer. But even 100 KB encodes in 1.3 μs — that's
+Builder output buffer. But even 100 KB encodes in 1.3 μs, which is
 roughly memcpy speed.
 
 Multi-message encoding (for streaming RPCs) scales linearly:
@@ -173,7 +173,7 @@ grpc-codec/decode-multi/10-msgs:     172 ns    3.2 KB
 grpc-codec/decode-multi/100-msgs:   1.47 μs     32 KB
 ```
 
-100 messages decode in 1.47 μs — about 15 ns per message, consistent
+100 messages decode in 1.47 μs, about 15 ns per message, consistent
 with the single-message result.
 
 ## Router scaling
@@ -189,7 +189,7 @@ router-scaling/25-routes/last:   155 ns
 router-scaling/25-routes/miss:    77 ns
 ```
 
-With segment indexing, scaling is nearly flat — 148 ns for 1 route,
+With segment indexing, scaling is nearly flat: 148 ns for 1 route,
 155 ns for 25 routes. The Map lookup eliminates most candidates before
 the linear scan begins.
 
@@ -210,7 +210,7 @@ Allocation per request is remarkably low:
 The bulk of allocation is the `Extensions` IORef (typed heterogeneous
 map used for request-scoped data) and the `Response` construction.
 With `-funbox-strict-fields` (enabled on all packages) and `StrictData`,
-there's no thunk accumulation — every allocation is immediately useful.
+there's no thunk accumulation: every allocation is immediately useful.
 
 ## How to reproduce
 
@@ -239,7 +239,7 @@ temporal allocation analysis.
 1. **Segment-indexed router, not a trie.** Routes are pre-indexed by
    first path segment in a `Map`. This gives O(log n) lookup for the
    first segment, then a short linear scan for routes sharing that
-   prefix. At 25 routes, worst case is 155 ns — a trie would add
+   prefix. At 25 routes, worst case is 155 ns. A trie would add
    complexity for negligible gain.
 
 2. **Extensions via `Map TypeRep Any`, not a record.** The IORef-backed

@@ -345,3 +345,7 @@ The `examples/` directory contains 12 complete applications:
   runtime benchmarks with analysis
 - Browse the [examples](examples/) for patterns to copy
 - See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full design
+
+## License
+
+BSD 3-Clause. See [LICENSE](LICENSE).

@@ -2,6 +2,7 @@ cabal-version:   3.0
 name:            acolyte-codegen
 version:         0.1.0.0
 synopsis:        Generate acolyte API types from OpenAPI/Swagger specs
+category:        Web
 description:
   Reads an OpenAPI 3.x or Swagger 2.0 JSON spec and generates Haskell
   modules with type-level API definitions, path types, request/response
@@ -12,7 +13,7 @@ description:
 license:         BSD-3-Clause
 license-file:    ../LICENSE
 author:          Josh Burgess
-maintainer:      Josh Burgess
+maintainer:      Josh Burgess <joshburgess.webdev@gmail.com>
 homepage:        https://github.com/joshburgess/acolyte
 bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple

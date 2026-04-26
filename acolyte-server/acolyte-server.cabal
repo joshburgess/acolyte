@@ -2,18 +2,19 @@ cabal-version:   3.0
 name:            acolyte-server
 version:         0.1.0.0
 synopsis:        HTTP server interpretation for acolyte
+category:        Web
 description:
   Interprets acolyte-core API types into a running HTTP
   server. Provides handler binding, request extraction, response
   encoding, routing, and the compile-time completeness check.
   .
-  Produces a spire Service — backend-agnostic. Combine with spire-wai
+  Produces a spire Service. Backend-agnostic: combine with spire-wai
   to run on warp, or any other adapter.
 
 license:         BSD-3-Clause
 license-file:    ../LICENSE
 author:          Josh Burgess
-maintainer:      Josh Burgess
+maintainer:      Josh Burgess <joshburgess.webdev@gmail.com>
 homepage:        https://github.com/joshburgess/acolyte
 bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple

@@ -2,18 +2,19 @@ cabal-version:   3.0
 name:            spire
 version:         0.1.0.0
 synopsis:        Composable service and middleware abstractions for Haskell
+category:        Control
 description:
   A standalone, framework-agnostic library providing composable
   Service and Layer abstractions. The Haskell equivalent of Rust's
   tower crate.
   .
-  This library is useful on its own — any Haskell project can use it
+  This library is useful on its own; any Haskell project can use it
   for composable middleware without depending on any web framework.
 
 license:         BSD-3-Clause
 license-file:    ../LICENSE
 author:          Josh Burgess
-maintainer:      Josh Burgess
+maintainer:      Josh Burgess <joshburgess.webdev@gmail.com>
 homepage:        https://github.com/joshburgess/acolyte
 bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple

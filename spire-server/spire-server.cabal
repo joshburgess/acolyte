@@ -1,23 +1,24 @@
 cabal-version:   3.0
 name:            spire-server
 version:         0.1.0.0
-synopsis:        Spire-native HTTP/1.1 + HTTP/2 server — no WAI dependency
+synopsis:        Spire-native HTTP/1.1 + HTTP/2 server, no WAI dependency
+category:        Network.HTTP
 description:
   A lightweight HTTP server that speaks spire Service directly.
-  No WAI, no warp — just network sockets, HTTP parsing, and dispatch
+  No WAI, no warp: just network sockets, HTTP parsing, and dispatch
   to @Service IO (Request Body) (Response Body)@.
   .
   Supports HTTP/1.1 (custom parser), HTTP/2 (via the @http2@ package),
   TLS with ALPN protocol negotiation, and automatic HTTP/1.1 vs HTTP/2
   detection.
   .
-  Proves the zero-WAI path: the entire acolyte stack —
-  including gRPC — can run without any WAI dependency.
+  Proves the zero-WAI path: the entire acolyte stack
+  (including gRPC) can run without any WAI dependency.
 
 license:         BSD-3-Clause
 license-file:    ../LICENSE
 author:          Josh Burgess
-maintainer:      Josh Burgess
+maintainer:      Josh Burgess <joshburgess.webdev@gmail.com>
 homepage:        https://github.com/joshburgess/acolyte
 bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple

@@ -2,6 +2,7 @@ cabal-version:   3.0
 name:            acolyte
 version:         0.1.0.0
 synopsis:        Composable, type-safe web framework for Haskell
+category:        Web
 description:
   A web framework where the API is a type, middleware is tracked at
   compile time, and the backend is pluggable. Re-exports all common
@@ -10,7 +11,7 @@ description:
 license:         BSD-3-Clause
 license-file:    ../LICENSE
 author:          Josh Burgess
-maintainer:      Josh Burgess
+maintainer:      Josh Burgess <joshburgess.webdev@gmail.com>
 homepage:        https://github.com/joshburgess/acolyte
 bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple

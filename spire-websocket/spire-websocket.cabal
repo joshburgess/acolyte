@@ -1,17 +1,18 @@
 cabal-version:   3.0
 name:            spire-websocket
 version:         0.1.0.0
-synopsis:        WebSocket session type runtime for acolyte
+synopsis:        Linear session-typed WebSocket protocols for spire
+category:        Network
 description:
   Linear session types for WebSocket protocols. The phantom-typed
   Session handle enforces send/recv ordering at compile time via
-  GHC's LinearTypes — each operation consumes the current session
+  GHC's LinearTypes: each operation consumes the current session
   and produces the next state, so misuse is a type error.
 
 license:         BSD-3-Clause
 license-file:    ../LICENSE
 author:          Josh Burgess
-maintainer:      Josh Burgess
+maintainer:      Josh Burgess <joshburgess.webdev@gmail.com>
 homepage:        https://github.com/joshburgess/acolyte
 bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple

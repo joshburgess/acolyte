@@ -2,6 +2,7 @@ cabal-version:   3.0
 name:            acolyte-test
 version:         0.1.0.0
 synopsis:        Testing utilities for acolyte APIs
+category:        Web, Testing
 description:
   Test helpers for APIs built with acolyte. Direct dispatch
   (no network), response assertions, and warp-based integration testing.
@@ -9,7 +10,7 @@ description:
 license:         BSD-3-Clause
 license-file:    ../LICENSE
 author:          Josh Burgess
-maintainer:      Josh Burgess
+maintainer:      Josh Burgess <joshburgess.webdev@gmail.com>
 homepage:        https://github.com/joshburgess/acolyte
 bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple

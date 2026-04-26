@@ -2,20 +2,21 @@ cabal-version:   3.0
 name:            spire-grpc
 version:         0.1.0.0
 synopsis:        gRPC wire protocol for spire services
+category:        Network
 description:
   gRPC framing, status codes, and request/response handling built on
-  spire + http-core. Provides the wire protocol layer — service/method
+  spire + http-core. Provides the wire protocol layer: service/method
   dispatch, length-prefixed message framing, trailers-based status.
   .
-  No protobuf dependency — serialization is pluggable. Use with
+  No protobuf dependency: serialization is pluggable. Use with
   proto-lens, binary, aeson, or any codec.
   .
-  No WAI dependency — runs on spire-server's HTTP/2 transport.
+  No WAI dependency: runs on spire-server's HTTP/2 transport.
 
 license:         BSD-3-Clause
 license-file:    ../LICENSE
 author:          Josh Burgess
-maintainer:      Josh Burgess
+maintainer:      Josh Burgess <joshburgess.webdev@gmail.com>
 homepage:        https://github.com/joshburgess/acolyte
 bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple

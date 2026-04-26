@@ -2,15 +2,16 @@ cabal-version:   3.0
 name:            spire-http
 version:         0.1.0.0
 synopsis:        HTTP-specific middleware layers built on spire
+category:        Web
 description:
   A collection of HTTP middleware layers using the spire Service/Layer
-  abstraction and http-core request/response types. Backend-agnostic —
+  abstraction and http-core request/response types. Backend-agnostic;
   works with any server that speaks spire + http-core.
 
 license:         BSD-3-Clause
 license-file:    ../LICENSE
 author:          Josh Burgess
-maintainer:      Josh Burgess
+maintainer:      Josh Burgess <joshburgess.webdev@gmail.com>
 homepage:        https://github.com/joshburgess/acolyte
 bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple

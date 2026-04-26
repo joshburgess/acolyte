@@ -2,6 +2,7 @@ cabal-version:   3.0
 name:            acolyte-grpc
 version:         0.1.0.0
 synopsis:        gRPC interpretation for acolyte API types
+category:        Network
 description:
   Interprets acolyte-core API types as gRPC services.
   The same API type that drives REST routing, OpenAPI generation,
@@ -14,7 +15,7 @@ description:
 license:         BSD-3-Clause
 license-file:    ../LICENSE
 author:          Josh Burgess
-maintainer:      Josh Burgess
+maintainer:      Josh Burgess <joshburgess.webdev@gmail.com>
 homepage:        https://github.com/joshburgess/acolyte
 bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple

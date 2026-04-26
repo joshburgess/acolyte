@@ -2,11 +2,12 @@ cabal-version:   3.0
 name:            http-core
 version:         0.1.0.0
 synopsis:        Backend-agnostic HTTP request and response types
+category:        Network.HTTP
 description:
   Shared HTTP vocabulary types that are independent of any specific
   server backend (warp, snap, etc.) or middleware framework.
   .
-  This is the Haskell equivalent of Rust's @http@ crate — a tiny,
+  This is the Haskell equivalent of Rust's @http@ crate: a tiny,
   stable package defining Request and Response types that everyone
   depends on. WAI, warp, and other backends are confined to adapter
   packages; this package knows nothing about them.
@@ -14,7 +15,7 @@ description:
 license:         BSD-3-Clause
 license-file:    ../LICENSE
 author:          Josh Burgess
-maintainer:      Josh Burgess
+maintainer:      Josh Burgess <joshburgess.webdev@gmail.com>
 homepage:        https://github.com/joshburgess/acolyte
 bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple

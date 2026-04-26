@@ -1,7 +1,7 @@
 cabal-version:   3.0
 name:            spire-protobuf
 version:         0.1.0.0
-synopsis:        High-performance Protocol Buffers for Haskell
+synopsis:        Minimal Protocol Buffers for Haskell, no codegen
 category:        Data, Codec
 description:
   A fast, minimal protobuf library with zero-copy decoding and GHC

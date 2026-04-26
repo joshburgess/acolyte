@@ -62,6 +62,12 @@ import Spire.Protobuf
 import Spire.Protobuf.Wire (encodeVarint, decodeVarint)
 import Spire.Protobuf.Encode (ProtoBuilder (..), runProtoBuilder)
 
+import qualified Data.ByteString.Lazy as LBS
+import qualified Data.Text.Lazy as TL
+import qualified Proto3.Suite as P3S
+import qualified Proto3.Wire.Encode as P3E
+import qualified Proto3.Wire.Decode as P3D
+
 
 -- ===================================================================
 -- NFData instances
@@ -99,6 +105,45 @@ instance ProtoMessage BenchMsg
 
 instance NFData BenchMsg where
   rnf (BenchMsg a b c d) = rnf (unField a) `seq` rnf (unField b) `seq` rnf (unField c) `seq` rnf (unField d)
+
+
+-- proto3-suite equivalent (Generic-derived Message instance: fields
+-- numbered 1..4 in declaration order, matching BenchMsg above).
+data BenchMsgP3 = BenchMsgP3
+  { bmpName  :: Text
+  , bmpAge   :: Int32
+  , bmpEmail :: Text
+  , bmpScore :: Int64
+  } deriving (Generic, Show, Eq)
+
+instance P3S.Message BenchMsgP3
+instance P3S.Named BenchMsgP3 where nameOf _ = "BenchMsgP3"
+
+instance NFData BenchMsgP3 where
+  rnf (BenchMsgP3 a b c d) = rnf a `seq` rnf b `seq` rnf c `seq` rnf d
+
+encodeP3 :: P3S.Message a => a -> ByteString
+encodeP3 = LBS.toStrict . P3S.toLazyByteString
+{-# INLINE encodeP3 #-}
+
+decodeP3 :: P3S.Message a => ByteString -> Either P3D.ParseError a
+decodeP3 = P3S.fromByteString
+{-# INLINE decodeP3 #-}
+
+instance NFData P3D.ParseError where
+  rnf !_ = ()
+
+
+-- Hand-rolled proto3-wire encoding (no Generics overhead, the fastest
+-- realistic baseline a Haskell user could reach with the proto3-* stack).
+encodeP3W :: BenchMsg -> ByteString
+encodeP3W (BenchMsg n a e s) =
+  LBS.toStrict $ P3E.toLazyByteString $
+       P3E.text 1 (TL.fromStrict (unField n))
+    <> P3E.int32 2 (unField a)
+    <> P3E.text 3 (TL.fromStrict (unField e))
+    <> P3E.int64 4 (unField s)
+{-# INLINE encodeP3W #-}
 
 
 -- ===================================================================
@@ -382,6 +427,8 @@ main = do
   -- Protobuf encode/decode payloads
   -- -------------------------------------------------------------------
   let smallMsg = BenchMsg (Field "Alice") (Field 30) (Field "alice@example.com") (Field 9999)
+      smallMsgP3 = BenchMsgP3 "Alice" 30 "alice@example.com" 9999
+      smallEncodedP3 = force (encodeP3 smallMsgP3)
   let smallEncoded = encode smallMsg
   let largeText = T.replicate 10240 "x"   -- 10KB name field
   let largeMsg = BenchMsg (Field largeText) (Field 30) (Field "alice@example.com") (Field 9999)
@@ -525,6 +572,17 @@ main = do
         , bgroup "varint"
             [ bench "encode" $ nf (\v -> runProtoBuilder (ProtoBuilder 10 (encodeVarint v))) (maxBound @Word64)
             , bench "decode" $ nf decodeVarint varintMaxBS
+            ]
+          -- Head-to-head: spire-protobuf vs proto3-suite (Generic) vs
+          -- proto3-wire (hand-rolled) on the same 4-field message.
+        , bgroup "vs-proto3-suite/encode"
+            [ bench "spire-protobuf"   $ nf encode   smallMsg
+            , bench "proto3-suite"     $ nf encodeP3 smallMsgP3
+            , bench "proto3-wire (HR)" $ nf encodeP3W smallMsg
+            ]
+        , bgroup "vs-proto3-suite/decode"
+            [ bench "spire-protobuf"  $ nf (decode   @BenchMsg)   smallEncoded
+            , bench "proto3-suite"    $ nf (decodeP3 @BenchMsgP3) smallEncodedP3
             ]
         ]
     ]

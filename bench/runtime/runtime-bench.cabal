@@ -29,3 +29,5 @@ executable runtime-bench
     , text >= 2.0 && < 2.2
     , http-types >= 0.12 && < 0.13
     , deepseq >= 1.4 && < 1.6
+    , proto3-suite >= 0.9 && < 1.0
+    , proto3-wire >= 1.2 && < 1.5

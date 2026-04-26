@@ -1,7 +1,5 @@
 # acolyte
 
-[![CI](https://github.com/joshburgess/acolyte/actions/workflows/ci.yml/badge.svg)](https://github.com/joshburgess/acolyte/actions/workflows/ci.yml)
-
 A composable, type-safe web framework for Haskell. Your API is a type,
 your middleware is tracked at compile time, and your backend is pluggable.
 

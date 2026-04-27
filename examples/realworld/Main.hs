@@ -35,12 +35,16 @@ buildService store = run
     , followHandler store
     , unfollowHandler store
     , listArticlesHandler store
-    , feedHandler store
     , getArticleHandler store
+    , feedHandler store
     , createArticleHandler store
+    , updateArticleHandler store
     , deleteArticleHandler store
+    , favoriteHandler store
+    , unfavoriteHandler store
     , getCommentsHandler store
     , createCommentHandler store
+    , deleteCommentHandler store
     , tagsHandler store
     )
   where
@@ -69,6 +73,7 @@ main = do
         |> secureHeadersLayer defaultSecureHeaders
 
   putStrLn "RealWorld backend on http://localhost:3000"
+  putStrLn "Implements the full Conduit API: 19 endpoints, spec-compliant JSON envelopes."
   putStrLn ""
   putStrLn "Try:"
   putStrLn "  # Register"
@@ -87,6 +92,10 @@ main = do
   putStrLn "    -H 'Content-Type: application/json' \\"
   putStrLn "    -H 'Authorization: Token tok-jake' \\"
   putStrLn "    -d '{\"article\":{\"title\":\"How to train your dragon\",\"description\":\"Ever wonder?\",\"body\":\"Very carefully.\",\"tagList\":[\"dragons\",\"training\"]}}'"
+  putStrLn ""
+  putStrLn "  # Favorite an article (auth)"
+  putStrLn "  curl -s -X POST -H 'Authorization: Token tok-jake' \\"
+  putStrLn "    http://localhost:3000/api/articles/how-to-train-your-dragon/favorite"
   putStrLn ""
   putStrLn "  # List articles"
   putStrLn "  curl -s http://localhost:3000/api/articles"

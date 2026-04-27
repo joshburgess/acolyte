@@ -39,23 +39,31 @@ buildService store =
           (toHandler (tagsHandler store))
       )
   $ subRouter @CommentsAPI
-      ( wrapHandler @(Get CommentsPath (Json [Comment]))
+      ( wrapHandler @(Get CommentsPath (Json CommentsResponse))
           (toHandler (getCommentsHandler store))
-      , wrapHandler @(Requires Auth (Post CommentsPath (Json CreateCommentRequest) (Json Comment)))
+      , wrapHandler @(Requires Auth (Post CommentsPath (Json CreateCommentRequest) (Json CommentResponse)))
           (toHandler (createCommentHandler store))
+      , wrapHandler @(Requires Auth (DeleteNoContent CommentPath))
+          (toHandler (deleteCommentHandler store))
       )
   $ subRouter @ArticlesAPI
       ( wrapHandler @(WithParams '[QP "tag" Text, QP "author" Text, QP "limit" Int, QP "offset" Int]
                         (Get ArticlesPath (Json ArticlesResponse)))
           (toHandler (listArticlesHandler store))
+      , wrapHandler @(Get ArticlePath (Json ArticleResponse))
+          (toHandler (getArticleHandler store))
       , wrapHandler @(Requires Auth (Get ArticleFeedPath (Json ArticlesResponse)))
           (toHandler (feedHandler store))
-      , wrapHandler @(Get ArticlePath (Json Article))
-          (toHandler (getArticleHandler store))
-      , wrapHandler @(Requires Auth (Post ArticlesPath (Json CreateArticleRequest) (Json Article)))
+      , wrapHandler @(Requires Auth (Post ArticlesPath (Json CreateArticleRequest) (Json ArticleResponse)))
           (toHandler (createArticleHandler store))
+      , wrapHandler @(Requires Auth (Put ArticlePath (Json UpdateArticleRequest) (Json ArticleResponse)))
+          (toHandler (updateArticleHandler store))
       , wrapHandler @(Requires Auth (DeleteNoContent ArticlePath))
           (toHandler (deleteArticleHandler store))
+      , wrapHandler @(Requires Auth (Post FavoritePath (Json ()) (Json ArticleResponse)))
+          (toHandler (favoriteHandler store))
+      , wrapHandler @(Requires Auth (Delete FavoritePath (Json ArticleResponse)))
+          (toHandler (unfavoriteHandler store))
       )
   $ subRouter @ProfilesAPI
       ( wrapHandler @(Get ProfilePath (Json Profile))
@@ -107,14 +115,14 @@ main = do
   putStrLn "RealWorld backend (sub-API composition) on http://localhost:3000"
   putStrLn ""
   putStrLn "Sub-APIs:"
-  putStrLn "  AuthAPI     — 2 endpoints (POST /api/users/login, POST /api/users)"
-  putStrLn "  UserAPI     — 2 endpoints (GET/PUT /api/user) [auth required]"
-  putStrLn "  ProfilesAPI — 3 endpoints (GET/POST/DELETE /api/profiles/:username)"
-  putStrLn "  ArticlesAPI — 5 endpoints (articles CRUD + feed) [mixed auth]"
-  putStrLn "  CommentsAPI — 2 endpoints (GET/POST /api/articles/:slug/comments)"
-  putStrLn "  TagsAPI     — 1 endpoint  (GET /api/tags)"
+  putStrLn "  AuthAPI     - 2 endpoints (POST /api/users/login, POST /api/users)"
+  putStrLn "  UserAPI     - 2 endpoints (GET/PUT /api/user) [auth required]"
+  putStrLn "  ProfilesAPI - 3 endpoints (GET/POST/DELETE /api/profiles/:username)"
+  putStrLn "  ArticlesAPI - 8 endpoints (articles CRUD + feed + favorite) [mixed auth]"
+  putStrLn "  CommentsAPI - 3 endpoints (GET/POST/DELETE /api/articles/:slug/comments)"
+  putStrLn "  TagsAPI     - 1 endpoint  (GET /api/tags)"
   putStrLn ""
-  putStrLn "Total: 15 endpoints across 6 sub-APIs, combined with O(1) compile time."
+  putStrLn "Total: 19 endpoints across 6 sub-APIs, combined with O(1) compile time."
   putStrLn "Effects (Auth) checked across FullAPI = all 6 sub-APIs."
   putStrLn ""
 

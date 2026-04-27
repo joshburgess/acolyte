@@ -158,6 +158,27 @@ instance FromJSON CreateArticleRequest where
       <*> a .: "body"
       <*> a .:? "tagList" .!= []
 
+data UpdateArticleRequest = UpdateArticleRequest
+  { uaTitle       :: !(Maybe Text)
+  , uaDescription :: !(Maybe Text)
+  , uaBody        :: !(Maybe Text)
+  } deriving (Show, Generic)
+
+instance FromJSON UpdateArticleRequest where
+  parseJSON = withObject "UpdateArticleRequest" $ \o -> do
+    a <- o .: "article"
+    UpdateArticleRequest
+      <$> a .:? "title"
+      <*> a .:? "description"
+      <*> a .:? "body"
+
+-- | Single-article response envelope: @{"article": {...}}@.
+newtype ArticleResponse = ArticleResponse Article
+  deriving (Show, Generic)
+
+instance ToJSON ArticleResponse where
+  toJSON (ArticleResponse a) = object ["article" .= toJSON a]
+
 
 -- ===================================================================
 -- Comment
@@ -188,6 +209,20 @@ instance FromJSON CreateCommentRequest where
   parseJSON = withObject "CreateCommentRequest" $ \o -> do
     c <- o .: "comment"
     CreateCommentRequest <$> c .: "body"
+
+-- | Single-comment response envelope: @{"comment": {...}}@.
+newtype CommentResponse = CommentResponse Comment
+  deriving (Show, Generic)
+
+instance ToJSON CommentResponse where
+  toJSON (CommentResponse c) = object ["comment" .= toJSON c]
+
+-- | Multi-comment response envelope: @{"comments": [...]}@.
+newtype CommentsResponse = CommentsResponse [Comment]
+  deriving (Show, Generic)
+
+instance ToJSON CommentsResponse where
+  toJSON (CommentsResponse cs) = object ["comments" .= map toJSON cs]
 
 
 -- ===================================================================

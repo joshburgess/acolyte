@@ -49,9 +49,11 @@ type TagsPath = ApiV ++ At "tags"
 -- API type: the single source of truth
 -- ===================================================================
 
--- We split into sub-APIs to stay within the 16-endpoint tuple limit,
--- then would nest them. For this example, we'll define the core
--- endpoints that demonstrate the framework's features.
+-- The full RealWorld (Conduit) API: all 19 endpoints in a single
+-- type-level list. Response shapes use envelope newtypes
+-- ('ArticleResponse', 'CommentResponse', 'CommentsResponse') so they
+-- match the spec exactly: e.g. @{"article": {...}}@ for single-item
+-- responses, @{"comments": [...]}@ for the comment list.
 
 type RealWorldAPI =
   '[ -- Auth (public)
@@ -70,17 +72,26 @@ type RealWorldAPI =
    , Requires Auth (Delete FollowPath (Json Profile))             -- DELETE /api/profiles/:username/follow
 
      -- Articles
+     -- Note: declaration order matters for routing. When two paths share
+     -- a prefix, the one declared LATER in this list wins on ambiguity
+     -- (the router's insertion strategy puts newer routes first). So a
+     -- literal path like "/api/articles/feed" must come AFTER the
+     -- capture path "/api/articles/:slug" so it's checked first.
    , Describe "List articles, optionally filtered"
        (WithParams '[QP "tag" Text, QP "author" Text, QP "limit" Int, QP "offset" Int]
          (Get ArticlesPath (Json ArticlesResponse)))              -- GET  /api/articles
+   , Get ArticlePath (Json ArticleResponse)                       -- GET  /api/articles/:slug
    , Requires Auth (Get ArticleFeedPath (Json ArticlesResponse))  -- GET  /api/articles/feed
-   , Get ArticlePath (Json Article)                               -- GET  /api/articles/:slug
-   , Requires Auth (Post ArticlesPath (Json CreateArticleRequest) (Json Article))  -- POST /api/articles
+   , Requires Auth (Post ArticlesPath (Json CreateArticleRequest) (Json ArticleResponse))  -- POST /api/articles
+   , Requires Auth (Put ArticlePath (Json UpdateArticleRequest) (Json ArticleResponse))    -- PUT  /api/articles/:slug
    , Requires Auth (DeleteNoContent ArticlePath)                  -- DELETE /api/articles/:slug (204)
+   , Requires Auth (Post FavoritePath (Json ()) (Json ArticleResponse))  -- POST /api/articles/:slug/favorite
+   , Requires Auth (Delete FavoritePath (Json ArticleResponse))   -- DELETE /api/articles/:slug/favorite
 
      -- Comments
-   , Get CommentsPath (Json [Comment])                            -- GET  /api/articles/:slug/comments
-   , Requires Auth (Post CommentsPath (Json CreateCommentRequest) (Json Comment))  -- POST /api/articles/:slug/comments
+   , Get CommentsPath (Json CommentsResponse)                     -- GET  /api/articles/:slug/comments
+   , Requires Auth (Post CommentsPath (Json CreateCommentRequest) (Json CommentResponse))  -- POST /api/articles/:slug/comments
+   , Requires Auth (DeleteNoContent CommentPath)                  -- DELETE /api/articles/:slug/comments/:id (204)
 
      -- Tags
    , Get TagsPath (Json TagsResponse)                             -- GET  /api/tags

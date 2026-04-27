@@ -36,9 +36,11 @@ type FollowPath   = ApiV ++ Param "profiles" Text ++ At "follow"
 type ArticlesPath    = ApiV ++ At "articles"
 type ArticleFeedPath = ApiV ++ At2 "articles" "feed"
 type ArticlePath     = ApiV ++ Param "articles" Text
+type FavoritePath    = ApiV ++ Param "articles" Text ++ At "favorite"
 
 -- Comments
 type CommentsPath = ApiV ++ Param "articles" Text ++ At "comments"
+type CommentPath  = ApiV ++ Param "articles" Text ++ At "comments" ++ '[ 'Capture Int ]
 
 -- Tags
 type TagsPath = ApiV ++ At "tags"
@@ -70,19 +72,27 @@ type ProfilesAPI =
    ]
 
 -- | Article endpoints (mixed auth).
+--
+-- Note: declaration order matters for routing. The literal path
+-- "/api/articles/feed" must come AFTER the capture path
+-- "/api/articles/:slug" so the router checks it first.
 type ArticlesAPI =
   '[ WithParams '[QP "tag" Text, QP "author" Text, QP "limit" Int, QP "offset" Int]
        (Get ArticlesPath (Json ArticlesResponse))
+   , Get ArticlePath (Json ArticleResponse)
    , Requires Auth (Get ArticleFeedPath (Json ArticlesResponse))
-   , Get ArticlePath (Json Article)
-   , Requires Auth (Post ArticlesPath (Json CreateArticleRequest) (Json Article))
+   , Requires Auth (Post ArticlesPath (Json CreateArticleRequest) (Json ArticleResponse))
+   , Requires Auth (Put ArticlePath (Json UpdateArticleRequest) (Json ArticleResponse))
    , Requires Auth (DeleteNoContent ArticlePath)
+   , Requires Auth (Post FavoritePath (Json ()) (Json ArticleResponse))
+   , Requires Auth (Delete FavoritePath (Json ArticleResponse))
    ]
 
 -- | Comment endpoints (mixed auth).
 type CommentsAPI =
-  '[ Get CommentsPath (Json [Comment])
-   , Requires Auth (Post CommentsPath (Json CreateCommentRequest) (Json Comment))
+  '[ Get CommentsPath (Json CommentsResponse)
+   , Requires Auth (Post CommentsPath (Json CreateCommentRequest) (Json CommentResponse))
+   , Requires Auth (DeleteNoContent CommentPath)
    ]
 
 -- | Tag endpoints (public).

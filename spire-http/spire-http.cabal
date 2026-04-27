@@ -29,8 +29,8 @@ library
 
   build-depends:
       base         >= 4.20 && < 5
-    , spire
-    , http-core
+    , spire        >= 0.1  && < 0.2
+    , http-core    >= 0.1  && < 0.2
     , bytestring   >= 0.11 && < 0.13
     , text         >= 2.0  && < 2.2
     , http-types   >= 0.12 && < 0.13
@@ -59,9 +59,9 @@ test-suite spec
 
   build-depends:
       base         >= 4.20 && < 5
-    , spire-http
-    , spire
-    , http-core
+    , spire-http   >= 0.1  && < 0.2
+    , spire        >= 0.1  && < 0.2
+    , http-core    >= 0.1  && < 0.2
     , bytestring   >= 0.11 && < 0.13
     , http-types   >= 0.12 && < 0.13
     , text         >= 2.0  && < 2.2

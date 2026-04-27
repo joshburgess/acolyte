@@ -29,12 +29,12 @@ library
 
   build-depends:
       base                    >= 4.20 && < 5
-    , acolyte-core
-    , acolyte-server
-    , spire
-    , spire-grpc
-    , spire-protobuf
-    , http-core
+    , acolyte-core            >= 0.1  && < 0.2
+    , acolyte-server          >= 0.1  && < 0.2
+    , spire                   >= 0.1  && < 0.2
+    , spire-grpc              >= 0.1  && < 0.2
+    , spire-protobuf          >= 0.1  && < 0.2
+    , http-core               >= 0.1  && < 0.2
     , bytestring              >= 0.11 && < 0.13
     , text                    >= 2.0  && < 2.2
     , http-types              >= 0.12 && < 0.13
@@ -76,12 +76,12 @@ test-suite spec
 
   build-depends:
       base                    >= 4.20 && < 5
-    , acolyte-grpc
-    , acolyte-core
-    , acolyte-server
-    , spire
-    , spire-grpc
-    , http-core
+    , acolyte-grpc            >= 0.1  && < 0.2
+    , acolyte-core            >= 0.1  && < 0.2
+    , acolyte-server          >= 0.1  && < 0.2
+    , spire                   >= 0.1  && < 0.2
+    , spire-grpc              >= 0.1  && < 0.2
+    , http-core               >= 0.1  && < 0.2
     , bytestring              >= 0.11 && < 0.13
     , text                    >= 2.0  && < 2.2
     , http-types              >= 0.12 && < 0.13
@@ -99,9 +99,9 @@ test-suite properties
   ghc-options: -Wall
   build-depends:
       base                    >= 4.20 && < 5
-    , acolyte-grpc
-    , acolyte-core
-    , acolyte-server
+    , acolyte-grpc            >= 0.1  && < 0.2
+    , acolyte-core            >= 0.1  && < 0.2
+    , acolyte-server          >= 0.1  && < 0.2
     , hedgehog                >= 1.4  && < 1.8
     , bytestring              >= 0.11 && < 0.13
     , text                    >= 2.0  && < 2.2

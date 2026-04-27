@@ -22,8 +22,8 @@ library
 
   build-depends:
       base         >= 4.20 && < 5
-    , spire
-    , http-core
+    , spire        >= 0.1  && < 0.2
+    , http-core    >= 0.1  && < 0.2
     , wai          >= 3.2  && < 3.3
     , warp         >= 3.3  && < 3.5
     , bytestring   >= 0.11 && < 0.13
@@ -51,10 +51,10 @@ test-suite spec
 
   build-depends:
       base         >= 4.20 && < 5
-    , spire-wai
-    , spire
-    , spire-http
-    , http-core
+    , spire-wai    >= 0.1  && < 0.2
+    , spire        >= 0.1  && < 0.2
+    , spire-http   >= 0.1  && < 0.2
+    , http-core    >= 0.1  && < 0.2
     , wai          >= 3.2  && < 3.3
     , warp         >= 3.3  && < 3.5
     , bytestring   >= 0.11 && < 0.13

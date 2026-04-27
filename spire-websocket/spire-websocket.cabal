@@ -24,9 +24,9 @@ library
 
   build-depends:
       base                    >= 4.20 && < 5
-    , acolyte-core
-    , spire
-    , http-core
+    , acolyte-core            >= 0.1  && < 0.2
+    , spire                   >= 0.1  && < 0.2
+    , http-core               >= 0.1  && < 0.2
     , bytestring              >= 0.11 && < 0.13
     , text                    >= 2.0  && < 2.2
     , aeson                   >= 2.1  && < 2.3
@@ -52,8 +52,8 @@ test-suite spec
 
   build-depends:
       base                    >= 4.20 && < 5
-    , spire-websocket
-    , acolyte-core
+    , spire-websocket         >= 0.1  && < 0.2
+    , acolyte-core            >= 0.1  && < 0.2
     , bytestring              >= 0.11 && < 0.13
     , text                    >= 2.0  && < 2.2
     , aeson                   >= 2.1  && < 2.3
@@ -69,8 +69,8 @@ test-suite properties
   ghc-options: -Wall
   build-depends:
       base                    >= 4.20 && < 5
-    , spire-websocket
-    , acolyte-core
+    , spire-websocket         >= 0.1  && < 0.2
+    , acolyte-core            >= 0.1  && < 0.2
     , hedgehog                >= 1.4  && < 1.8
     , bytestring              >= 0.11 && < 0.13
     , text                    >= 2.0  && < 2.2

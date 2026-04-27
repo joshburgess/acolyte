@@ -26,8 +26,8 @@ library
 
   build-depends:
       base                    >= 4.20 && < 5
-    , acolyte-core
-    , http-core
+    , acolyte-core            >= 0.1  && < 0.2
+    , http-core               >= 0.1  && < 0.2
     , aeson                   >= 2.1  && < 2.3
     , bytestring              >= 0.11 && < 0.13
     , text                    >= 2.0  && < 2.2
@@ -74,9 +74,9 @@ test-suite spec
 
   build-depends:
       base                    >= 4.20 && < 5
-    , acolyte-client
-    , acolyte-core
-    , http-core
+    , acolyte-client          >= 0.1  && < 0.2
+    , acolyte-core            >= 0.1  && < 0.2
+    , http-core               >= 0.1  && < 0.2
     , aeson                   >= 2.1  && < 2.3
     , bytestring              >= 0.11 && < 0.13
     , text                    >= 2.0  && < 2.2

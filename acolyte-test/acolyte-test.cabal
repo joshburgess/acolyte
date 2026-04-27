@@ -23,11 +23,11 @@ library
 
   build-depends:
       base                       >= 4.20 && < 5
-    , acolyte-core
-    , acolyte-server
-    , spire
-    , spire-grpc
-    , http-core
+    , acolyte-core               >= 0.1  && < 0.2
+    , acolyte-server             >= 0.1  && < 0.2
+    , spire                      >= 0.1  && < 0.2
+    , spire-grpc                 >= 0.1  && < 0.2
+    , http-core                  >= 0.1  && < 0.2
     , aeson                      >= 2.1  && < 2.3
     , bytestring                 >= 0.11 && < 0.13
     , text                       >= 2.0  && < 2.2
@@ -65,15 +65,15 @@ test-suite spec
 
   build-depends:
       base                       >= 4.20 && < 5
-    , acolyte-test
-    , acolyte-core
-    , acolyte-server
-    , acolyte-openapi
-    , acolyte-grpc
-    , spire
-    , spire-grpc
-    , spire-server
-    , http-core
+    , acolyte-test               >= 0.1  && < 0.2
+    , acolyte-core               >= 0.1  && < 0.2
+    , acolyte-server             >= 0.1  && < 0.2
+    , acolyte-openapi            >= 0.1  && < 0.2
+    , acolyte-grpc               >= 0.1  && < 0.2
+    , spire                      >= 0.1  && < 0.2
+    , spire-grpc                 >= 0.1  && < 0.2
+    , spire-server               >= 0.1  && < 0.2
+    , http-core                  >= 0.1  && < 0.2
     , aeson                      >= 2.1  && < 2.3
     , bytestring                 >= 0.11 && < 0.13
     , text                       >= 2.0  && < 2.2

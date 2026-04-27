@@ -50,10 +50,10 @@ buildService store =
       ( wrapHandler @(WithParams '[QP "tag" Text, QP "author" Text, QP "limit" Int, QP "offset" Int]
                         (Get ArticlesPath (Json ArticlesResponse)))
           (toHandler (listArticlesHandler store))
-      , wrapHandler @(Get ArticlePath (Json ArticleResponse))
-          (toHandler (getArticleHandler store))
       , wrapHandler @(Requires Auth (Get ArticleFeedPath (Json ArticlesResponse)))
           (toHandler (feedHandler store))
+      , wrapHandler @(Get ArticlePath (Json ArticleResponse))
+          (toHandler (getArticleHandler store))
       , wrapHandler @(Requires Auth (Post ArticlesPath (Json CreateArticleRequest) (Json ArticleResponse)))
           (toHandler (createArticleHandler store))
       , wrapHandler @(Requires Auth (Put ArticlePath (Json UpdateArticleRequest) (Json ArticleResponse)))

@@ -35,8 +35,8 @@ buildService store = run
     , followHandler store
     , unfollowHandler store
     , listArticlesHandler store
-    , getArticleHandler store
     , feedHandler store
+    , getArticleHandler store
     , createArticleHandler store
     , updateArticleHandler store
     , deleteArticleHandler store

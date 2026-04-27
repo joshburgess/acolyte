@@ -1567,6 +1567,73 @@ testSSEChunk = do
 
 
 -- ===================================================================
+-- Test: Route precedence (literal beats capture, declaration-order
+-- independent)
+-- ===================================================================
+
+-- Same prefix /articles, then either a literal "feed" or a Text capture.
+type ArticlesFeedPath = '[ 'Lit "articles", 'Lit "feed" ]
+type ArticlesSlugPath = '[ 'Lit "articles", 'Capture Text ]
+
+-- Order A: literal first, then capture
+type RouteOrderA =
+  '[ Get ArticlesFeedPath (Json Text)
+   , Get ArticlesSlugPath (Json Text)
+   ]
+
+-- Order B: capture first, then literal (used to match the wrong route)
+type RouteOrderB =
+  '[ Get ArticlesSlugPath (Json Text)
+   , Get ArticlesFeedPath (Json Text)
+   ]
+
+testRoutePrecedence :: IO ()
+testRoutePrecedence = do
+  let feedH :: RequestParts -> ByteString -> IO (Response ByteString)
+      feedH _ _ = pure $ intoResponse (Json ("feed" :: Text))
+      slugH :: RequestParts -> ByteString -> IO (Response ByteString)
+      slugH parts _ = do
+        mCaps <- lookupExtension @CaptureList (rpExtensions parts)
+        case mCaps of
+          Just (CaptureList (s : _)) -> pure $ intoResponse (Json ("slug-" <> s))
+          _ -> pure $ intoResponse (Json ("slug-?" :: Text))
+
+  let svcA = mkServer @RouteOrderA
+        ( wrapHandler @(Get ArticlesFeedPath (Json Text)) feedH
+        , wrapHandler @(Get ArticlesSlugPath (Json Text)) slugH
+        )
+      svcB = mkServer @RouteOrderB
+        ( wrapHandler @(Get ArticlesSlugPath (Json Text)) slugH
+        , wrapHandler @(Get ArticlesFeedPath (Json Text)) feedH
+        )
+
+  -- Order A: literal-first declaration. /articles/feed must hit feed.
+  reqFeed <- mkReq "GET" ["articles", "feed"] "/articles/feed" ""
+  respAFeed <- runService svcA reqFeed
+  let decAFeed = Aeson.decode (LBS.fromStrict (responseBody respAFeed)) :: Maybe Text
+  assert "RoutePrecedence: order A /articles/feed -> feed"
+    (decAFeed == Just "feed")
+
+  reqSlug <- mkReq "GET" ["articles", "hello"] "/articles/hello" ""
+  respASlug <- runService svcA reqSlug
+  let decASlug = Aeson.decode (LBS.fromStrict (responseBody respASlug)) :: Maybe Text
+  assert "RoutePrecedence: order A /articles/hello -> slug-hello"
+    (decASlug == Just "slug-hello")
+
+  -- Order B: capture-first declaration. Specificity-based ordering must
+  -- still pick the literal first, so /articles/feed hits feed (not slug).
+  respBFeed <- runService svcB reqFeed
+  let decBFeed = Aeson.decode (LBS.fromStrict (responseBody respBFeed)) :: Maybe Text
+  assert "RoutePrecedence: order B /articles/feed -> feed (literal beats capture)"
+    (decBFeed == Just "feed")
+
+  respBSlug <- runService svcB reqSlug
+  let decBSlug = Aeson.decode (LBS.fromStrict (responseBody respBSlug)) :: Maybe Text
+  assert "RoutePrecedence: order B /articles/hello -> slug-hello"
+    (decBSlug == Just "slug-hello")
+
+
+-- ===================================================================
 -- Main
 -- ===================================================================
 
@@ -1708,5 +1775,8 @@ main = do
   putStrLn ""
   putStrLn "SSE chunk encoding:"
   testSSEChunk
+  putStrLn ""
+  putStrLn "Route precedence (literal beats capture):"
+  testRoutePrecedence
   putStrLn ""
   putStrLn "All acolyte-server tests passed."

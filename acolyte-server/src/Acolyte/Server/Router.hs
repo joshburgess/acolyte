@@ -15,8 +15,10 @@ module Acolyte.Server.Router
   ) where
 
 import Data.ByteString (ByteString)
+import Data.List (insertBy)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Ord (comparing)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Typeable (Typeable)
@@ -51,12 +53,50 @@ data Router = Router
 emptyRouter :: Router
 emptyRouter = Router Map.empty []
 
+-- | Whether a pattern segment is a literal or a capture placeholder.
+--
+-- The 'Ord' instance puts 'Literal' before 'Capture', so when patterns
+-- are compared segment-by-segment a literal wins over a capture at the
+-- same position. This is what makes literal paths match before
+-- conflicting capture paths.
+data Specificity = Literal | Capture
+  deriving (Eq, Ord, Show)
+
 -- | Add a bound handler as a new route to the router.
+--
+-- Within each prefix bucket the handler list is kept sorted by
+-- specificity. Routes with more literal segments (and literals at
+-- earlier positions) come first, so e.g. @/api/articles/feed@ is
+-- always tried before @/api/articles/{slug}@ regardless of
+-- declaration order.
 addRoute :: BoundHandler -> Router -> Router
 addRoute bh (Router bySegs wild) =
   case firstLiteral (bhPattern bh) of
-    Just seg -> Router (Map.insertWith (++) seg [bh] bySegs) wild
-    Nothing  -> Router bySegs (wild ++ [bh])
+    Just seg -> Router (Map.alter insertOrCreate seg bySegs) wild
+    Nothing  -> Router bySegs (insertBySpec bh wild)
+  where
+    insertOrCreate Nothing   = Just [bh]
+    insertOrCreate (Just bs) = Just (insertBySpec bh bs)
+
+-- | Insert into a bucket sorted by pattern specificity (most specific
+-- first). For routes of equal specificity the newly inserted handler
+-- goes before existing ones, preserving the historical
+-- "newer-overrides-older" behavior within a tie.
+insertBySpec :: BoundHandler -> [BoundHandler] -> [BoundHandler]
+insertBySpec = insertBy (comparing (patternSpecificity . bhPattern))
+
+-- | Compute a pattern's specificity as a list of segment kinds.
+--
+-- Compared lexicographically with 'Literal' < 'Capture', so a more
+-- specific pattern (more literals at earlier positions) sorts before
+-- a less specific one.
+patternSpecificity :: Text -> [Specificity]
+patternSpecificity pat =
+  map segKind $ filter (/= "") $ T.splitOn "/" pat
+  where
+    segKind seg
+      | T.isPrefixOf "{" seg = Capture
+      | otherwise            = Literal
 
 -- | Extract the first literal segment from a pattern like "/users/{capture}".
 firstLiteral :: Text -> Maybe Text

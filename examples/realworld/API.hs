@@ -72,16 +72,11 @@ type RealWorldAPI =
    , Requires Auth (Delete FollowPath (Json Profile))             -- DELETE /api/profiles/:username/follow
 
      -- Articles
-     -- Note: declaration order matters for routing. When two paths share
-     -- a prefix, the one declared LATER in this list wins on ambiguity
-     -- (the router's insertion strategy puts newer routes first). So a
-     -- literal path like "/api/articles/feed" must come AFTER the
-     -- capture path "/api/articles/:slug" so it's checked first.
    , Describe "List articles, optionally filtered"
        (WithParams '[QP "tag" Text, QP "author" Text, QP "limit" Int, QP "offset" Int]
          (Get ArticlesPath (Json ArticlesResponse)))              -- GET  /api/articles
-   , Get ArticlePath (Json ArticleResponse)                       -- GET  /api/articles/:slug
    , Requires Auth (Get ArticleFeedPath (Json ArticlesResponse))  -- GET  /api/articles/feed
+   , Get ArticlePath (Json ArticleResponse)                       -- GET  /api/articles/:slug
    , Requires Auth (Post ArticlesPath (Json CreateArticleRequest) (Json ArticleResponse))  -- POST /api/articles
    , Requires Auth (Put ArticlePath (Json UpdateArticleRequest) (Json ArticleResponse))    -- PUT  /api/articles/:slug
    , Requires Auth (DeleteNoContent ArticlePath)                  -- DELETE /api/articles/:slug (204)

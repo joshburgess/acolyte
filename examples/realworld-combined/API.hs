@@ -72,15 +72,11 @@ type ProfilesAPI =
    ]
 
 -- | Article endpoints (mixed auth).
---
--- Note: declaration order matters for routing. The literal path
--- "/api/articles/feed" must come AFTER the capture path
--- "/api/articles/:slug" so the router checks it first.
 type ArticlesAPI =
   '[ WithParams '[QP "tag" Text, QP "author" Text, QP "limit" Int, QP "offset" Int]
        (Get ArticlesPath (Json ArticlesResponse))
-   , Get ArticlePath (Json ArticleResponse)
    , Requires Auth (Get ArticleFeedPath (Json ArticlesResponse))
+   , Get ArticlePath (Json ArticleResponse)
    , Requires Auth (Post ArticlesPath (Json CreateArticleRequest) (Json ArticleResponse))
    , Requires Auth (Put ArticlePath (Json UpdateArticleRequest) (Json ArticleResponse))
    , Requires Auth (DeleteNoContent ArticlePath)

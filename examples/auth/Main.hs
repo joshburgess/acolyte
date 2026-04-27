@@ -12,10 +12,8 @@ import Data.Aeson ((.=), object)
 import qualified Data.Aeson as Aeson
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as LBS
 import Data.Text (Text)
 import qualified Data.Text.Encoding as TE
-import Network.HTTP.Types (statusCode)
 
 import Acolyte.Prelude
 

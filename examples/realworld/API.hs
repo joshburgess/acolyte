@@ -10,7 +10,6 @@ module API where
 
 import Data.Text (Text)
 import Acolyte.Core
-import Acolyte.Server (Json)
 import Types
 
 

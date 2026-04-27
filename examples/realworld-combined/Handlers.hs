@@ -3,25 +3,22 @@
 -- Uses in-memory Store — no database.
 module Handlers where
 
-import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS8
 import Data.IORef
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import qualified Data.Aeson as Aeson
 import Data.Time (getCurrentTime)
-import Network.HTTP.Types (status401, status404, status422)
+import Network.HTTP.Types (status401, status404)
 
-import Http.Core (RequestParts (..), lookupExtension)
+import Http.Core (RequestParts (..))
 import Acolyte.Server
 
 import Types
 import Store
-import API
 
 
 -- ===================================================================

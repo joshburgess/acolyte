@@ -13,12 +13,10 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Key as Key
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as LBS
 import qualified Data.CaseInsensitive as CI
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import Network.HTTP.Types (statusCode)
 
 import Acolyte.Prelude
 

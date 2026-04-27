@@ -8,17 +8,21 @@
 -- and .proto definition output.
 --
 -- Run:  cabal run grpc-demo
--- REST: curl http://localhost:8080/health
---       curl -X POST http://localhost:8080/greet -d '{"name":"Alice"}' -H 'Content-Type: application/json'
+--
+-- The server speaks HTTP/2 cleartext (h2c) only, so curl needs
+-- --http2-prior-knowledge to skip the HTTP/1.1 upgrade dance.
+--
+-- REST: curl --http2-prior-knowledge http://localhost:8080/health
+--       curl --http2-prior-knowledge -X POST http://localhost:8080/greet \
+--            -d '{"name":"Alice"}' -H 'Content-Type: application/json'
 -- gRPC: grpcurl -plaintext localhost:8080 greeter.GreeterService/Health
 --       grpcurl -plaintext localhost:8080 greeter.GreeterService/Greet
 module Main (main) where
 
 import Data.ByteString (ByteString)
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import Data.Text (Text)
-import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import qualified Data.Text.IO as TIO
 import Data.Aeson (ToJSON, FromJSON)
 import qualified Data.Aeson as Aeson
@@ -27,10 +31,10 @@ import GHC.Generics (Generic)
 import Acolyte.Prelude
 import Acolyte.OpenApi (generateSpec, ToSchema)
 import Acolyte.Grpc
-  ( GrpcCodec(..), ProtoMessageName(..), HasProtoFields(..)
+  ( HasProtoFields(..)
   , ProtoField(..), ProtoFieldType(..)
   , CollectTypeDef(..), MessageDef(..)
-  , mkGrpcServiceMap, generateProto, GrpcHandlerFn
+  , GrpcHandlerFn
   )
 import Spire.Server.H2 (runServerH2, defaultH2Config)
 
@@ -170,7 +174,7 @@ main = do
 -- ===================================================================
 
 encodeUtf8 :: Text -> ByteString
-encodeUtf8 = BS.pack . map (fromIntegral . fromEnum) . T.unpack
+encodeUtf8 = TE.encodeUtf8
 
 decodeUtf8 :: ByteString -> Text
-decodeUtf8 = T.pack . map (toEnum . fromIntegral) . BS.unpack
+decodeUtf8 = TE.decodeUtf8

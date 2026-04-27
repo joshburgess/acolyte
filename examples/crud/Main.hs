@@ -16,7 +16,6 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.IORef
 import Data.Text (Text)
 import qualified Data.Text as T
-import Network.HTTP.Types (Status, statusCode, status400, status404, status422)
 
 import Acolyte.Prelude
 

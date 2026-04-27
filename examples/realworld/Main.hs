@@ -15,7 +15,6 @@ import qualified Data.ByteString.Char8 as BS8
 import Acolyte.Prelude
 
 import API
-import Types
 import Store
 import Handlers
 

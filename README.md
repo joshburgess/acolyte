@@ -137,7 +137,7 @@ enforces that you provide it.
 ```haskell
 type EffectAPI =
   '[ Requires Auth (Get UserPath (Json User))  -- needs auth
-   , Get HealthPath Text                        -- no requirements
+   , Get HealthPath Text                       -- no requirements
    ]
 
 app = run
@@ -230,18 +230,35 @@ See the [gRPC guide](docs/GRPC.md) for the full walkthrough.
 ## Architecture
 
 ```
-acolyte-server    API types -> REST handlers -> spire Service
-acolyte-grpc      API types -> gRPC handlers -> spire Service
-         |                            |
-   spire / spire-http / spire-grpc   Service/Layer/Middleware/gRPC framing
-         |
-      http-core              Backend-agnostic Request/Response
-         |
-  spire-wai | spire-server   Pick your backend (HTTP/1.1 + HTTP/2)
-         |           |
-       warp      raw sockets
+   ┌────────────────────────────────────────┐
+   │  Top-level frameworks                  │
+   │    acolyte-server   REST + spire       │
+   │    acolyte-grpc     gRPC + spire       │
+   └─────────────────────┬──────────────────┘
+                         │ produces a Service
+                         ▼
+   ┌────────────────────────────────────────┐
+   │  Service layer                         │
+   │    spire / spire-http / spire-grpc     │
+   │    Service / Layer / framing           │
+   └─────────────────────┬──────────────────┘
+                         │
+                         ▼
+   ┌────────────────────────────────────────┐
+   │  Backend-agnostic core                 │
+   │    http-core                           │
+   │    Request / Response abstraction      │
+   └─────────────────────┬──────────────────┘
+                         │
+                         ▼
+   ┌────────────────────────────────────────┐
+   │  Backend (pick one)                    │
+   │    spire-wai      via warp             │
+   │    spire-server   via raw sockets      │
+   │    HTTP/1.1, HTTP/2                    │
+   └────────────────────────────────────────┘
 
-  spire-websocket            WebSocket session types (protocol-enforced)
+   spire-websocket: WebSocket session types (protocol-enforced)
 ```
 
 Each layer is independent. `spire` knows nothing about HTTP. `http-core`

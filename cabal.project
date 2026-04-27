@@ -33,6 +33,14 @@ packages:
 -- Enable all test suites by default (including hedgehog property tests)
 tests: True
 
+-- Enable dev-only typeerrors test suites in this workspace. These shell
+-- out to `cabal exec ghc` and need the in-place package db, so they are
+-- gated off by default in the cabal file but enabled here for local dev.
+package acolyte-core
+  flags: +dev-tests
+package acolyte-server
+  flags: +dev-tests
+
 -- Use GHC 9.10.3
 -- with-compiler: ghc-9.10.3
 

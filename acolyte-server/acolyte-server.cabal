@@ -19,6 +19,15 @@ homepage:        https://github.com/joshburgess/acolyte
 bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple
 
+flag dev-tests
+  description:
+    Build dev-only test suites that shell out to @cabal exec ghc@.
+    These rely on the in-place package database from @cabal build@
+    in the source workspace and cannot run from an installed
+    package, so they are off by default.
+  default: False
+  manual: True
+
 library
   exposed-modules:
     Acolyte.Server
@@ -128,6 +137,9 @@ test-suite typeerrors
   hs-source-dirs: test
   default-language: GHC2024
   ghc-options: -Wall
+
+  if !flag(dev-tests)
+    buildable: False
 
   build-depends:
       base                    >= 4.20 && < 5

@@ -36,6 +36,9 @@ homepage:        https://github.com/joshburgess/acolyte
 bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple
 
+extra-source-files:
+  test/test.proto
+
 library
   exposed-modules:
     Spire.Protobuf

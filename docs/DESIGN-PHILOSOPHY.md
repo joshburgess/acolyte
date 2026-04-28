@@ -30,18 +30,20 @@ no runtime reflection.
 
 ## Why not Servant?
 
-Servant proved the idea works. But it has structural problems:
+Servant proved the idea works. The differences below are about design
+shape rather than performance gaps we've measured.
 
 **Recursive instance resolution over `:<|>`.** Servant's `:<|>` tree is
 a nested binary type. `HasServer (a :<|> b)` decomposes into
 `HasServer a` and `HasServer b` and recurses, with constraint solving
-walking the whole tree. Modern Servant (0.20.x) handles this fine for
-trivial routing tables at the sizes we benchmark, but historically
-this design has produced the long compile times reported in the
-community for richer APIs (captures, query params, request bodies,
-JSON-derived response types) and at larger endpoint counts. The
-structural risk is an open recursive instance chain that GHC cannot
-short-circuit.
+walking the whole tree. In our head-to-head bench, this is not a
+problem at the scales we test (1-32 endpoints, trivial and rich
+combinator shapes): both libraries are flat across the range. The
+structural difference is that acolyte's flat-list + closed-type-family
+encoding gives O(1) instance resolution per endpoint by construction,
+whereas Servant's encoding leaves API growth and combinator richness
+on the constraint solver's path. Whether that ever bites in practice
+depends on factors we don't measure here.
 
 **No shared middleware layer.** Every Haskell web framework has its own
 middleware abstraction (or none). There's no equivalent of Rust's tower

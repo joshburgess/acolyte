@@ -474,14 +474,16 @@ explicitly.
 The single largest design lever is preferring closed type families and
 flat tuple instances over open recursive type-class chains.
 
-**Servant's compile-time risk** is structural: the API is a right-nested
-binary tree of `:<|>` combinators, and `HasServer` recurses into both
-branches at every node. GHC's constraint solver does not cache intermediate
-results across branches, so the same sub-constraints are re-solved
-repeatedly. Modern Servant (0.20.x) handles trivial routing tables fine
-at the sizes we benchmark, but the design exposes API growth and
-combinator richness to that recursive instance chain rather than
-short-circuiting it.
+**Servant's encoding** is structurally different: the API is a
+right-nested binary tree of `:<|>` combinators, and `HasServer`
+recurses into both branches at every node, so constraint resolution
+walks the whole tree. In our head-to-head bench, modern Servant
+(0.20.x) is flat alongside acolyte at the scales we test (1-32
+endpoints, trivial and rich combinator shapes). The structural
+difference is that the recursive encoding leaves API growth and
+combinator richness on the constraint solver's path rather than
+short-circuiting them; whether that becomes measurable in practice
+depends on dimensions we don't currently exercise.
 
 **The fix** has three pieces:
 

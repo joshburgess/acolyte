@@ -214,10 +214,12 @@ Servant (recursive :<|> tree):
 
   At each level, GHC must unify the handler type with the
   :<|> decomposition. Constraint solving touches every node
-  in the tree. Modern Servant handles this fine for trivial
-  routing tables, but the design exposes richer APIs and
-  growth in endpoint count to a recursive instance chain
-  rather than short-circuiting it.
+  in the tree. In our bench (1-32 endpoints, trivial and rich
+  combinator shapes), modern Servant stays flat at the same
+  scale acolyte does. The structural difference is that the
+  recursive encoding leaves API growth and combinator richness
+  on the constraint solver's path rather than short-circuiting
+  it; we don't claim to measure where that becomes a problem.
 
 
 acolyte (flat list + flat instances):

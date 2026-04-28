@@ -75,8 +75,10 @@ trees.
 The `Serves` constraint is a type synonym that reduces in a single
 step. `CheckArity` is a closed type family with two equations. `BuildApi`
 has flat instances for arities 1-25. None of this recurses. None of it
-backtracks. GHC's constraint solver does less work for a 25-endpoint
-API than Servant does for a 3-endpoint one.
+backtracks. The structural cost of resolving the API type is O(1) per
+endpoint regardless of API size or shape, so the wall-clock floor in
+the bench is dominated by GHC startup and dependency loading rather
+than by API type-checking.
 
 ## Request dispatch: what 142 nanoseconds buys you
 

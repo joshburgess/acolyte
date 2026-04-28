@@ -499,7 +499,7 @@ Run `bash bench/compile-time/run-bench.sh` to verify on your machine.
 
 | Servant | acolyte |
 |---------|--------------------|
-| `:<|>` | `'[endpoint1, endpoint2, ...]` |
+| `:<\|>` | `'[endpoint1, endpoint2, ...]` |
 | `"path" :>` | `At "path"` (or `'Lit "path"`) |
 | `Capture "id" Int :>` | `Param "path" Int` (or `'Capture Int`) |
 | `ReqBody '[JSON] a :>` | `JsonBody a` (handler argument) |

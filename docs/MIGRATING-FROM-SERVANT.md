@@ -364,7 +364,7 @@ main = do
 
 What changed:
 
-- `|>` instead of function composition
+- `|>` instead of `$` function application
 - Layers compose inside-out (first `|>` is closest to the handler)
 - Each middleware is a `Layer`: a function `Service -> Service`
 - `before`, `after`, `around` combinators for writing middleware

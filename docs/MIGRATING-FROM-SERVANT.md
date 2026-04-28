@@ -364,7 +364,11 @@ main = do
 
 What changed:
 
-- `|>` instead of `$` function application
+- `|>` instead of `$` function application. Note: spire's `|>` is **not**
+  the generic F#/Elm pipe (and not Haskell's flipped-`$`, which is `&` from
+  `Data.Function`). It is a typed layer-application operator with signature
+  `Service -> Layer -> Service`, so the type system rejects anything that
+  isn't a layer in that pipeline.
 - Layers compose inside-out (first `|>` is closest to the handler)
 - Each middleware is a `Layer`: a function `Service -> Service`
 - `before`, `after`, `around` combinators for writing middleware

@@ -19,6 +19,9 @@ homepage:        https://github.com/joshburgess/acolyte
 bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple
 
+extra-doc-files:
+  CHANGELOG.md
+
 flag dev-tests
   description:
     Build dev-only test suites that shell out to @cabal exec ghc@.

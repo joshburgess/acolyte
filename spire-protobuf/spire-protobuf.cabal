@@ -39,6 +39,9 @@ build-type:      Simple
 extra-source-files:
   test/test.proto
 
+extra-doc-files:
+  CHANGELOG.md
+
 library
   exposed-modules:
     Spire.Protobuf

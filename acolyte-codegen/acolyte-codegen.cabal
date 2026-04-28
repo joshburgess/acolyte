@@ -18,6 +18,9 @@ homepage:        https://github.com/joshburgess/acolyte
 bug-reports:     https://github.com/joshburgess/acolyte/issues
 build-type:      Simple
 
+extra-doc-files:
+  CHANGELOG.md
+
 library
   exposed-modules:
     Acolyte.Codegen

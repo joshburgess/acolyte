@@ -258,7 +258,7 @@ See the [gRPC guide](docs/GRPC.md) for the full walkthrough.
    │    HTTP/1.1, HTTP/2                    │
    └────────────────────────────────────────┘
 
-   spire-websocket: WebSocket session types (protocol-enforced)
+   spire-websocket: peer to spire-http / spire-grpc, adds linear session types
 ```
 
 Each layer is independent. `spire` knows nothing about HTTP. `http-core`

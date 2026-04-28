@@ -11,34 +11,66 @@ Run them yourself with `bash bench/compile-time/run-bench.sh` and
 |------|---------|
 | Dispatch a request (1 endpoint) | 142 ns |
 | Dispatch a request (25 endpoints, worst case) | 155 ns |
-| Compile 1 endpoint | ~1.3s |
-| Compile 32 endpoints | ~1.3s |
+| Compile 1 endpoint (trivial) | ~1.63s |
+| Compile 32 endpoints (trivial) | ~1.65s |
+| Compile 32 endpoints (rich: capture + JSON body) | ~2.01s |
 | gRPC encode (any payload size) | 14-19 ns |
 | Adding 5 middleware layers | Free (0 ns overhead) |
 
-## Compile-time: the exponential problem, solved
+## Compile-time: structural simplicity, head-to-head
 
-Servant's biggest pain point is compile time. Its `:<|>` tree encoding
-forces GHC to recursively decompose the API type at every constraint
-resolution step. This is O(2^n): at 20 endpoints, you're waiting
-minutes.
-
-We use flat promoted lists and flat tuple instances. GHC matches one
-instance directly, does O(1) work, and moves on. The result:
+`bench/compile-time/` builds the same API under both libraries at five
+endpoint counts and two combinator shapes, and times each target.
+Sample run on Servant 0.20.3.0, GHC 9.10.3, Apple Silicon laptop:
 
 ```
-Endpoints       Time (s)
----------       --------
-1                   1.27
-4                   1.30
-8                   1.28
-16                  1.29
-32                  1.30
+Trivial: "pathN" :> Get '[JSON] Text
+Endpoints      Servant (s)   acolyte (s)
+---------      -----------   -----------
+1                     1.84          1.63
+4                     1.80          1.65
+8                     1.80          1.65
+16                    1.93          1.63
+32                    1.82          1.65
+
+Rich: "resN" :> Capture Int :> ReqBody Body :> Post Resp
+Endpoints      Servant (s)   acolyte (s)
+---------      -----------   -----------
+1                     2.19          1.93
+4                     2.24          1.95
+8                     2.22          2.03
+16                    2.20          2.02
+32                    2.24          2.01
 ```
 
-That's not linear, it's **constant**. The ~1.3 seconds is GHC startup
-and dependency loading. The actual type checking of the API adds
-effectively nothing regardless of how many endpoints you have.
+All four columns are flat across the tested range. The wall-clock
+floor (~1.6-2.2s) is GHC startup, linking, dependency loading, and
+the per-build cost of generic JSON deriving in the rich variant; none
+of it scales with endpoint count. (Floor is machine-dependent: it
+scales with your linker and core library load times, not with API
+size.)
+
+The rich variant does cost ~0.4s more per build than the trivial
+variant in both libraries. That overhead is dominated by JSON
+deriving and the additional combinator instances (`Capture`,
+`ReqBody`, `Post`), and it's a fixed cost paid once per build, not
+multiplied by endpoint count.
+
+For routing tables of this size, modern Servant has no measurable
+scaling problem in either shape. Community reports of Servant
+compiles taking minutes come from older Servant versions and/or much
+larger or more deeply combinator-stacked APIs than this bench
+exercises.
+
+What the bench *does* protect against is regression: if a future
+acolyte change introduces a recursive instance chain or open type
+class lookup, the columns will start sloping. The flat-list +
+closed-type-family design keeps that from happening by construction.
+
+Note: the 32-endpoint acolyte cases are two 16-endpoint sub-APIs
+combined with `combineServer2`, since flat APIs currently support up
+to 25 endpoints. Servant's 32-endpoint cases are single flat `:<|>`
+trees.
 
 The `Serves` constraint is a type synonym that reduces in a single
 step. `CheckArity` is a closed type family with two equations. `BuildApi`

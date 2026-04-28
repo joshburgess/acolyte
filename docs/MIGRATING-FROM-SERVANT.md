@@ -36,7 +36,7 @@ What changed:
 - `ReqBody '[JSON] CreateUser` becomes a parameter on `Post`: the third
   type argument is the request body
 - Content type is implicit in the response wrapper (`Json`, `Text`)
-- Compile time stays constant as endpoints grow (no exponential `:<|>` blowup)
+- Compile time stays flat as endpoints grow (no quadratic `:<|>` blowup)
 
 ## Handlers
 
@@ -484,18 +484,54 @@ checked across the combined type.
 
 ## Compile times
 
-| Endpoints | Servant  | acolyte |
-|-----------|----------|--------------------|
-| 1         | ~0.5s    | ~1.3s              |
-| 4         | ~1.5s    | ~1.3s              |
-| 8         | ~4s      | ~1.3s              |
-| 16        | ~15s     | ~1.3s              |
-| 32        | ~60s+    | ~1.3s              |
+The repo includes a head-to-head compile-time bench in
+`bench/compile-time/`. It builds the same API under both libraries at
+five endpoint counts (1, 4, 8, 16, 32) and two combinator shapes:
 
-Servant compile time grows exponentially with endpoint count due to
-recursive `:<|>` constraint solving. acolyte stays constant
-because APIs are flat lists with closed type families and direct tuple
-indexing.
+- Trivial: `"pathN" :> Get '[JSON] Text`
+- Rich: `"resN" :> Capture "id" Int :> ReqBody '[JSON] Body :> Post '[JSON] Resp`
+  (with generic-derived `FromJSON`/`ToJSON` on `Body` and `Resp`)
+
+Sample run on Servant 0.20.3.0, GHC 9.10.3, Apple Silicon laptop:
+
+| Endpoints | Servant trivial | acolyte trivial | Servant rich | acolyte rich |
+|-----------|-----------------|-----------------|--------------|--------------|
+| 1         | ~1.84s          | ~1.63s          | ~2.19s       | ~1.93s       |
+| 4         | ~1.80s          | ~1.65s          | ~2.24s       | ~1.95s       |
+| 8         | ~1.80s          | ~1.65s          | ~2.22s       | ~2.03s       |
+| 16        | ~1.93s          | ~1.63s          | ~2.20s       | ~2.02s       |
+| 32        | ~1.82s          | ~1.65s          | ~2.24s       | ~2.01s       |
+
+All four columns are flat across this range. Modern Servant has no
+measurable scaling problem at these sizes for either shape; community
+reports of "Servant compiles taking minutes" come from older Servant
+versions and/or much larger or more deeply combinator-stacked APIs
+than this bench exercises.
+
+The rich variant adds ~0.4s on top of the trivial variant in both
+libraries. That overhead is generic JSON deriving plus the additional
+combinator instances (`Capture`, `ReqBody`, `Post`), and it's a fixed
+cost paid once per build, not multiplied by endpoint count.
+
+acolyte is consistently ~150-200ms faster than Servant in this bench.
+That gap is mostly the smaller dependency graph (acolyte doesn't pull
+in `wai`-app-static, generics-sop, etc.), not API type-checking.
+
+What the bench *does* show structurally: acolyte's flat promoted lists
++ closed type families + flat tuple instances give O(1) instance
+lookups per endpoint regardless of API size or shape, so the columns
+stay flat by construction. If a future acolyte change introduces a
+recursive instance chain or open type-class lookup, the columns will
+start sloping.
+
+Caveats:
+- Wall-clock numbers are machine-dependent.
+- The 32-endpoint acolyte cases are two 16-endpoint sub-APIs combined
+  with `combineServer2`, since flat APIs currently support up to 25
+  endpoints. Servant's 32-endpoint cases are single flat `:<|>` trees.
+- This bench measures routing-table compile cost. It does not exercise
+  OpenAPI generation, effect tracking, or much larger endpoint counts
+  where the two designs may diverge more visibly.
 
 Run `bash bench/compile-time/run-bench.sh` to verify on your machine.
 

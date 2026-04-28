@@ -9,37 +9,127 @@ common shared
   default-extensions:
     DataKinds
     OverloadedStrings
-    TypeApplications
   build-depends:
       base                       >= 4.20 && < 5
-    , acolyte-core
+    , text                       >= 2.0  && < 2.2
+    , bytestring                 >= 0.11 && < 0.13
+    , aeson                      >= 2.1  && < 2.3
+
+common acolyte-deps
+  import: shared
+  default-extensions:
+    TypeApplications
+  build-depends:
+      acolyte-core
     , acolyte-server
     , spire
     , http-core
-    , text                       >= 2.0  && < 2.2
-    , bytestring                 >= 0.11 && < 0.13
+
+common servant-deps
+  import: shared
+  default-extensions:
+    TypeOperators
+  build-depends:
+      servant                    >= 0.20  && < 0.21
+    , servant-server             >= 0.20  && < 0.21
+    , wai                        >= 3.2   && < 3.3
 
 executable bench-1
-  import: shared
+  import: acolyte-deps
   main-is: Bench1.hs
   hs-source-dirs: .
 
 executable bench-4
-  import: shared
+  import: acolyte-deps
   main-is: Bench4.hs
   hs-source-dirs: .
 
 executable bench-8
-  import: shared
+  import: acolyte-deps
   main-is: Bench8.hs
   hs-source-dirs: .
 
 executable bench-16
-  import: shared
+  import: acolyte-deps
   main-is: Bench16.hs
   hs-source-dirs: .
 
 executable bench-32
-  import: shared
+  import: acolyte-deps
   main-is: Bench32.hs
+  hs-source-dirs: .
+
+executable servant-bench-1
+  import: servant-deps
+  main-is: ServantBench1.hs
+  hs-source-dirs: .
+
+executable servant-bench-4
+  import: servant-deps
+  main-is: ServantBench4.hs
+  hs-source-dirs: .
+
+executable servant-bench-8
+  import: servant-deps
+  main-is: ServantBench8.hs
+  hs-source-dirs: .
+
+executable servant-bench-16
+  import: servant-deps
+  main-is: ServantBench16.hs
+  hs-source-dirs: .
+
+executable servant-bench-32
+  import: servant-deps
+  main-is: ServantBench32.hs
+  hs-source-dirs: .
+
+executable rich-1
+  import: acolyte-deps
+  main-is: Rich1.hs
+  hs-source-dirs: .
+
+executable rich-4
+  import: acolyte-deps
+  main-is: Rich4.hs
+  hs-source-dirs: .
+
+executable rich-8
+  import: acolyte-deps
+  main-is: Rich8.hs
+  hs-source-dirs: .
+
+executable rich-16
+  import: acolyte-deps
+  main-is: Rich16.hs
+  hs-source-dirs: .
+
+executable rich-32
+  import: acolyte-deps
+  main-is: Rich32.hs
+  hs-source-dirs: .
+
+executable servant-rich-1
+  import: servant-deps
+  main-is: ServantRich1.hs
+  hs-source-dirs: .
+
+executable servant-rich-4
+  import: servant-deps
+  main-is: ServantRich4.hs
+  hs-source-dirs: .
+
+executable servant-rich-8
+  import: servant-deps
+  main-is: ServantRich8.hs
+  hs-source-dirs: .
+
+executable servant-rich-16
+  import: servant-deps
+  main-is: ServantRich16.hs
+  hs-source-dirs: .
+
+executable servant-rich-32
+  import: servant-deps
+  main-is: ServantRich32.hs
   hs-source-dirs: .

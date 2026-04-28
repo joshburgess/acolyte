@@ -305,7 +305,10 @@ The `examples/` directory contains 12 complete applications:
 ## Key design decisions
 
 - **Promoted lists, not trees.** APIs are `'[endpoint1, endpoint2, ...]`.
-  Compile time scales linearly, not exponentially.
+  Instance resolution is one flat tuple match per arity instead of a
+  recursive walk over Servant's `:<|>` tree. See
+  [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) for a head-to-head
+  compile-time bench.
 - **IO handlers.** No `ExceptT`, no `ReaderT`. State via extractors
   (`AppState`), errors via `Either`.
 - **spire Service as the boundary.** The server produces it, the backend
@@ -313,7 +316,9 @@ The `examples/` directory contains 12 complete applications:
 - **WAI is confined.** Only `spire-wai` imports WAI. Swap it for
   `spire-server`, a Lambda adapter, or anything else.
 - **Compile times are first-class.** 1 to 32 endpoints compile in
-  constant time (~1.3s including GHC startup).
+  roughly the same wall-clock time (~1.63s on an Apple Silicon laptop,
+  dominated by GHC startup and dependency loading). The in-repo bench
+  also runs the same API under Servant 0.20.3.0 for direct comparison.
 - **Runtime is fast.** 142 ns dispatch, 14 ns gRPC decode, middleware
   adds zero overhead. See the [**Performance Guide**](docs/PERFORMANCE.md)
   for full benchmarks and analysis.

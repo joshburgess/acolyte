@@ -474,11 +474,14 @@ explicitly.
 The single largest design lever is preferring closed type families and
 flat tuple instances over open recursive type-class chains.
 
-**Servant's compile-time problem** is structural: the API is a right-nested
+**Servant's compile-time risk** is structural: the API is a right-nested
 binary tree of `:<|>` combinators, and `HasServer` recurses into both
 branches at every node. GHC's constraint solver does not cache intermediate
 results across branches, so the same sub-constraints are re-solved
-repeatedly. This is O(2^n).
+repeatedly. Modern Servant (0.20.x) handles trivial routing tables fine
+at the sizes we benchmark, but the design exposes API growth and
+combinator richness to that recursive instance chain rather than
+short-circuiting it.
 
 **The fix** has three pieces:
 
@@ -499,9 +502,11 @@ repeatedly. This is O(2^n).
   the instance count GHC has to consider.
 
 The result, measured in `bench/compile-time/`: 1, 4, 8, 16, and 32
-endpoints all compile in roughly the same time (~1.3s including GHC
-startup). See [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) for the full
-data and analysis.
+endpoints all compile in roughly the same wall-clock time (~1.63s on an
+Apple Silicon laptop, dominated by GHC startup and dependency loading).
+The same bench runs the same API under Servant 0.20.3.0 (~1.79s flat).
+See [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) for the full data and
+analysis.
 
 ---
 
@@ -509,7 +514,7 @@ data and analysis.
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| API encoding | Promoted lists `'[a, b, c]` | Constant compile time vs. exponential `:<|>` |
+| API encoding | Promoted lists `'[a, b, c]` | Single flat instance match per arity, no recursive `:<|>` chain |
 | Path literals | `Symbol` (`GHC.TypeLits`) | Native; no marker types or TH needed |
 | Type-level computation | Closed type families, flat indexing | No backtracking, no recursive instance chains |
 | Service abstraction | `spire` newtype, not type class | Simpler, no orphan instances, no coherence issues |

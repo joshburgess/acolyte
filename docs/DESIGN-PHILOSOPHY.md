@@ -32,10 +32,16 @@ no runtime reflection.
 
 Servant proved the idea works. But it has structural problems:
 
-**Exponential compile times.** Servant's `:<|>` tree is a nested binary
-type. GHC solves constraints by walking the tree recursively. For n
-endpoints, constraint resolution is O(2^n). At 20 endpoints, compiles
-take minutes.
+**Recursive instance resolution over `:<|>`.** Servant's `:<|>` tree is
+a nested binary type. `HasServer (a :<|> b)` decomposes into
+`HasServer a` and `HasServer b` and recurses, with constraint solving
+walking the whole tree. Modern Servant (0.20.x) handles this fine for
+trivial routing tables at the sizes we benchmark, but historically
+this design has produced the long compile times reported in the
+community for richer APIs (captures, query params, request bodies,
+JSON-derived response types) and at larger endpoint counts. The
+structural risk is an open recursive instance chain that GHC cannot
+short-circuit.
 
 **No shared middleware layer.** Every Haskell web framework has its own
 middleware abstraction (or none). There's no equivalent of Rust's tower
@@ -53,16 +59,16 @@ harder to read.
 
 ## How we fix each problem
 
-### Problem: Exponential compile times
+### Problem: Open recursive instance resolution over `:<|>`
 ### Fix: Flat lists + closed type families + flat tuple indexing
 
 APIs are promoted lists, not trees:
 
 ```haskell
--- Servant (tree, exponential):
+-- Servant (right-nested tree, instance resolution recurses):
 type API = A :<|> B :<|> C :<|> D :<|> E
 
--- acolyte (flat list, constant):
+-- acolyte (flat list, single instance match per arity):
 type API = '[ A, B, C, D, E ]
 ```
 
@@ -80,8 +86,12 @@ Both `Length` and `TupleArity` are closed type families that reduce in
 a single pass. `CheckArity` either reduces to `()` or fires a
 `TypeError`. No instance resolution at all.
 
-**Measured result:** 1 to 32 endpoints compile in constant time (~1.3s
-including GHC startup). Zero exponential behavior.
+**Measured result:** 1 to 32 endpoints compile in roughly the same
+wall-clock time (~1.63s on an Apple Silicon laptop in the head-to-head
+bench, against ~1.79s for Servant on the same hardware and the same
+trivial API shape). Both libraries are flat at this scale; acolyte's
+structural choices keep instance resolution at O(1) per endpoint, so
+there is no recursive chain to slope as APIs grow richer.
 
 ### Problem: No shared middleware layer
 ### Fix: spire (a standalone Haskell library)
@@ -217,9 +227,11 @@ them. gRPC generation reads streaming markers. The effect system reads
 
 | Operation | Budget | Actual |
 |-----------|--------|--------|
-| Compile 1 endpoint | < 2s | ~1.3s |
-| Compile 32 endpoints | < 2s | ~1.3s |
-| Compile 32 endpoints (Servant) | - | ~60s+ |
+| Compile 1 endpoint (trivial) | < 2s | ~1.63s |
+| Compile 32 endpoints (trivial) | < 2s | ~1.65s |
+| Compile 32 endpoints (rich: capture + JSON body) | < 3s | ~2.01s |
+| Compile 32 endpoints (Servant 0.20.3.0, trivial) | - | ~1.82s |
+| Compile 32 endpoints (Servant 0.20.3.0, rich) | - | ~2.24s |
 | Type family reduction (Serves) | O(1) | O(1) (constraint synonym) |
 | Type family reduction (AllEffectsProvided) | O(n*m) | n=endpoints, m=effects |
 | Instance resolution (BuildApi) | O(1) | Flat instances, no recursion |
@@ -229,4 +241,4 @@ them. gRPC generation reads streaming markers. The effect system reads
 The design principle: **the compiler should not do work proportional to
 the number of endpoints squared.** Every type-level operation is either
 constant (flat instances, constraint synonyms) or linear (closed type
-family traversal). Nothing is exponential.
+family traversal). Nothing has worse-than-linear scaling.

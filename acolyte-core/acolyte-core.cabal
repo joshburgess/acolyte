@@ -1,6 +1,6 @@
-cabal-version:   3.0
+cabal-version:   3.12
 name:            acolyte-core
-version:         0.1.0.0
+version:         0.1.0.1
 synopsis:        Type-level API specification for acolyte
 category:        Web
 description:

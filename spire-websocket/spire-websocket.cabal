@@ -1,6 +1,6 @@
-cabal-version:   3.0
+cabal-version:   3.12
 name:            spire-websocket
-version:         0.1.0.0
+version:         0.1.0.1
 synopsis:        Linear session-typed WebSocket protocols for spire
 category:        Network
 description:

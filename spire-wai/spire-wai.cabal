@@ -1,6 +1,6 @@
-cabal-version:   3.0
+cabal-version:   3.12
 name:            spire-wai
-version:         0.1.0.0
+version:         0.1.0.1
 synopsis:        WAI/warp backend adapter for spire
 category:        Web
 description:
